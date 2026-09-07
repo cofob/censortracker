@@ -1,4 +1,13 @@
 {
+  "registrySourceKind": {
+    "message": "Source"
+  },
+  "registrySourceCustom": {
+    "message": "Custom hostname list"
+  },
+  "registrySourceAnticensority": {
+    "message": "Downloads the hostname list from Anticensority's published PAC. No PAC code, proxy addresses, or IP/network rules are used. Invalid hostnames are skipped. This is a large list and can take a few seconds to load."
+  },
   "proxyAntizapretImport": {
     "message": "Import or refresh Antizapret"
   },

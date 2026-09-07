@@ -80,28 +80,39 @@ class ProxyManager {
     const revision = getRouteRevision()
 
     if (!cachedRouter || cachedRouter.revision !== revision) {
-      const options = await this.getRoutingOptions()
-
-      if (revision !== getRouteRevision()) {
-        return this.getRouteForHost(host)
-      }
       cachedRouter = {
         revision,
-        resolve: createRouter(
-          routingConfig(options), findHostMatch, isPrivateHost,
-        ),
-        proxies: new Map([
-          ...options.proxies,
-          ...options.probes.map(({ proxy }) => proxy),
-        ].map((proxy) => [proxy.id, proxy])),
+        pending: this.getRoutingOptions().then((options) => ({
+          resolve: createRouter(
+            routingConfig(options), findHostMatch, isPrivateHost,
+          ),
+          proxies: new Map([
+            ...options.proxies,
+            ...options.probes.map(({ proxy }) => proxy),
+          ].map((proxy) => [proxy.id, proxy])),
+        })),
       }
     }
-    const decision = cachedRouter.resolve(host)
+    const snapshot = cachedRouter
+    let router
+
+    try {
+      router = await snapshot.pending
+    } catch (error) {
+      if (cachedRouter === snapshot) {
+        cachedRouter = null
+      }
+      throw error
+    }
+    if (revision !== getRouteRevision()) {
+      return this.getRouteForHost(host)
+    }
+    const decision = router.resolve(host)
 
     return {
       ...decision,
       proxies: decision.proxies.map((id) => {
-        const proxy = cachedRouter.proxies.get(id)
+        const proxy = router.proxies.get(id)
 
         return decision.type === 'probe' ? { ...proxy, checking: true } : proxy
       }),
@@ -153,7 +164,7 @@ class ProxyManager {
     if (!await proxyAllowed()) {
       return false
     }
-    const options = await this.getRoutingOptions()
+    const options = browser.isFirefox ? null : await this.getRoutingOptions()
 
     if (revision !== getRouteRevision()) {
       return this.setProxyInBackground({ ping })
@@ -172,7 +183,11 @@ class ProxyManager {
     }
 
     try {
-      const pacData = getPacScript(options)
+      // Firefox's PAC runtime cannot reliably load very large registries.
+      // Its request listener uses the same router; the PAC is a fail-closed guard.
+      const pacData = browser.isFirefox
+        ? 'function FindProxyForURL() { return "PROXY 127.0.0.1:0"; }'
+        : getPacScript(options)
 
       await applyPac(pacData, true)
       if (!await proxyAllowed()) {

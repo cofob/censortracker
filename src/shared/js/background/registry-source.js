@@ -1,3 +1,4 @@
+import { parseAnticensority } from './anticensority'
 import browser from './browser-api'
 import ProxyManager from './proxy'
 import { proxyAllowed, withProxyLock } from './proxy-route'
@@ -63,7 +64,9 @@ export const refreshRegistrySource = async ({ automatic = false } = {}) => {
       redirect: 'error',
       signal: controller.signal,
     })
-    const domains = await parseRegistryList(text, controller.signal)
+    const parse = source.kind === 'anticensority'
+      ? parseAnticensority : parseRegistryList
+    const domains = await parse(text, controller.signal)
 
     return await withProxyLock(async () => {
       const current = await readState()

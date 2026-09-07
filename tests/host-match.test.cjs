@@ -21,10 +21,11 @@ test('match full names and label-boundary parents, including multi-label suffixe
 test('PAC and registry preserve subdomains and multi-label suffixes', async () => {
   const domains = ['example.co.uk', 'example.com.br', 'api.example.com']
   const storage = { domains, customProxiedDomains: [], ignoredHosts: [] }
+  let changed = () => {}
   const browser = { storage: { local: {
     get: async () => storage,
-    set: async values => Object.assign(storage, values),
-  } } }
+    set: async values => { Object.assign(storage, values); changed(values, 'local') },
+  }, onChanged: { addListener: listener => { changed = listener } } } }
   const registry = load('background/registry', { 'browser-api': { default: browser } }).default
   const { getPacScript } = load('background/pac')
   const context = {}
@@ -38,6 +39,7 @@ test('PAC and registry preserve subdomains and multi-label suffixes', async () =
     assert.equal((await registry.getDomainStatus(host)).blocked, false)
   }
   await registry.add('https://cdn.site.co.uk/resource')
+  assert.equal((await registry.getDomainStatus('cdn.site.co.uk')).custom, true)
   assert.deepEqual(Array.from(storage.customProxiedDomains), ['cdn.site.co.uk'])
   assert.equal(await registry.add('about:blank'), false)
   await registry.remove('https://cdn.site.co.uk')

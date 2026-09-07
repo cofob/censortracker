@@ -334,6 +334,10 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelector('#registrySourceSave')?.disabled === false")
     assert.equal(await evaluate("document.querySelector('#registrySourceOptions').open"), false)
     assert.equal(await evaluate("document.querySelector('#registrySourceEnabled').checked || document.querySelector('#registrySourceAutoUpdate').checked"), false)
+    await evaluate("document.querySelector('#registrySourceKind').value = 'anticensority'; document.querySelector('#registrySourceKind').dispatchEvent(new Event('change'))")
+    assert.equal(await evaluate("document.querySelector('#registrySourceUrl').readOnly && document.querySelector('#registrySourceUrl').value.startsWith('https://raw.githubusercontent.com/anticensority/')"), true)
+    assert.equal(registryHits, 0)
+    await evaluate("document.querySelector('#registrySourceKind').value = 'custom'; document.querySelector('#registrySourceKind').dispatchEvent(new Event('change'))")
     await evaluate(`document.querySelector('#registrySourceUrl').value = 'http://registry-source.example:${origin.address().port}/registry-list'; document.querySelector('#registrySourceForm').requestSubmit()`)
     await until("chrome.storage.local.get('registrySource').then(data => data.registrySource?.url.includes('/registry-list'))")
     await until("document.querySelector('#registrySourceSave').disabled === false")
@@ -356,6 +360,13 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(await evaluate(`fetch('http://outside-provider.example:${origin.address().port}/blocked').then(response => response.text(), () => 'BLOCKED')`), 'BLOCKED')
     assert.equal(directHits, beforeProviderBlock)
     assert.equal(await evaluate(`fetch('http://ignored.provider.example:${origin.address().port}/ignored').then(response => response.text())`), 'DIRECT')
+    await evaluate(`chrome.storage.local.get('registrySource').then(({registrySource}) => chrome.storage.local.set({proxyAll: false, useRegistry: false,
+      proxies: [{id: 'large', name: 'Large list test', protocol: 'HTTP', host: '127.0.0.1', port: ${proxy.address().port}}], selectedProxyIds: ['large'],
+      externalRegistry: {source: JSON.stringify([registrySource.kind, registrySource.url]), updatedAt: Date.now(),
+        domains: Array.from({length: 660000}, (_,i) => 'site' + i + '.large-registry.example')}}))`)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'}).then(result => {if (result.error) throw new Error(result.error); return result.value})")
+    assert.equal(await evaluate(`fetch('http://site659999.large-registry.example:${origin.address().port}/large').then(response => response.text())`), 'PROXY')
+    assert.equal(await evaluate(`fetch('http://unlisted.large-registry.example:${origin.address().port}/large').then(response => response.text())`), 'DIRECT')
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

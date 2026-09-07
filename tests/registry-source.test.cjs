@@ -77,7 +77,7 @@ test('manual downloads are bounded, keep disabled choices, and isolate the sourc
   state.storage.useRegistry = false
   assert.deepEqual(plain(await state.registry.getDomains()), ['manual.example', 'external.example', 'cdn.example.co.uk'])
   assert.equal((await state.registry.getDomainStatus('child.cdn.example.co.uk')).blocked, true)
-  state.storage.ignoredHosts = ['external.example']
+  await state.browser.storage.local.set({ ignoredHosts: ['external.example'] })
   assert.equal(await state.registry.contains('child.external.example'), false)
 })
 
@@ -138,4 +138,15 @@ test('registry backups retain the source configuration but cannot grant network 
     { ...source, url: '', enabled: true }, { ...source, url: 'https://alice:secret@example.com/list' }]) {
     assert.throws(() => validateRegistrySource(invalid))
   }
+})
+
+test('the Anticensority source uses static data parsing and the same opt-in cache boundary', async () => {
+  const { registrySourceUrls } = load('background/registry-source-data')
+  const state = fixture(async () => 'const inputs = {"HOSTNAMES":{"11":"example.com"}};\n')
+  await state.updateRegistrySource({kind: 'anticensority', url: registrySourceUrls.anticensority, enabled: false, autoUpdate: false})
+  assert.equal(state.calls.length, 0)
+  assert.equal((await state.refreshRegistrySource()).count, 1)
+  assert.equal(state.storage.registrySource.enabled, false)
+  assert.equal(state.storage.useProxy, false)
+  assert.deepEqual(state.storage.externalRegistry.domains, ['example.com'])
 })

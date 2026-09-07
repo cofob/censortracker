@@ -16,7 +16,7 @@ const fixture = (firefox = false) => {
     'browser-api': { default: browser },
     'proxy-route': { proxyRequestAllowed: async () => enabled, getServiceRoute: () => override },
     proxy: { default: { getSelectedProxies: async () => [record],
-      getRouteForHost: async host => ({ proxies: host === 'protected.example' ? [record] : [] }) } },
+      getRouteForHost: async host => ({ type: host === 'protected.example' ? 'proxy' : 'direct', proxies: host === 'protected.example' ? [record] : [] }) } },
   })
   return { ...api, listeners, setOverride: value => { override = value }, disable: () => { enabled = false } }
 }
@@ -104,7 +104,7 @@ test('Firefox SOCKS authentication uses remote DNS and a terminal null failover'
   const state = load('background/proxy-auth', {
     'browser-api': { default: {} },
     'proxy-route': { proxyRequestAllowed: async () => true, getServiceRoute: () => null },
-    proxy: { default: { getRouteForHost: async host => ({ proxies: host === 'protected.example' ? [socks, record] : [] }) } },
+    proxy: { default: { getRouteForHost: async host => ({ type: host === 'protected.example' ? 'proxy' : 'direct', proxies: host === 'protected.example' ? [socks, record] : [] }) } },
   })
   const result = plain(await state.handleFirefoxProxy({ url: 'https://protected.example/' }))
   assert.equal(result[0].type, 'socks')
@@ -113,5 +113,52 @@ test('Firefox SOCKS authentication uses remote DNS and a terminal null failover'
   assert.equal(result[0].username, 'alice')
   assert.equal(result[1].username, undefined)
   assert.equal(result.at(-1), null)
-  assert.equal(await state.handleFirefoxProxy({ url: 'https://direct.example/' }), undefined)
+  assert.deepEqual(plain(await state.handleFirefoxProxy({ url: 'https://direct.example/' })), {type: 'direct'})
+})
+
+test('Firefox routes HTTP through the same listener and respects inactive and service-direct routes', async () => {
+  const state = fixture(true)
+  const result = plain(await state.handleFirefoxProxy({url: 'https://protected.example/'}))
+  assert.equal(result[0].type, 'http')
+  assert.equal(result.at(-1), null)
+  state.setOverride({hostname: 'protected.example', route: 'DIRECT'})
+  assert.deepEqual(plain(await state.handleFirefoxProxy({url: 'https://protected.example/'})), {type: 'direct'})
+  state.disable()
+  assert.equal(await state.handleFirefoxProxy({url: 'https://protected.example/'}), undefined)
+})
+
+test('permission loss during an awaited Firefox route prevents proxy and credential use', async () => {
+  for (const reason of ['disabled', 'controlled_by_other_extensions']) {
+    let allowed = true
+    let release
+    const route = new Promise(resolve => { release = resolve })
+    const state = load('background/proxy-auth', {'browser-api': {default: {}},
+      'proxy-route': {proxyRequestAllowed: async () => allowed, getServiceRoute: () => null},
+      proxy: {default: {getRouteForHost: async () => route}}})
+    const pending = state.handleFirefoxProxy({url: 'https://protected.example/'})
+    const auth = state.createAuthHandler().handle({url: 'https://protected.example/', requestId: 'pending',
+      isProxy: true, challenger: {host: record.host, port: record.port}})
+    await new Promise(resolve => setImmediate(resolve))
+    allowed = false
+    release({type: 'proxy', proxies: [record]})
+    assert.equal(await pending, undefined, reason)
+    assert.deepEqual(plain(await auth), {}, reason)
+  }
+})
+
+test('valid browser hostnames with underscores retain shared router semantics', async () => {
+  const { createRouter, routingConfig } = load('background/routing')
+  const { findHostMatch } = load('background/host-match')
+  const { isPrivateHost } = load('background/private-host')
+  for (const proxyAll of [false, true]) {
+    const route = createRouter(routingConfig({proxyAll, proxies: [record]}), findHostMatch, isPrivateHost)
+    const state = load('background/proxy-auth', {'browser-api': {default: {}},
+      'proxy-route': {proxyRequestAllowed: async () => true, getServiceRoute: () => null},
+      proxy: {default: {getRouteForHost: async host => ({...route(host), proxies: route(host).proxies.map(() => record)})}}})
+    for (const host of ['file_server.local', 'file_server']) {
+      assert.deepEqual(plain(await state.handleFirefoxProxy({url: 'http://' + host + '/'})), {type: 'direct'})
+    }
+    const result = plain(await state.handleFirefoxProxy({url: 'http://my_host.example/'}))
+    assert.equal(proxyAll ? result[0].type : result.type, proxyAll ? 'http' : 'direct')
+  }
 })

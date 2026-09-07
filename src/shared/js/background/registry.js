@@ -6,6 +6,50 @@ import {
   extractHostnameFromUrl,
 } from './utilities'
 
+let membership
+const membershipKeys = [
+  'domains', 'customProxiedDomains', 'ignoredHosts',
+  'registrySource', 'externalRegistry',
+]
+
+if (browser.storage?.onChanged) {
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && membershipKeys.some((key) => changes[key])) {
+      membership = null
+    }
+  })
+}
+
+const loadMembership = async () => {
+  const state = await browser.storage.local.get({
+    domains: [],
+    customProxiedDomains: [],
+    ignoredHosts: [],
+    registrySource: registrySourceDefaults,
+    externalRegistry: null,
+  })
+  const lists = [state.domains, externalRegistryDomains(state),
+    state.customProxiedDomains, state.ignoredHosts]
+  const indexes = []
+
+  for (const names of lists) {
+    const index = new Set()
+
+    for (let offset = 0; offset < names.length; offset++) {
+      const host = extractHostnameFromUrl(names[offset])
+
+      if (host) {
+        index.add(host)
+      }
+      if (offset > 0 && offset % 2000 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      }
+    }
+    indexes.push(index)
+  }
+  return indexes
+}
+
 class Registry {
   /**
    * Returns array of banned domains from the registry.
@@ -81,29 +125,26 @@ class Registry {
    */
   async getDomainStatus (url) {
     const domain = extractHostnameFromUrl(url)
-    const {
-      domains,
-      ignoredHosts,
-      customProxiedDomains,
-      registrySource,
-      externalRegistry,
-    } = await browser.storage.local.get({
-      domains: [],
-      ignoredHosts: [],
-      customProxiedDomains: [],
-      registrySource: registrySourceDefaults,
-      externalRegistry: null,
-    })
+    const pending = membership || (membership = loadMembership())
 
-    const matches = (names) => Boolean(findHostMatch(domain,
-      new Set(names.map(extractHostnameFromUrl))))
+    try {
+      const [builtin, external, custom, ignored] = await pending
 
-    return {
-      blocked: matches(domains) || matches(externalRegistryDomains({
-        registrySource, externalRegistry,
-      })),
-      custom: matches(customProxiedDomains),
-      ignored: matches(ignoredHosts),
+      if (membership !== pending) {
+        return this.getDomainStatus(url)
+      }
+      const matches = (index) => Boolean(findHostMatch(domain, index))
+
+      return {
+        blocked: matches(builtin) || matches(external),
+        custom: matches(custom),
+        ignored: matches(ignored),
+      }
+    } catch (error) {
+      if (membership === pending) {
+        membership = null
+      }
+      throw error
     }
   }
 

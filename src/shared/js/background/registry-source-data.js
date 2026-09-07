@@ -5,16 +5,23 @@ import { validateSourceUrl } from './proxy-source'
 export const registrySourceDefaults = {
   kind: 'custom', url: '', enabled: false, autoUpdate: false,
 }
+export const registrySourceUrls = {
+  anticensority: 'https://raw.githubusercontent.com/anticensority/generated-pac-scripts/master/anticensority.pac',
+}
 export const MAX_REGISTRY_BYTES = 32 * 1024 * 1024
 
 export const validateRegistrySource = (source) => {
   if (!source || typeof source !== 'object' || Array.isArray(source) ||
-    source.kind !== 'custom' || typeof source.enabled !== 'boolean' ||
+    !['custom', 'anticensority'].includes(source.kind) ||
+    typeof source.enabled !== 'boolean' ||
     typeof source.autoUpdate !== 'boolean' || typeof source.url !== 'string') {
     throw new TypeError('Invalid registry source')
   }
   const url = source.url === '' ? '' : validateSourceUrl(source.url)
 
+  if (source.kind !== 'custom' && url !== registrySourceUrls[source.kind]) {
+    throw new TypeError('Invalid registry provider URL')
+  }
   if (!url && (source.enabled || source.autoUpdate)) {
     throw new TypeError('A registry source URL is required')
   }
@@ -35,7 +42,7 @@ export const externalRegistryDomains = ({ registrySource, externalRegistry }) =>
   externalRegistry?.source === registrySourceKey(registrySource)
     ? externalRegistry.domains : []
 
-export const normalizeRegistryDomains = async (input, signal) => {
+export const normalizeRegistryDomains = async (input, signal, { skipInvalid = false } = {}) => {
   if (!Array.isArray(input) || input.length === 0 || input.length > 1000000) {
     throw new TypeError('Invalid registry list')
   }
@@ -47,17 +54,15 @@ export const normalizeRegistryDomains = async (input, signal) => {
     }
     const entry = input[index]
 
-    if (typeof entry !== 'string' || entry.length > 253 ||
-      /[\s/\\@?#%]/.test(entry) ||
-      (entry.includes(':') && !/^\[[0-9a-f:.]+\]$/i.test(entry))) {
-      throw new TypeError('Invalid registry hostname')
-    }
-    const host = normalizeHostname(entry)
+    const bare = typeof entry === 'string' && entry.length <= 253 &&
+      !/[\s/\\@?#%]/.test(entry) &&
+      (!entry.includes(':') || /^\[[0-9a-f:.]+\]$/i.test(entry))
+    const host = bare ? normalizeHostname(entry) : null
 
-    if (!host) {
+    if (!host && !skipInvalid) {
       throw new TypeError('Invalid registry hostname')
     }
-    if (!isPrivateHost(host)) {
+    if (host && !isPrivateHost(host)) {
       domains.add(host)
     }
     if (index > 0 && index % 2000 === 0) {

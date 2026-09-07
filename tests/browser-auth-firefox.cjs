@@ -96,11 +96,14 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
         const errors = [];
         console.error = (...args) => errors.push(args.join(' '));
         try {
+          await browser.storage.local.set({domains: Array.from({length: 660000}, (_,i) => i === 659999 ? 'protected.example' : 'site' + i + '.large-registry.example')});
           for (const config of ${JSON.stringify(cases)}) {
             await browser.storage.local.set({ enableExtension: true, useProxy: true,
-              customProxiedDomains: ['protected.example'], selectedProxyIds: ['test'],
+              customProxiedDomains: [], selectedProxyIds: ['test'],
               proxies: [{ id: 'test', host: '127.0.0.1', username: 'alice', ...config }] });
             if (!await manager.setProxyInBackground()) throw new Error('PAC was not applied: ' + errors.join('; '));
+            const setting = await browser.proxy.settings.get({});
+            if (setting.value.autoConfigUrl.length > 1000) throw new Error('Firefox needs a small fallback PAC');
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 6000);
             try {

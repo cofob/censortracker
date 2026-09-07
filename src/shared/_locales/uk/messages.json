@@ -1,4 +1,13 @@
 {
+  "registrySourceKind": {
+    "message": "Джерело"
+  },
+  "registrySourceCustom": {
+    "message": "Власний список доменів"
+  },
+  "registrySourceAnticensority": {
+    "message": "Завантажує список доменів з опублікованого PAC Anticensority. Код PAC, адреси проксі та правила IP/підмереж не використовуються. Некоректні домени пропускаються. Список великий, завантаження може тривати кілька секунд."
+  },
   "proxyAntizapretImport": {
     "message": "Імпортувати або оновити Antizapret"
   },

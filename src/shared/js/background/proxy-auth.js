@@ -5,19 +5,33 @@ import { proxyDirective } from './proxy-address'
 import { hasProxyAuth, proxyKey } from './proxy-record'
 import { getServiceRoute, noteProbeAuthFailure, proxyRequestAllowed } from './proxy-route'
 
-const requestProxies = async (url) => {
-  const hostname = normalizeHostname(url)
+const requestRoute = async (url) => {
+  let hostname
+
+  try {
+    hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, '')
+  } catch (error) {
+    return { type: 'inactive', proxies: [] }
+  }
 
   if (!hostname || !await proxyRequestAllowed()) {
-    return []
+    return { type: 'inactive', proxies: [] }
   }
   const override = getServiceRoute()
 
   if (override?.hostname === hostname) {
-    return (await ProxyManager.getSelectedProxies()).filter((proxy) =>
-      proxyDirective(proxy.protocol, `${proxy.host}:${proxy.port}`) === override.route)
+    return {
+      type: override.route === 'DIRECT' ? 'direct' : 'proxy',
+      proxies: (await ProxyManager.getSelectedProxies()).filter((proxy) =>
+        proxyDirective(proxy.protocol, `${proxy.host}:${proxy.port}`) === override.route),
+    }
   }
-  return (await ProxyManager.getRouteForHost(hostname)).proxies
+  return ProxyManager.getRouteForHost(hostname)
+}
+const requestProxies = async (url) => {
+  const route = await requestRoute(url)
+
+  return await proxyRequestAllowed() ? route.proxies : []
 }
 
 export const createAuthHandler = (
@@ -78,13 +92,16 @@ export const firefoxProxyInfo = (proxy) => {
 }
 
 export const handleFirefoxProxy = async ({ url }) => {
-  const proxies = await requestProxies(url)
+  const { type, proxies } = await requestRoute(url)
 
-  if (proxies.some((proxy) => proxy.protocol === 'SOCKS5' && hasProxyAuth(proxy))) {
-    // null prevents fallback to a browser-defined route after the last proxy.
-    return [...proxies.map(firefoxProxyInfo), null]
+  if (type === 'inactive' || !await proxyRequestAllowed()) {
+    return undefined
   }
-  return undefined
+  if (type === 'direct') {
+    return { type: 'direct' }
+  }
+  // null prevents fallback to a browser-defined route after the last proxy.
+  return [...proxies.map(firefoxProxyInfo), null]
 }
 
 export const registerProxyAuth = () => {
@@ -101,6 +118,8 @@ export const registerProxyAuth = () => {
   browser.webRequest.onCompleted.addListener(clear, filter)
   browser.webRequest.onErrorOccurred.addListener(clear, filter)
   if (browser.isFirefox) {
-    browser.proxy.onRequest.addListener(handleFirefoxProxy, filter)
+    browser.proxy.onRequest.addListener(
+      (details) => handleFirefoxProxy(details).catch(() => [null]), filter,
+    )
   }
 }

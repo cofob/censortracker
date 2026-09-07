@@ -63,6 +63,12 @@
         <summary data-i18n-key="registrySourceTitle"></summary>
         <p class="main-page__about" data-i18n-key="registrySourceHelp"></p>
         <form id="registrySourceForm">
+          <label for="registrySourceKind" data-i18n-key="registrySourceKind"></label>
+          <select id="registrySourceKind">
+            <option value="custom" data-i18n-key="registrySourceCustom"></option>
+            <option value="anticensority">Anticensority</option>
+          </select>
+          <p id="registrySourceAnticensority" class="main-page__about" data-i18n-key="registrySourceAnticensority" hidden></p>
           <label for="registrySourceUrl" data-i18n-key="registrySourceUrl"></label>
           <input id="registrySourceUrl" type="url" class="input-proxy" maxlength="4096" autocomplete="off" placeholder="https://">
           <p><label><input id="registrySourceEnabled" type="checkbox">
