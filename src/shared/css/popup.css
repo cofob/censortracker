@@ -14,7 +14,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     text-shadow: rgba(0, 0, 0, 20%) 0 0 1px;
-    overflow-y: hidden;
+    overflow-y: auto;
     overflow-x: hidden;
 }
 
@@ -658,6 +658,10 @@ div#grantPrivateBrowsingPermissionsButton {
 
 .proxying-details code {
     font-size: 12px;
+}
+
+#proxyRouteSummary, #proxyRouteExit, #proxyingDetailsText {
+    overflow-wrap: anywhere;
 }
 
 @media (prefers-color-scheme: dark) {

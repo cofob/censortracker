@@ -5,7 +5,9 @@ import Ignore from 'Background/ignore'
 import ProxyManager from 'Background/proxy'
 import Registry from 'Background/registry'
 import Settings from 'Background/settings'
-import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidURL } from 'Background/utilities';
+import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidURL } from 'Background/utilities'
+
+import { mountProxyInfo } from './proxy-info'
 
 (async () => {
   const statusImage = document.getElementById('statusImage')
@@ -100,55 +102,6 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
     await browser.runtime.openOptionsPage()
   })
 
-  // Show proxying information
-  browser.storage.local.get([
-    'currentRegionName',
-    'proxyServerURI',
-    'proxyLastFetchTs',
-    'localProxyURI',
-    'activeProxyConfigName',
-  ]).then(async (
-    {
-      currentRegionName,
-      proxyServerURI,
-      proxyLastFetchTs,
-      localProxyURI,
-      activeProxyConfigName,
-    },
-  ) => {
-    if (localProxyURI) {
-      proxyingInfo.hidden = true
-      popupProxyStatusOk.hidden = true
-      popupProxyStatusError.hidden = true
-      popupLocalProxyName.textContent = activeProxyConfigName
-      popupLocalProxyName.hidden = false
-      return
-    }
-
-    if (proxyServerURI && proxyLastFetchTs) {
-      const domains = await Registry.getDomains()
-      const proxyServerId = proxyServerURI.split('.', 1)[0]
-      const proxyingDetailsText = document.getElementById('proxyingDetailsText')
-      const regionName = currentRegionName || i18nGetMessage('popupAutoMessage')
-      const popupServerMsg = i18nGetMessage('popupServer')
-      const popupYourRegion = i18nGetMessage('popupYourRegion')
-      const popupTotalBlocked = i18nGetMessage('popupTotalBlocked')
-
-      if (await ProxyManager.usingCustomProxy()) {
-        proxyingDetailsText.innerHTML = `<code><b>${popupServerMsg}:</b> — </code>`
-      } else {
-        proxyingDetailsText.innerHTML = `<code><b>${popupServerMsg}:</b> ${proxyServerId}</code>`
-      }
-
-      proxyingDetailsText.innerHTML += `
-        <code><b>${popupYourRegion}:</b> ${regionName}</code>
-        <code><b>${popupTotalBlocked}:</b> ${domains.length}</code>
-      `
-    } else {
-      proxyingInfo.hidden = true
-    }
-  })
-
   // Hide all other expandable elements when actions are toggled
   toggleSiteActionsButton.addEventListener('click', async (event) => {
     if (event.target.classList.contains('icon-show')) {
@@ -174,7 +127,15 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
       const extensionEnabled = await Settings.extensionEnabled()
       const currentHostname = extractHostnameFromUrl(currentUrl) || ''
 
-      const { useLocalProxy } = await browser.storage.local.get(['useLocalProxy'])
+      const { useLocalProxy, activeProxyConfigName } =
+        await browser.storage.local.get([
+          'useLocalProxy', 'activeProxyConfigName',
+        ])
+
+      if (useLocalProxy) {
+        popupLocalProxyName.textContent = activeProxyConfigName
+        popupLocalProxyName.hidden = false
+      }
 
       ProxyManager.alive().then((alive) => {
         if (useLocalProxy) {
@@ -240,13 +201,8 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
               siteActionDescription.textContent = i18nGetMessage(
                 'siteActionAlwaysDesc',
               )
-              Ignore.remove(currentUrl).then((removed) => {
-                if (removed) {
-                  Registry.add(currentUrl).then((added) => {
-                    console.info('Proxying strategy was changed to: "always"')
-                  })
-                }
-              })
+              await Ignore.remove(currentUrl)
+              await Registry.add(currentUrl)
             } else if (event.target.value === 'never') {
               await Ignore.add(currentUrl)
               await Registry.remove(currentUrl)
@@ -277,6 +233,11 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
       }
 
       if (extensionEnabled) {
+        if (currentHostname) {
+          await mountProxyInfo(currentUrl)
+        } else {
+          proxyingInfo.hidden = true
+        }
         statusImage.setAttribute('src', 'images/icons/512x512/normal.png')
 
         if (browser.isFirefox) {

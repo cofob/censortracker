@@ -115,6 +115,13 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
       assert.equal(result.exceptionDetails, undefined, JSON.stringify(result))
       return result.result.value
     }
+    const until = async expression => {
+      for (let attempt = 0; attempt < 50; attempt++) {
+        if (await evaluate(expression)) return
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      assert.fail(`Page did not update: ${expression}`)
+    }
     await new Promise(resolve => setTimeout(resolve, 1000))
     const { getPacScript } = load('background/pac')
     const data = getPacScript({ domains: ['example.co.uk', 'api.example.com', 'example.com.br', 'printer.local', 'router'],
@@ -200,15 +207,27 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(await evaluate("chrome.storage.local.get('proxyChecks').then(data => data.proxyChecks['check-0'].checkedAt)"), checkedAt)
     assert.equal(await evaluate("chrome.storage.local.get('proxyProbeActive').then(data => data.proxyProbeActive)"), false)
     slowEcho = false
+    const beforePopup = echoHits
+    const siteTab = await evaluate(`chrome.tabs.create({url: 'http://auth.example:${origin.address().port}/popup', active: true}).then(tab => tab.id)`)
+    await evaluate("location.reload()")
+    await until("document.querySelector('#proxyRouteSummary')?.textContent.includes('Check 0')")
+    assert.equal(await evaluate("document.querySelector('#proxyRouteExit').textContent.includes('8.8.8.8')"), true)
+    assert.equal(await evaluate("document.querySelector('#proxyRouteExit').textContent.includes('United States')"), true)
+    assert.equal(await evaluate("document.querySelector('#proxyingDetailsText').textContent.includes('Checked:')"), true)
+    assert.equal(await evaluate("document.querySelector('#proxyingDetailsText').textContent.includes('secret')"), false)
+    if (global.process.env.CT_POPUP_SCREENSHOT) {
+      await command('Emulation.setDeviceMetricsOverride', { width: 315, height: 600, deviceScaleFactor: 1, mobile: false })
+      const { data } = await command('Page.captureScreenshot', { captureBeyondViewport: true })
+      await fs.writeFile(global.process.env.CT_POPUP_SCREENSHOT, Buffer.from(data, 'base64'))
+      await command('Emulation.clearDeviceMetricsOverride', {})
+    }
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'proxies', args: {operation: 'select', ids: []}})")
+    await until("document.querySelector('#proxyRouteSummary').textContent.includes('No eligible proxy')")
+    assert.equal(await evaluate("document.querySelector('#proxyRouteExit').textContent"), '')
+    assert.equal(echoHits, beforePopup, 'Opening and refreshing the popup must not request an exit check')
+    await evaluate(`chrome.tabs.remove(${siteTab})`)
     await evaluate("chrome.storage.local.set({useProxy: false, proxies: [], selectedProxyIds: ['builtin']})")
     await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
-    const until = async expression => {
-      for (let attempt = 0; attempt < 50; attempt++) {
-        if (await evaluate(expression)) return
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-      assert.fail(`Page did not update: ${expression}`)
-    }
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
     assert.equal(await evaluate("document.querySelector('#proxyListOptions').open"), false)
     await evaluate(`document.querySelector('#proxyName').value = '<img src=x onerror=alert(1)>'; document.querySelector('#proxyServerInput').value = '127.0.0.1:${proxy.address().port}'; document.querySelector('#select-toggle').textContent = 'HTTP'; document.querySelector('#proxyUsername').value = 'alice'; document.querySelector('#proxyPassword').value = 'secret'; document.querySelector('#proxyForm').requestSubmit()`)

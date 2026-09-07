@@ -1,4 +1,31 @@
 {
+  "popupRouteProxy": {
+    "message": "Planned proxy: $1"
+  },
+  "popupRouteExit": {
+    "message": "Last checked exit: $1 · $2"
+  },
+  "popupRouteFallbacks": {
+    "message": "Failover candidates: $1"
+  },
+  "popupRouteCheckedAt": {
+    "message": "Checked: $1"
+  },
+  "popupRoute_direct": {
+    "message": "Planned route: direct"
+  },
+  "popupRoute_disabled": {
+    "message": "Censor Tracker proxy routing is inactive"
+  },
+  "popupRoute_blocked": {
+    "message": "No eligible proxy. This route is blocked."
+  },
+  "popupRoute_unavailable": {
+    "message": "Route information is unavailable"
+  },
+  "popupRouteHelp": {
+    "message": "This is the configured route, not a measurement of this page's connection. The browser can use a failover proxy or an existing connection. Exit IP and country come from the last proxy check and may have changed. Opening this popup sends no IP or location requests."
+  },
   "siteRulesTitle": {
     "message": "Site exit-country rules"
   },
@@ -582,7 +609,7 @@
     "message": "failed to establish a connection to the proxy server"
   },
   "popupProxyStatusOk": {
-    "message": "proxy is working fine"
+    "message": "proxy settings applied"
   },
   "popupServer": {
     "message": "Proxy Server ID"

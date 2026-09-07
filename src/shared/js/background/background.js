@@ -18,6 +18,7 @@ import ProxyManager from './proxy'
 import { registerProxyAuth } from './proxy-auth'
 import { getProxyCheckState, registerProxyChecks, startProxyChecks, stopProxyChecks } from './proxy-check'
 import { importProxies, refreshSubscription, scheduleSubscriptions, updateSubscriptions } from './proxy-importer'
+import { describeProxyRoute } from './proxy-info'
 import { updateProxyList } from './proxy-list'
 import { registerProxyRecovery } from './proxy-recovery'
 import { proxyAllowed, withProxyLock } from './proxy-route'
@@ -45,6 +46,7 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  proxyRouteInfo: describeProxyRoute,
   siteCountryRule: (args) => withProxyLock(async () => {
     const { siteCountryRules } = await browser.storage.local.get({
       siteCountryRules: {},
