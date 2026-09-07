@@ -1,5 +1,6 @@
 import { normalizeHostname } from './hostname'
 import { parseProxyAddress, proxyProtocols } from './proxy-address'
+import { proxyStateFromSettings } from './proxy-record'
 
 export const settingsDefaults = {
   enableExtension: false,
@@ -35,7 +36,13 @@ export const validateSettings = (input) => {
   for (const [key, value] of Object.entries(settings)) {
     let valid = true
 
-    if (booleanKeys.has(key)) {
+    if (key === 'proxies' || key === 'selectedProxyIds') {
+      if (!Array.isArray(value)) {
+        throw new TypeError('Invalid proxy selection')
+      }
+      result[key] = value
+      continue
+    } else if (booleanKeys.has(key)) {
       valid = typeof value === 'boolean'
     } else if (hostKeys.has(key)) {
       if (!Array.isArray(value) || value.length > 100000) {
@@ -68,5 +75,5 @@ export const validateSettings = (input) => {
     }
     result[key] = value
   }
-  return result
+  return { ...result, ...proxyStateFromSettings(result) }
 }

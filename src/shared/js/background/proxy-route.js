@@ -9,6 +9,7 @@ const routeKeys = new Set([
   'enableExtension', 'useProxy', 'domains', 'useRegistry', 'ignoredHosts',
   'customProxiedDomains', 'proxyServerURI', 'customProxyProtocol',
   'customProxyServerURI', 'localProxyURI',
+  'proxies', 'selectedProxyIds',
 ])
 
 browser.storage.onChanged.addListener((changes, area) => {

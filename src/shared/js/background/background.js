@@ -15,14 +15,28 @@ import {
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
+import { updateProxyList } from './proxy-list'
 import { withProxyLock } from './proxy-route'
 import { synchronizeInBackground } from './server'
+import Settings from './settings'
 
 withProxyLock(() => {}).catch((error) => {
   console.error('[Service] Route recovery failed', error)
 })
 
 registerBackground({
+  importSettings: (args) => withProxyLock(async () => {
+    await Settings.importSettingsInBackground(args)
+    await ProxyManager.setProxyInBackground()
+  }),
+  proxies: (args) => withProxyLock(async () => {
+    const state = await updateProxyList(args)
+
+    if (args.operation !== 'list') {
+      await ProxyManager.setProxyInBackground()
+    }
+    return state
+  }),
   synchronize: synchronizeInBackground,
   setProxy: () => withProxyLock(() => ProxyManager.setProxyInBackground()),
   removeProxy: () => withProxyLock(

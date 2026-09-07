@@ -1,3 +1,4 @@
+import { callBackground } from './background-rpc'
 import browser from './browser-api'
 import { LOCAL_PROXY_URI } from './proxy-address'
 import { settingsDefaults, validateSettings } from './settings-data'
@@ -81,17 +82,23 @@ class Settings {
   async exportSettings () {
     return {
       formatVersion: 1,
-      settings: validateSettings({
-        ...settingsDefaults, ...await browser.storage.local.get(null),
-      }),
+      settings: {
+        ...settingsDefaults,
+        ...validateSettings(await browser.storage.local.get(null)),
+      },
     }
   }
 
   async importSettings (settings) {
+    return callBackground('importSettings', settings)
+  }
+
+  async importSettingsInBackground (settings) {
     const values = { ...settingsDefaults, ...validateSettings(settings) }
 
     await browser.storage.local.set({
       ...values,
+      useOwnProxy: values.selectedProxyIds.some((id) => id !== 'builtin'),
       localProxyURI: values.useLocalProxy ? LOCAL_PROXY_URI : null,
     })
   }

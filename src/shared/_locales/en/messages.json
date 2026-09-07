@@ -1,4 +1,43 @@
 {
+  "useSelectedProxies": {
+    "message": "Use selected proxies"
+  },
+  "proxyManage": {
+    "message": "Manage proxies"
+  },
+  "proxySelected": {
+    "message": "Use"
+  },
+  "proxyName": {
+    "message": "Name"
+  },
+  "proxyAddress": {
+    "message": "Address"
+  },
+  "proxyActions": {
+    "message": "Actions"
+  },
+  "proxyPrevious": {
+    "message": "Previous"
+  },
+  "proxyNext": {
+    "message": "Next"
+  },
+  "proxyNoneSelected": {
+    "message": "No proxy selected."
+  },
+  "proxyUnavailable": {
+    "message": "Not available"
+  },
+  "proxyEdit": {
+    "message": "Edit"
+  },
+  "proxyDelete": {
+    "message": "Delete"
+  },
+  "proxyListInvalid": {
+    "message": "Could not change the list. Check the proxy data and try again."
+  },
   "operationFailed": {
     "message": "The operation failed. Please try again."
   },

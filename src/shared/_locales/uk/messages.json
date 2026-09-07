@@ -1,4 +1,43 @@
 {
+  "useSelectedProxies": {
+    "message": "Використовувати вибрані проксі"
+  },
+  "proxyManage": {
+    "message": "Керування проксі"
+  },
+  "proxySelected": {
+    "message": "Використовувати"
+  },
+  "proxyName": {
+    "message": "Назва"
+  },
+  "proxyAddress": {
+    "message": "Адреса"
+  },
+  "proxyActions": {
+    "message": "Дії"
+  },
+  "proxyPrevious": {
+    "message": "Назад"
+  },
+  "proxyNext": {
+    "message": "Далі"
+  },
+  "proxyNoneSelected": {
+    "message": "Проксі не вибрано."
+  },
+  "proxyUnavailable": {
+    "message": "Недоступна"
+  },
+  "proxyEdit": {
+    "message": "Змінити"
+  },
+  "proxyDelete": {
+    "message": "Видалити"
+  },
+  "proxyListInvalid": {
+    "message": "Не вдалося змінити список. Перевірте дані проксі та спробуйте знову."
+  },
   "operationFailed": {
     "message": "Не вдалося виконати дію. Спробуйте ще раз."
   },

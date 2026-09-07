@@ -16,7 +16,7 @@ const within = (promise, milliseconds = 5000) => {
 }
 
 // An isolated browser and local servers: no public proxy or destination is used.
-test('Chromium applies full-host PAC rules to real requests', { timeout: 30000 }, async () => {
+test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async () => {
   const extension = path.resolve(__dirname, '../dist/chrome/prod')
   const id = createHash('sha256').update(extension).digest('hex').slice(0, 32)
     .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)))
@@ -78,6 +78,28 @@ test('Chromium applies full-host PAC rules to real requests', { timeout: 30000 }
     ]) {
       assert.equal(await evaluate(`fetch(${JSON.stringify(`http://${host}:${origin.address().port}/`)}).then(response => response.text())`), expected, host)
     }
+    await evaluate("chrome.storage.local.set({useProxy: false, proxies: [], selectedProxyIds: ['builtin']})")
+    await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
+    const until = async expression => {
+      for (let attempt = 0; attempt < 50; attempt++) {
+        if (await evaluate(expression)) return
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      assert.fail(`Page did not update: ${expression}`)
+    }
+    await until("document.querySelectorAll('#proxyRows tr').length === 1")
+    assert.equal(await evaluate("document.querySelector('#proxyListOptions').open"), false)
+    await evaluate(`document.querySelector('#proxyName').value = '<img src=x onerror=alert(1)>'; document.querySelector('#proxyServerInput').value = '127.0.0.1:${proxy.address().port}'; document.querySelector('#select-toggle').textContent = 'HTTP'; document.querySelector('#proxyForm').requestSubmit()`)
+    await until("document.querySelectorAll('#proxyRows tr').length === 2")
+    assert.equal(await evaluate("document.querySelector('#proxyRows img') === null"), true)
+    await evaluate("document.querySelectorAll('#proxyRows input')[1].click()")
+    await until("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds.length === 2)")
+    await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click(); document.querySelector('#proxyName').value = 'Renamed'; document.querySelector('#proxyForm').requestSubmit()")
+    await until("document.querySelector('#proxyRows').textContent.includes('Renamed')")
+    await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelectorAll('button')[1].click()")
+    await until("document.querySelectorAll('#proxyRows tr').length === 1")
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
+    assert.equal(await evaluate("document.querySelector('#pageError') === null"), true)
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

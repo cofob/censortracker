@@ -104,7 +104,6 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
   browser.storage.local.get([
     'currentRegionName',
     'proxyServerURI',
-    'customProxyServerURI',
     'proxyLastFetchTs',
     'localProxyURI',
     'activeProxyConfigName',
@@ -112,7 +111,6 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
     {
       currentRegionName,
       proxyServerURI,
-      customProxyServerURI,
       proxyLastFetchTs,
       localProxyURI,
       activeProxyConfigName,
@@ -136,7 +134,7 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
       const popupYourRegion = i18nGetMessage('popupYourRegion')
       const popupTotalBlocked = i18nGetMessage('popupTotalBlocked')
 
-      if (customProxyServerURI) {
+      if (await ProxyManager.usingCustomProxy()) {
         proxyingDetailsText.innerHTML = `<code><b>${popupServerMsg}:</b> — </code>`
       } else {
         proxyingDetailsText.innerHTML = `<code><b>${popupServerMsg}:</b> ${proxyServerId}</code>`

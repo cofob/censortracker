@@ -46,13 +46,28 @@
             <div class="radio-button">
               <input id="useDefaultProxy" class="radio-button-input" type="radio" name="proxy-radio" value="default"
                      checked>
-              <label class="radio-button-label" for="useDefaultProxy" data-i18n-key="useDefaultProxy"></label>
+              <label class="radio-button-label" for="useDefaultProxy" data-i18n-key="useSelectedProxies"></label>
             </div>
-            <div class="radio-button">
-              <input class="radio-button-input" type="radio" name="proxy-radio" id="useCustomProxy" value="custom">
-              <label class="radio-button-label" for="useCustomProxy" data-i18n-key="useOwnProxy"></label>
-            </div>
-            <div id="proxyOptionsInputs" class="proxy-options-inputs hidden">
+            <p id="proxySelectionSummary"></p>
+            <details id="proxyListOptions">
+              <summary data-i18n-key="proxyManage"></summary>
+              <div class="proxy-table-scroll">
+                <table class="proxy-table">
+                  <thead><tr>
+                    <th data-i18n-key="proxySelected"></th>
+                    <th data-i18n-key="proxyName"></th>
+                    <th data-i18n-key="proxyAddress"></th>
+                    <th data-i18n-key="proxyActions"></th>
+                  </tr></thead>
+                  <tbody id="proxyRows"></tbody>
+                </table>
+              </div>
+              <button type="button" id="proxyPrevious" data-i18n-key="proxyPrevious"></button>
+              <button type="button" id="proxyNext" data-i18n-key="proxyNext"></button>
+              <p id="proxyListError" role="alert" hidden></p>
+              <form id="proxyForm" class="proxy-options-inputs">
+                <label for="proxyName" data-i18n-key="proxyName"></label>
+                <input id="proxyName" type="text" maxlength="100" class="input-proxy">
               <div class="select" id="selectProxyProtocol">
                 <button type="button" class="select-toggle" id="select-toggle">
                   HTTPS
@@ -67,15 +82,18 @@
                 </div>
               </div>
 
-              <input type="text"
+              <label for="proxyServerInput" data-i18n-key="proxyAddress"></label>
+              <input type="text" required autocomplete="off" spellcheck="false"
                      id="proxyServerInput"
                      class="input-proxy"
-                     placeholder="[username:password@]hostname:port">
+                     placeholder="hostname:port">
 
-              <button class="btn btn-dark" id="saveCustomProxyButton">
+              <button type="submit" class="btn btn-dark" id="saveCustomProxyButton">
                 <span class="btn__text" data-i18n-key="saveCustomProxyButton"></span>
               </button>
-            </div>
+              <button type="button" id="cancelProxyEdit" data-i18n-key="cancel" hidden></button>
+              </form>
+            </details>
 
             <div class="radio-button">
               <input class="radio-button-input" type="radio" name="proxy-radio" id="useLocalProxy" value="local">

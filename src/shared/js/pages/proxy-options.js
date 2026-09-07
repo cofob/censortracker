@@ -3,20 +3,18 @@ import './page-errors'
 import browser from 'Background/browser-api'
 import ProxyClient from 'Background/localproxy'
 import ProxyManager from 'Background/proxy'
-import { parseProxyAddress } from 'Background/proxy-address'
-import * as server from 'Background/server'
+
+import { mountProxyList } from './proxy-list'
 
 (async () => {
   const proxyingEnabled = await ProxyManager.isEnabled()
   const loading = document.getElementById('loading')
   const proxyIsDown = document.getElementById('proxyIsDown')
   const rksVPNBanner = document.getElementById('rksVPNBanner')
-  const proxyServerInput = document.getElementById('proxyServerInput')
-  const saveCustomProxyButton = document.getElementById('saveCustomProxyButton')
   const useProxyCheckbox = document.getElementById('useProxyCheckbox')
   const proxyCustomOptions = document.getElementById('proxyCustomOptions')
-  const proxyOptionsInputs = document.getElementById('proxyOptionsInputs')
-  const useCustomProxyRadioButton = document.getElementById('useCustomProxy')
+  const proxyListOptions = document.getElementById('proxyListOptions')
+  const proxySelectionSummary = document.getElementById('proxySelectionSummary')
   const useDefaultProxyRadioButton = document.getElementById('useDefaultProxy')
   const useLocalProxyRadioButton = document.getElementById('useLocalProxy')
   const proxyCustomOptionsRadioGroup = document.getElementById('proxyCustomOptionsRadioGroup')
@@ -94,8 +92,6 @@ import * as server from 'Background/server'
 
           if (remainingConfigs.length === 0) {
             rksVPNBanner.classList.remove('hidden')
-            await ProxyManager.removeLocalProxy()
-            await ProxyManager.setProxy()
           }
         }
       } else {
@@ -116,11 +112,8 @@ import * as server from 'Background/server'
     const { configs = {} } = await ProxyClient.getConfig('', 350)
 
     if (Object.keys(configs).length === 0) {
-      if (await ProxyManager.isEnabled()) {
-        await ProxyManager.removeLocalProxy()
-        await ProxyManager.setProxy()
-        return
-      }
+      rksVPNBanner.classList.remove('hidden')
+      return
     }
 
     if (changeLocalProxyRadio.innerHTML) {
@@ -234,81 +227,35 @@ import * as server from 'Background/server'
     }
   })
 
-  const {
-    useOwnProxy,
-    useLocalProxy,
-    customProxyProtocol,
-    customProxyServerURI,
-  } = await browser.storage.local.get([
-    'useOwnProxy',
-    'useLocalProxy',
-    'customProxyProtocol',
-    'customProxyServerURI',
-  ])
+  const { useLocalProxy } = await browser.storage.local.get('useLocalProxy')
 
-  if (customProxyProtocol) {
-    currentProxyProtocol.textContent = customProxyProtocol
-  }
-
+  proxyListOptions.hidden = Boolean(useLocalProxy)
+  proxySelectionSummary.hidden = Boolean(useLocalProxy)
   if (useLocalProxy) {
     useLocalProxyRadioButton.checked = true
     await showLocalProxySettings()
     await renderLocalProxyConfigs()
-  } else if (useOwnProxy) {
-    proxyOptionsInputs.hidden = false
-    useCustomProxyRadioButton.checked = true
-    proxyOptionsInputs.classList.remove('hidden')
   } else {
-    proxyOptionsInputs.classList.add('hidden')
     useDefaultProxyRadioButton.checked = true
   }
 
-  if (customProxyServerURI) {
-    proxyServerInput.value = customProxyServerURI
-  }
-
-  saveCustomProxyButton.addEventListener('click', async (event) => {
-    const customProxyServer = proxyServerInput.value
-    const proxyProtocol = currentProxyProtocol.textContent.trim()
-
-    if (customProxyServer) {
-      parseProxyAddress(customProxyServer)
-      await browser.storage.local.set({
-        useOwnProxy: true,
-        customProxyProtocol: proxyProtocol,
-        customProxyServerURI: customProxyServer,
-      })
-
-      await ProxyManager.setProxy()
-      proxyServerInput.classList.remove('invalid-input')
-
-      console.log(`Proxy host changed to: ${customProxyServer}`)
-    } else {
-      proxyServerInput.classList.add('invalid-input')
-    }
-  })
-
   proxyCustomOptionsRadioGroup.addEventListener('change', async (event) => {
+    if (event.target.name !== 'proxy-radio') {
+      return
+    }
     const value = event.target.value
 
+    proxyListOptions.hidden = value === 'local'
+    proxySelectionSummary.hidden = value === 'local'
     if (value === 'default') {
-      proxyOptionsInputs.classList.add('hidden')
-      proxyServerInput.value = ''
       localProxyOptions.style.display = 'none'
       addLocalProxyButton.style.display = 'none'
-      await server.synchronize({
-        syncRegistry: true,
-        syncProxy: true,
-      })
-      await ProxyManager.removeCustomProxy()
       await ProxyManager.removeLocalProxy()
       await ProxyManager.setProxy()
-    } else if (value === 'custom') {
-      proxyOptionsInputs.classList.remove('hidden')
-      localProxyOptions.style.display = 'none'
-      addLocalProxyButton.style.display = 'none'
     } else if (value === 'local') {
-      proxyOptionsInputs.classList.add('hidden')
+      await browser.storage.local.set({ useLocalProxy: true })
+      await ProxyClient.setLocalProxyURI()
+      await ProxyManager.setProxy()
       await showLocalProxySettings()
       await renderLocalProxyConfigs()
     }
@@ -317,12 +264,8 @@ import * as server from 'Background/server'
   ProxyManager.controlledByThisExtension()
     .then(async (controlledByThisExtension) => {
       if (controlledByThisExtension) {
-        useProxyCheckbox.checked = true
+        useProxyCheckbox.checked = proxyingEnabled
         useProxyCheckbox.disabled = false
-
-        if (!proxyingEnabled) {
-          await ProxyManager.enableProxy()
-        }
       }
     })
 
@@ -331,7 +274,6 @@ import * as server from 'Background/server'
       if (controlledByOtherExtensions) {
         useProxyCheckbox.checked = false
         useProxyCheckbox.disabled = true
-        await ProxyManager.disableProxy()
       }
     })
 
@@ -368,4 +310,5 @@ import * as server from 'Background/server'
       currentProxyProtocol.textContent = event.target.dataset.value
     })
   }
+  await mountProxyList()
 })()

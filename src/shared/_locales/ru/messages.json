@@ -1,4 +1,43 @@
 {
+  "useSelectedProxies": {
+    "message": "Использовать выбранные прокси"
+  },
+  "proxyManage": {
+    "message": "Управление прокси"
+  },
+  "proxySelected": {
+    "message": "Использовать"
+  },
+  "proxyName": {
+    "message": "Название"
+  },
+  "proxyAddress": {
+    "message": "Адрес"
+  },
+  "proxyActions": {
+    "message": "Действия"
+  },
+  "proxyPrevious": {
+    "message": "Назад"
+  },
+  "proxyNext": {
+    "message": "Далее"
+  },
+  "proxyNoneSelected": {
+    "message": "Прокси не выбраны."
+  },
+  "proxyUnavailable": {
+    "message": "Недоступна"
+  },
+  "proxyEdit": {
+    "message": "Изменить"
+  },
+  "proxyDelete": {
+    "message": "Удалить"
+  },
+  "proxyListInvalid": {
+    "message": "Не удалось изменить список. Проверьте данные прокси и попробуйте снова."
+  },
   "operationFailed": {
     "message": "Не удалось выполнить действие. Попробуйте ещё раз."
   },

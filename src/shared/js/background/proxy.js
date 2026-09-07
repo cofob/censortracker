@@ -2,45 +2,36 @@ import { getPacScript } from 'Background/pac'
 
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { readProxyState } from './proxy-list'
 import { applyPac, getRouteRevision, proxyAllowed } from './proxy-route'
 import registry from './registry'
 
 class ProxyManager {
   async getProxyingRules () {
-    const {
-      proxyServerURI,
-      customProxyProtocol,
-      customProxyServerURI,
-      localProxyURI,
-    } = await browser.storage.local.get([
-      'proxyServerURI',
-      'customProxyProtocol',
-      'customProxyServerURI',
-      'localProxyURI',
-    ])
+    const { localProxyURI } = await browser.storage.local.get('localProxyURI')
 
     // When Censor Tracker Proxy Server is used
     if (localProxyURI) {
       console.log(`Using local proxy server: ${localProxyURI}`)
       return {
+        id: 'local',
         proxyServerProtocol: 'SOCKS5',
         proxyServerURI: localProxyURI,
       }
     }
 
-    if (
-      customProxyServerURI &&
-      customProxyProtocol
-    ) {
-      return {
-        proxyServerProtocol: customProxyProtocol,
-        proxyServerURI: customProxyServerURI,
-      }
-    }
-    return {
-      proxyServerProtocol: 'HTTPS',
-      proxyServerURI,
-    }
+    const { proxies, selectedProxyIds, builtin } = await readProxyState()
+    const catalog = new Map(
+      [builtin, ...proxies].map((proxy) => [proxy.id, proxy]),
+    )
+    const selected = selectedProxyIds.map((id) => catalog.get(id))
+      .find((proxy) => proxy?.host && proxy.port)
+
+    return selected ? {
+      id: selected.id,
+      proxyServerProtocol: selected.protocol,
+      proxyServerURI: `${selected.host}:${selected.port}`,
+    } : {}
   }
 
   async requestIncognitoAccess () {
@@ -158,13 +149,18 @@ class ProxyManager {
       localProxyURI,
       proxyPingURI,
       useOwnProxy,
+      selectedProxyIds,
     } = await browser.storage.local.get({
       localProxyURI: null,
       proxyPingURI: null,
       useOwnProxy: false,
+      selectedProxyIds: null,
     })
 
-    if (useOwnProxy || localProxyURI || !proxyPingURI) {
+    const usesBuiltin = selectedProxyIds
+      ? selectedProxyIds.includes('builtin') : !useOwnProxy
+
+    if (!usesBuiltin || localProxyURI || !proxyPingURI) {
       return
     }
 
@@ -192,12 +188,9 @@ class ProxyManager {
   }
 
   async usingCustomProxy () {
-    const { useOwnProxy } =
-      await browser.storage.local.get({
-        useOwnProxy: false,
-      })
+    const { id } = await this.getProxyingRules()
 
-    return useOwnProxy
+    return id !== 'builtin'
   }
 
   async isEnabled () {
@@ -238,16 +231,6 @@ class ProxyManager {
         await browser.management.setEnabled(id, false)
       }
     }
-  }
-
-  async removeCustomProxy () {
-    await browser.storage.local.set({
-      useOwnProxy: false,
-    })
-    await browser.storage.local.remove([
-      'customProxyProtocol',
-      'customProxyServerURI',
-    ])
   }
 
   async removeLocalProxy () {
