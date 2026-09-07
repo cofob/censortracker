@@ -1,6 +1,8 @@
 import browser from './browser-api'
+import { findHostMatch } from './host-match'
 import {
   extractDomainFromUrl,
+  extractHostnameFromUrl,
 } from './utilities'
 
 class Registry {
@@ -48,10 +50,13 @@ class Registry {
   }
 
   async add (url) {
-    const domain = extractDomainFromUrl(url)
+    const domain = extractHostnameFromUrl(url)
     const { customProxiedDomains } =
       await browser.storage.local.get({ customProxiedDomains: [] })
 
+    if (!domain) {
+      return false
+    }
     if (!customProxiedDomains.includes(domain)) {
       customProxiedDomains.push(domain)
       await browser.storage.local.set({ customProxiedDomains })
@@ -61,17 +66,14 @@ class Registry {
   }
 
   async remove (url) {
-    const domain = extractDomainFromUrl(url)
+    const domain = extractHostnameFromUrl(url)
     const { customProxiedDomains } =
       await browser.storage.local.get({ customProxiedDomains: [] })
 
-    if (customProxiedDomains.includes(domain)) {
-      const index = customProxiedDomains.indexOf(domain)
+    const remaining = customProxiedDomains.filter((name) =>
+      !findHostMatch(domain, new Set([extractHostnameFromUrl(name)])))
 
-      customProxiedDomains.splice(index, 1)
-      await browser.storage.local.set({ customProxiedDomains })
-      console.debug(`${domain} removed from custom registry`)
-    }
+    await browser.storage.local.set({ customProxiedDomains: remaining })
     return true
   }
 
@@ -88,7 +90,7 @@ class Registry {
    * Returns list membership, independent of proxy settings.
    */
   async getDomainStatus (url) {
-    const domain = extractDomainFromUrl(url)
+    const domain = extractHostnameFromUrl(url)
     const {
       domains,
       ignoredHosts,
@@ -99,10 +101,13 @@ class Registry {
       customProxiedDomains: [],
     })
 
+    const matches = (names) => Boolean(findHostMatch(domain,
+      new Set(names.map(extractHostnameFromUrl))))
+
     return {
-      blocked: domains.includes(domain),
-      custom: customProxiedDomains.includes(domain),
-      ignored: ignoredHosts.includes(domain),
+      blocked: matches(domains),
+      custom: matches(customProxiedDomains),
+      ignored: matches(ignoredHosts),
     }
   }
 

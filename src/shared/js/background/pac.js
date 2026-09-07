@@ -1,75 +1,23 @@
+import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
 import { proxyDirective } from './proxy-address'
 
-/**
- * Return PAC Script data.
- * @param domains {Array<string>} - List of domains to proxy.
- * @param proxyServerURI {string} - URI of the proxy server.
- * @param proxyServerProtocol {string} - Protocol of the proxy server.
- * @returns {string} PAC script
- */
-export const getPacScript = (
-  {
-    domains = [],
-    proxyServerURI,
-    proxyServerProtocol,
-  },
-) => {
+export const getPacScript = ({
+  domains = [], proxyServerURI, proxyServerProtocol,
+}) => {
   const route = JSON.stringify(`${proxyDirective(proxyServerProtocol, proxyServerURI)};`)
+  const names = Array.from(new Set(
+    domains.map(normalizeHostname).filter(Boolean),
+  ))
 
-  domains = domains.map(normalizeHostname).filter(Boolean)
-  // Sort domains alphabetically to make binary search work.
-  domains.sort()
   return `
-      function FindProxyForURL(url, host) {
-        function isHostBlocked(array, target) {
-          let left = 0;
-          let right = array.length - 1;
-
-          while (left <= right) {
-            const mid = left + Math.floor((right - left) / 2);
-
-            if (array[mid] === target) {
-              return true;
-            }
-
-            if (array[mid] < target) {
-              left = mid + 1;
-            } else {
-              right = mid - 1;
-            }
-          }
-          return false;
-        }
-
-        host = host.toLowerCase();
-        // Remove ending dot
-        if (host.endsWith('.')) {
-          host = host.substring(0, host.length - 1);
-        }
-
-        // Make domain second-level.
-        let lastDot = host.lastIndexOf('.');
-        if (lastDot !== -1) {
-          lastDot = host.lastIndexOf('.', lastDot - 1);
-          if (lastDot !== -1) {
-            host = host.substr(lastDot + 1);
-          }
-        }
-
-        // Domains, which are blocked.
-        let domains = ${JSON.stringify(domains)};
-        
-        // Proxy *.onion and *.i2p domains.
-        if (shExpMatch(host, '*.onion') || shExpMatch(host, '*.i2p')) {
-          return ${route};
-        }
-
-        // Return result
-        if (isHostBlocked(domains, host)) {
-          return ${route};
-        } else {
-          return 'DIRECT';
-        }
-      }`
+    var ctDomains = new Set(${JSON.stringify(names)});
+    var ctMatch = ${findHostMatch.toString()};
+    function FindProxyForURL(url, host) {
+      host = host.toLowerCase().replace(/\\.$/, '');
+      if (host.endsWith('.onion') || host.endsWith('.i2p') || ctMatch(host, ctDomains)) {
+        return ${route};
+      }
+      return 'DIRECT';
+    }`
 }
