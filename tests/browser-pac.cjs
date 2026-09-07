@@ -20,7 +20,8 @@ const within = (promise, milliseconds = 5000) => {
 
 // An isolated browser and local servers: no public proxy or destination is used.
 test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async () => {
-  const extension = path.resolve(__dirname, '../dist/chrome/prod')
+  const build = global.process.env.CT_BROWSER_BUILD === 'dev' ? 'dev' : 'prod'
+  const extension = path.resolve(__dirname, '../dist/chrome', build)
   const id = createHash('sha256').update(extension).digest('hex').slice(0, 32)
     .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)))
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'ct-pac-test-'))

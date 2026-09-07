@@ -30,6 +30,7 @@ const contentSecurityPolicy = {
 
 const webWorkerConfig = {
   mode: NODE_ENV,
+  devtool: 'inline-nosources-cheap-module-source-map',
   target: isFirefox ? 'webworker' : 'web',
   entry: {
     background: './src/shared/js/background/background.js',
