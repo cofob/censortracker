@@ -1,6 +1,21 @@
 import browser from './browser-api'
 
 let queue = Promise.resolve()
+let revision = 0
+const routeKeys = new Set([
+  'enableExtension', 'useProxy', 'domains', 'useRegistry', 'ignoredHosts',
+  'customProxiedDomains', 'proxyServerURI', 'customProxyProtocol',
+  'customProxyServerURI', 'localProxyURI',
+])
+
+browser.storage.onChanged.addListener((changes, area) => {
+  if ((!area || area === 'local') &&
+    Object.keys(changes).some((key) => routeKeys.has(key))) {
+    revision++
+  }
+})
+
+export const getRouteRevision = () => revision
 
 export const withProxyLock = (operation) => {
   const result = queue.then(async () => {

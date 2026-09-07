@@ -107,7 +107,8 @@ for (const firefox of [false, true]) {
     if (!firefox) assert.deepEqual(state.settings().value, state.original)
     else assert.equal(state.route('service.example'), 'HTTPS normal.example:443')
     assert.equal(state.storage.serviceRouteSnapshot, undefined)
-    assert.equal(state.listeners.size, 0)
+    // The routing revision listener stays registered; request listeners do not.
+    assert.equal(state.listeners.size, 1)
     assert.ok(!state.events.includes('knock'))
   })
 }
@@ -340,7 +341,38 @@ test('normal PAC update cannot re-enable proxy use during a disable action', asy
   }
   await state.load('proxy').default.setProxyInBackground()
   assert.equal(state.storage.useProxy, false)
-  assert.equal(state.settings().value.pacScript.mandatory, false)
+  assert.equal(state.settings().value.mode, 'direct')
+})
+
+test('a routing change during port knock cannot install the old proxy', async () => {
+  const state = fixture({ storage: {
+    customProxyProtocol: 'HTTPS', customProxyServerURI: 'old.example:443',
+  }, mocks: {
+    proxy: null, registry: { default: { getDomains: async () => ['example.com'] } },
+  } })
+  const proxy = state.load('proxy').default
+  let knocks = 0
+  proxy.ping = async () => {
+    if (++knocks === 1) {
+      state.storage.customProxyServerURI = 'new.example:443'
+      for (const fn of state.listeners) fn({ customProxyServerURI: { newValue: 'new.example:443' } }, 'local')
+    }
+  }
+  await proxy.setProxyInBackground()
+  assert.equal(knocks, 2)
+  assert.equal(state.events.filter(event => event === 'set').length, 1)
+  assert.match(state.settings().value.pacScript.data, /new\.example/)
+  assert.doesNotMatch(state.settings().value.pacScript.data, /old\.example/)
+})
+
+test('failed PAC application does not turn the user proxy setting off', async () => {
+  const state = fixture({ mocks: {
+    proxy: null, registry: { default: { getDomains: async () => ['example.com'] } },
+  } })
+  state.browser.proxy.settings.set = async () => { throw new Error('cannot apply') }
+  assert.equal(await state.load('proxy').default.setProxyInBackground(), false)
+  assert.equal(state.storage.useProxy, true)
+  assert.equal(state.storage.proxyIsAlive, false)
 })
 
 test('reset explicitly enables proxy use before applying the PAC', async () => {

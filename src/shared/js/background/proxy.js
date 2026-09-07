@@ -2,7 +2,7 @@ import { getPacScript } from 'Background/pac'
 
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
-import { applyPac, proxyAllowed } from './proxy-route'
+import { applyPac, getRouteRevision, proxyAllowed } from './proxy-route'
 import registry from './registry'
 
 class ProxyManager {
@@ -72,14 +72,23 @@ class ProxyManager {
   }
 
   async setProxyInBackground () {
+    const revision = getRouteRevision()
+
     if (!await proxyAllowed()) {
       return false
     }
     const domains = await registry.getDomains()
 
+    if (revision !== getRouteRevision()) {
+      return this.setProxyInBackground()
+    }
+
     if (domains.length === 0) {
       console.info('No domains to proxy; clearing proxy settings.')
       await this.removeProxyInBackground()
+      if (revision !== getRouteRevision()) {
+        return this.setProxyInBackground()
+      }
       return false
     }
 
@@ -94,6 +103,10 @@ class ProxyManager {
       return false
     }
 
+    if (revision !== getRouteRevision()) {
+      return this.setProxyInBackground()
+    }
+
     const pacData = getPacScript({
       domains,
       proxyServerURI,
@@ -102,13 +115,20 @@ class ProxyManager {
 
     try {
       await applyPac(pacData)
+      if (!await proxyAllowed()) {
+        await this.removeProxyInBackground()
+        return false
+      }
+      if (revision !== getRouteRevision()) {
+        return this.setProxyInBackground()
+      }
       await browser.storage.local.set({ proxyIsAlive: true })
       await this.grantIncognitoAccess()
       console.info('PAC has been set successfully!')
       return true
     } catch (error) {
       console.error(`PAC could not be set: ${error}`)
-      await this.disableProxy()
+      await browser.storage.local.set({ proxyIsAlive: false })
       await this.requestIncognitoAccess()
       return false
     }
