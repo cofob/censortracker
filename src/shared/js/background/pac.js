@@ -1,5 +1,6 @@
 import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
+import { isPrivateHost } from './private-host'
 import { proxyDirective } from './proxy-address'
 
 export const getPacScript = ({
@@ -13,8 +14,12 @@ export const getPacScript = ({
   return `
     var ctDomains = new Set(${JSON.stringify(names)});
     var ctMatch = ${findHostMatch.toString()};
+    var ctPrivate = ${isPrivateHost.toString()};
     function FindProxyForURL(url, host) {
       host = host.toLowerCase().replace(/\\.$/, '');
+      if (ctPrivate(host)) {
+        return 'DIRECT';
+      }
       if (host.endsWith('.onion') || host.endsWith('.i2p') || ctMatch(host, ctDomains)) {
         return ${route};
       }

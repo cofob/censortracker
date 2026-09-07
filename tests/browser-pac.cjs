@@ -66,12 +66,13 @@ test('Chromium applies full-host PAC rules to real requests', { timeout: 30000 }
     }
     await new Promise(resolve => setTimeout(resolve, 1000))
     const { getPacScript } = load('background/pac')
-    const data = getPacScript({ domains: ['example.co.uk', 'api.example.com', 'example.com.br'],
+    const data = getPacScript({ domains: ['example.co.uk', 'api.example.com', 'example.com.br', 'printer.local', 'router'],
       proxyServerProtocol: 'HTTP', proxyServerURI: `127.0.0.1:${proxy.address().port}` })
     await evaluate(`chrome.proxy.settings.set(${JSON.stringify({ value: { mode: 'pac_script', pacScript: { data, mandatory: true } }, scope: 'regular' })})`)
     for (const [host, expected] of [
       ['example.co.uk', 'PROXY'], ['deep.api.example.com', 'PROXY'], ['a.example.com.br', 'PROXY'],
       ['other.co.uk', 'DIRECT'], ['www.example.com', 'DIRECT'], ['badexample.com.br', 'DIRECT'],
+      ['printer.local', 'DIRECT'], ['router', 'DIRECT'],
     ]) {
       assert.equal(await evaluate(`fetch(${JSON.stringify(`http://${host}:${origin.address().port}/`)}).then(response => response.text())`), expected, host)
     }

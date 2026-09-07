@@ -95,6 +95,19 @@ function fixture(options = {}) {
 const response = data => ({ ok: true, json: async () => data })
 
 for (const firefox of [false, true]) {
+  for (const host of ['192.168.1.1', '[64:ff9b:1::a00:1]', 'router.local']) {
+    test(`local services never retry through a remote proxy: ${host}, Firefox=${firefox}`, async () => {
+      let calls = 0
+      const state = fixture({ firefox, fetch: async () => { calls++; throw new Error('offline') } })
+      await assert.rejects(state.load('service-request').requestService(`http://${host}/registry.json`, Array.isArray),
+        /Local services cannot use proxy retry/)
+      assert.equal(calls, 1)
+      assert.equal(state.storage.serviceRouteSnapshot, undefined)
+    })
+  }
+}
+
+for (const firefox of [false, true]) {
   test(`direct-first exact-host routing and restoration (${firefox ? 'Firefox' : 'Chrome'})`, async () => {
     const state = fixture({ firefox, fetch: async (url, init, { route }) => {
       assert.equal(route('service.example'), 'DIRECT')

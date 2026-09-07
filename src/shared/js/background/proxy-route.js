@@ -1,4 +1,5 @@
 import browser from './browser-api'
+import { isPrivateHost } from './private-host'
 
 let queue = Promise.resolve()
 let revision = 0
@@ -75,6 +76,9 @@ export const restoreServiceRoute = async () => {
 
 // Caller holds the lock until the request and restoration have finished.
 export const setServiceRoute = async (hostname, route) => {
+  if (route !== 'DIRECT' && isPrivateHost(hostname)) {
+    throw new Error('Local services cannot use proxy retry')
+  }
   if (!await proxyAllowed()) {
     throw new Error('Service routing unavailable: proxy disabled or not controlled')
   }
