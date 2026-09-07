@@ -22,11 +22,13 @@ import { describeProxyRoute } from './proxy-info'
 import { updateProxyList } from './proxy-list'
 import { registerProxyRecovery } from './proxy-recovery'
 import { proxyAllowed, withProxyLock } from './proxy-route'
+import { getRegistrySourceState, refreshRegistrySource, registerRegistrySource, updateRegistrySource } from './registry-source'
 import { synchronizeInBackground } from './server'
 import Settings from './settings'
 import { changeSiteRule } from './site-rules'
 
 registerProxyAuth()
+registerRegistrySource()
 registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
 registerProxyRecovery().catch(() => console.warn('Could not schedule proxy recovery'))
 
@@ -46,6 +48,9 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  registrySourceState: getRegistrySourceState,
+  updateRegistrySource,
+  refreshRegistrySource: () => refreshRegistrySource(),
   proxyRouteInfo: describeProxyRoute,
   siteCountryRule: (args) => withProxyLock(async () => {
     const { siteCountryRules } = await browser.storage.local.get({

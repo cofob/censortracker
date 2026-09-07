@@ -1,6 +1,7 @@
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
+import { refreshRegistrySource } from './registry-source'
 import {
   GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
   validCountry, validDomains, validORI, validProxies,
@@ -200,6 +201,7 @@ export const synchronizeInBackground = (options = {}) => {
       const config = await fetchConfig()
 
       await run(() => fetchRegistry(config))
+      await run(() => refreshRegistrySource({ automatic: true }))
       await run(async () => {
         const { data } = await requestService(ORI_URL, validORI)
 

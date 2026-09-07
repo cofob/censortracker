@@ -1,5 +1,6 @@
 import browser from './browser-api'
 import { findHostMatch } from './host-match'
+import { externalRegistryDomains, registrySourceDefaults } from './registry-source-data'
 import {
   extractDomainFromUrl,
   extractHostnameFromUrl,
@@ -15,15 +16,20 @@ class Registry {
       domains,
       useRegistry,
       customProxiedDomains,
+      registrySource,
+      externalRegistry,
     } = await browser.storage.local.get({
       domains: [],
       useRegistry: true,
       customProxiedDomains: [],
+      registrySource: registrySourceDefaults,
+      externalRegistry: null,
     })
 
     return [
       ...(useRegistry ? domains : []),
       ...customProxiedDomains,
+      ...externalRegistryDomains({ registrySource, externalRegistry }),
     ]
   }
 
@@ -79,17 +85,23 @@ class Registry {
       domains,
       ignoredHosts,
       customProxiedDomains,
+      registrySource,
+      externalRegistry,
     } = await browser.storage.local.get({
       domains: [],
       ignoredHosts: [],
       customProxiedDomains: [],
+      registrySource: registrySourceDefaults,
+      externalRegistry: null,
     })
 
     const matches = (names) => Boolean(findHostMatch(domain,
       new Set(names.map(extractHostnameFromUrl))))
 
     return {
-      blocked: matches(domains),
+      blocked: matches(domains) || matches(externalRegistryDomains({
+        registrySource, externalRegistry,
+      })),
       custom: matches(customProxiedDomains),
       ignored: matches(ignoredHosts),
     }

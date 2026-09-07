@@ -25,7 +25,14 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)))
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'ct-pac-test-'))
   let directHits = 0
-  const origin = createServer((request, response) => { directHits++; response.end('DIRECT') })
+  let registryHits = 0
+  const origin = createServer((request, response) => {
+    directHits++
+    if (request.url.startsWith('/registry-list')) {
+      registryHits++
+      response.end('external.example\ncdn.example.co.uk')
+    } else response.end('DIRECT')
+  })
   let authHits = 0
   const proxyHandler = (request, response) => {
     if (request.url.includes('auth.example')) {
@@ -321,6 +328,23 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelector('#siteRuleSave').disabled === false")
     await evaluate("document.querySelectorAll('#siteRuleRows button')[1].click()")
     await until("document.querySelector('#siteRuleRows').children.length === 0")
+    await evaluate("chrome.storage.local.set({useRegistry: true, domains: ['builtin-only.example'], customProxiedDomains: ['manual.example']})")
+    await evaluate("location.href = chrome.runtime.getURL('registry.html')")
+    await until("document.querySelector('#registrySourceSave')?.disabled === false")
+    assert.equal(await evaluate("document.querySelector('#registrySourceOptions').open"), false)
+    assert.equal(await evaluate("document.querySelector('#registrySourceEnabled').checked || document.querySelector('#registrySourceAutoUpdate').checked"), false)
+    await evaluate(`document.querySelector('#registrySourceUrl').value = 'http://registry-source.example:${origin.address().port}/registry-list'; document.querySelector('#registrySourceForm').requestSubmit()`)
+    await until("chrome.storage.local.get('registrySource').then(data => data.registrySource?.url.includes('/registry-list'))")
+    await until("document.querySelector('#registrySourceSave').disabled === false")
+    assert.equal(registryHits, 0, 'Saving a source without automatic updates must not download it')
+    await evaluate("document.querySelector('#registrySourceEnabled').checked = true; document.querySelector('#registrySourceRefresh').click()")
+    await until("document.querySelector('#registrySourceStatus').textContent.includes('Cached domains: 2')")
+    assert.equal(registryHits, 1)
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
+    await evaluate("document.querySelector('#useRegistryCheckbox').click()")
+    await until("chrome.storage.local.get('useRegistry').then(data => data.useRegistry === false)")
+    assert.deepEqual(await evaluate("chrome.storage.local.get('domains').then(data => data.domains)"), ['builtin-only.example'])
+    assert.deepEqual(await evaluate("chrome.storage.local.get('externalRegistry').then(data => data.externalRegistry.domains)"), ['external.example', 'cdn.example.co.uk'])
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

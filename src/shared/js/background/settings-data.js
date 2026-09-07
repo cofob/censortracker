@@ -2,6 +2,7 @@ import { normalizeHostname } from './hostname'
 import { parseProxyAddress, proxyProtocols } from './proxy-address'
 import { proxyStateFromSettings } from './proxy-record'
 import { validateSubscriptions } from './proxy-source'
+import { registrySourceDefaults, validateRegistrySource } from './registry-source-data'
 import { validateSiteRules } from './site-rules'
 
 export const settingsDefaults = {
@@ -13,6 +14,7 @@ export const settingsDefaults = {
   proxySubscriptionsEnabled: false,
   proxyRecoveryEnabled: false,
   useRegistry: true,
+  registrySource: registrySourceDefaults,
   showNotifications: true,
   useOwnProxy: false,
   useLocalProxy: false,
@@ -43,7 +45,10 @@ export const validateSettings = (input) => {
   for (const [key, value] of Object.entries(settings)) {
     let valid = true
 
-    if (key === 'siteCountryRules') {
+    if (key === 'registrySource') {
+      result[key] = validateRegistrySource(value)
+      continue
+    } else if (key === 'siteCountryRules') {
       result[key] = validateSiteRules(value)
       continue
     } else if (key === 'proxySubscriptions') {

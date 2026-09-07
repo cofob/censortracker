@@ -1,4 +1,31 @@
 {
+  "registrySourceTitle": {
+    "message": "External registry (optional)"
+  },
+  "registrySourceHelp": {
+    "message": "Download a JSON array, a JSON object with a domains array, or a text list with one hostname per line. This list is separate from manual site rules. It adds to the built-in registry; turn the built-in registry off to use only this list. Downloads use current routing and send your IP to the source. Files are limited to 32 MB and downloads to 30 seconds. Failed or empty downloads keep the last valid list."
+  },
+  "registrySourceUrl": {
+    "message": "Registry URL"
+  },
+  "registrySourceEnabled": {
+    "message": "Use this downloaded list"
+  },
+  "registrySourceAutoUpdate": {
+    "message": "Update automatically with the registry (every 15 minutes while the extension and proxy use are enabled)"
+  },
+  "registrySourceRefresh": {
+    "message": "Save and download now"
+  },
+  "registrySourceStatus": {
+    "message": "Cached domains: $1. Last valid download: $2."
+  },
+  "registrySourceNotDownloaded": {
+    "message": "not downloaded"
+  },
+  "registrySourceError": {
+    "message": "Could not save or download this source. Check its URL and format. The last valid list was not deleted."
+  },
   "popupRouteProxy": {
     "message": "Planned proxy: $1"
   },

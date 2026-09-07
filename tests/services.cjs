@@ -519,11 +519,12 @@ for (const code of ['RU', 'BY']) {
       } } },
     })
     let selectCountry
-    vm.runInNewContext(handler, {
+    await vm.runInNewContext('(async () => {' + handler + '})()', {
       options: [{ addEventListener: (event, fn) => { selectCountry = fn } }],
       select: { classList: { remove() {} } }, currentOption: { dataset: {} },
       browser: state.browser, console: { debug() {} },
       server: { synchronize: options => state.load('server').synchronizeInBackground({ ...options, syncProxy: false }) },
+      mountRegistrySource: async () => {},
     })
     await selectCountry({ target: { dataset: { value: code }, textContent: code } })
     assert.equal(state.storage.currentRegionCode, code)

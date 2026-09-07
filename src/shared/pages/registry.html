@@ -59,6 +59,22 @@
           </div>
         </div>
       </div>
+      <details class="option" id="registrySourceOptions">
+        <summary data-i18n-key="registrySourceTitle"></summary>
+        <p class="main-page__about" data-i18n-key="registrySourceHelp"></p>
+        <form id="registrySourceForm">
+          <label for="registrySourceUrl" data-i18n-key="registrySourceUrl"></label>
+          <input id="registrySourceUrl" type="url" class="input-proxy" maxlength="4096" autocomplete="off" placeholder="https://">
+          <p><label><input id="registrySourceEnabled" type="checkbox">
+            <span data-i18n-key="registrySourceEnabled"></span></label></p>
+          <p><label><input id="registrySourceAutoUpdate" type="checkbox">
+            <span data-i18n-key="registrySourceAutoUpdate"></span></label></p>
+          <button type="submit" id="registrySourceSave" data-i18n-key="saveCustomProxyButton" disabled></button>
+          <button type="button" id="registrySourceRefresh" data-i18n-key="registrySourceRefresh" disabled></button>
+        </form>
+        <p id="registrySourceStatus" role="status"></p>
+        <p id="registrySourceError" role="alert" data-i18n-key="registrySourceError" hidden></p>
+      </details>
       <div id="registry-select-source" hidden>
         <div id="proxyCustomOptionsRadioGroup" class="radio-buttons-group">
           <div class="radio-button">

@@ -80,7 +80,8 @@ export const mountProxyInfo = async (url) => {
       'selectedProxyIds', 'proxyServerURI', 'proxyChecks', 'proxyFailures',
       'siteCountryRules', 'ignoredHosts', 'domains', 'useRegistry',
       'customProxiedDomains', 'localProxyURI', 'currentRegionName',
-      'activeProxyConfigName'].some((key) => changes[key])) {
+      'activeProxyConfigName', 'registrySource', 'externalRegistry']
+      .some((key) => changes[key])) {
       schedule()
     }
   })

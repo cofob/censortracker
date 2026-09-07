@@ -1,7 +1,11 @@
+import './page-errors'
+
 import browser from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
 import Registry from 'Background/registry'
 import * as server from 'Background/server'
+
+import { mountRegistrySource } from './registry-source'
 
 (async () => {
   const select = document.querySelector('.select')
@@ -32,10 +36,7 @@ import * as server from 'Background/server'
       await server.synchronize()
     } else {
       selectRegion.classList.add('hidden')
-      await Registry.clearRegistry()
       await Registry.disableRegistry()
-      await ProxyManager.removeProxy()
-      await browser.storage.local.set({ currentRegionName: '' })
     }
 
     await ProxyManager.setProxy()
@@ -75,4 +76,5 @@ import * as server from 'Background/server'
       console.debug(`Region changed to ${countryName}`)
     })
   }
+  await mountRegistrySource()
 })()
