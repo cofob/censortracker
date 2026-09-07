@@ -4,6 +4,7 @@ import Ignore from './ignore'
 import ProxyManager from './proxy'
 import { refreshNextSubscription, SUBSCRIPTION_ALARM } from './proxy-importer'
 import { recoverProxy, RECOVERY_ALARM, retryFailedProxies } from './proxy-recovery'
+import { withProxyLock } from './proxy-route'
 import Registry from './registry'
 import * as server from './server'
 import Settings from './settings'
@@ -93,92 +94,59 @@ export const handleStartup = async () => {
 }
 
 export const handleIgnoredHostsChange = async (
-  { ignoredHosts = {} } = {},
-  _areaName,
+  { ignoredHosts } = {},
+  areaName,
 ) => {
-  if ('newValue' in ignoredHosts) {
-    ProxyManager.isEnabled().then((enabled) => {
-      if (enabled) {
-        ProxyManager.setProxy().then((proxySet) => {
-        })
-      }
-    })
+  if ((areaName && areaName !== 'local') || !ignoredHosts) {
+    return
+  }
+  if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+    await ProxyManager.setProxy()
   }
 }
 
 export const handleCustomProxiedDomainsChange = async (
-  { customProxiedDomains: { newValue } = {} } = {},
-  _areaName,
+  { customProxiedDomains } = {},
+  areaName,
 ) => {
-  Settings.extensionEnabled().then((enableExtension) => {
-    if (enableExtension && newValue) {
-      ProxyManager.isEnabled().then(async (proxyingEnabled) => {
-        if (proxyingEnabled) {
-          await ProxyManager.setProxy()
-        }
-      })
-    }
-  })
+  if ((areaName && areaName !== 'local') || !customProxiedDomains) {
+    return
+  }
+  if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+    await ProxyManager.setProxy()
+  }
 }
 
 /**
  * Fired when one or more items change.
  * @param changes Object describing the change. This contains one property for each key that changed.
- * @param _areaName The name of the storage area ("sync", "local") to which the changes were made.
+ * @param areaName The storage area in which the changes were made.
  */
 export const handleStorageChanged = async (
-  { enableExtension, useProxy },
-  _areaName,
+  { enableExtension, useProxy } = {},
+  areaName,
 ) => {
-  if (enableExtension || useProxy) {
-    if (enableExtension) {
-      const enableExtensionNewValue = enableExtension.newValue
-      const enableExtensionOldValue = enableExtension.oldValue
-
-      console.log(
-        `enableExtension: ${enableExtensionOldValue} -> ${enableExtensionNewValue}`,
-      )
-
-      browser.tabs.query({}).then((tabs) => {
-        for (const { id } of tabs) {
-          if (enableExtensionNewValue) {
-            Settings.setDefaultIcon(id)
-          } else {
-            Settings.setDisableIcon(id)
-          }
-        }
-      })
-
-      if (
-        enableExtensionNewValue === true &&
-        enableExtensionOldValue === false
-      ) {
-        await ProxyManager.setProxy()
-      }
-
-      if (
-        enableExtensionNewValue === false &&
-        enableExtensionOldValue === true
-      ) {
-        await ProxyManager.disableProxy()
-        await ProxyManager.removeProxy()
-      }
+  if ((areaName && areaName !== 'local') || (!enableExtension && !useProxy)) {
+    return
+  }
+  // Read current choices inside the queue; old events must not undo new choices.
+  await withProxyLock(async () => {
+    if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+      await ProxyManager.setProxyInBackground()
+    } else {
+      await ProxyManager.removeProxyInBackground()
     }
+  })
 
-    if (useProxy && enableExtension === undefined) {
-      const useProxyNewValue = useProxy.newValue
-      const useProxyOldValue = useProxy.oldValue
-      const extensionEnabled = await Settings.extensionEnabled()
+  if (enableExtension) {
+    const tabs = await browser.tabs.query({})
+    const enabled = await Settings.extensionEnabled()
 
-      if (extensionEnabled) {
-        if (useProxyNewValue === true && useProxyOldValue === false) {
-          await ProxyManager.setProxy()
-        }
-
-        if (useProxyNewValue === false && useProxyOldValue === true) {
-          await ProxyManager.disableProxy()
-          await ProxyManager.removeProxy()
-        }
+    for (const { id } of tabs) {
+      if (enabled) {
+        Settings.setDefaultIcon(id)
+      } else {
+        Settings.setDisableIcon(id)
       }
     }
   }

@@ -145,7 +145,7 @@ test('extension updates and navigation keep disabled settings disabled', async (
     proxy: { default: { isEnabled: async () => true, setProxy: async () => calls.push('set'), ping: async () => calls.push('ping') } },
     task: { default: { schedule: async () => calls.push('schedule') } },
     server: { synchronize: async () => calls.push('sync') },
-    'proxy-importer': {}, 'proxy-recovery': {},
+    'proxy-importer': {}, 'proxy-recovery': {}, 'proxy-route': {},
   })
   await handlers.handleInstalled({ reason: 'update' })
   await handlers.handleBeforeRequest({})

@@ -483,6 +483,18 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'}).then(result => {if (result.error) throw new Error(result.error); return result.value})")
     assert.equal(await evaluate(`fetch('http://site659999.large-registry.example:${origin.address().port}/large').then(response => response.text())`), 'PROXY')
     assert.equal(await evaluate(`fetch('http://unlisted.large-registry.example:${origin.address().port}/large').then(response => response.text())`), 'DIRECT')
+    await evaluate('chrome.storage.local.set({enableExtension: false, useProxy: true})')
+    await until("chrome.proxy.settings.get({}).then(data => data.value.mode !== 'pac_script')")
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), true,
+      'A global switch change must not overwrite the saved proxy choice')
+    await evaluate('chrome.storage.local.set({enableExtension: true, useProxy: true})')
+    await until("chrome.proxy.settings.get({}).then(data => data.value.mode === 'pac_script')")
+    await evaluate('chrome.storage.local.set({enableExtension: false, useProxy: false})')
+    await until("chrome.proxy.settings.get({}).then(data => data.value.mode !== 'pac_script')")
+    await evaluate('chrome.storage.local.set({enableExtension: true, useProxy: true})')
+    await until("chrome.proxy.settings.get({}).then(data => data.value.mode === 'pac_script')")
+    await evaluate("chrome.storage.local.remove('enableExtension')")
+    await until("chrome.proxy.settings.get({}).then(data => data.value.mode !== 'pac_script')")
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {
