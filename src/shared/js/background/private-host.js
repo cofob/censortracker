@@ -21,7 +21,8 @@ export const isPrivateHost = (hostname) => {
       return privateIPv4(host.split('.').map(Number))
     }
     return !host.includes('.') ||
-      /(?:^|\.)(?:localhost|local|lan|home|internal|home\.arpa)$/.test(host)
+      /(?:^|\.)(?:localhost|local|lan|home|internal|home\.arpa)$/.test(host) ||
+      /(?:^|\.)(?:localdomain|intranet|corp|private|test|invalid)$/.test(host)
   }
 
   // Expand compressed IPv6 and dotted IPv4 tails without a DNS lookup.

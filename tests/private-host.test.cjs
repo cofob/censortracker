@@ -35,3 +35,31 @@ test('PAC bypass takes priority over explicit proxy rules', () => {
     assert.match(context.FindProxyForURL('', host), /^HTTPS/)
   }
 })
+
+test('local network suffixes bypass proxies in normal and proxy-all modes', () => {
+  const { getPacScript } = load('background/pac')
+  const { createRouter, routingConfig } = load('background/routing')
+  const { findHostMatch } = load('background/host-match')
+  const local = ['localdomain', 'intranet', 'corp', 'private', 'test', 'invalid']
+    .map(suffix => `service.${suffix}`)
+  const publicHosts = ['localdomain.com', 'corp.example', 'notprivate.example', 'app.test.example']
+  for (const proxyAll of [false, true]) {
+    const options = { proxyAll, domains: [...local, ...publicHosts],
+      proxies: [{ id: 'one', protocol: 'HTTPS', host: 'proxy.example', port: 443 }] }
+    const router = createRouter(routingConfig(options), findHostMatch, isPrivateHost)
+    const scope = {}
+    vm.runInNewContext(getPacScript(options), scope)
+    for (const host of local) {
+      for (const name of [host, `NESTED.${host.toUpperCase()}.`]) {
+        assert.equal(isPrivateHost(name), true, name)
+        assert.equal(router(name).route, 'DIRECT', name)
+        assert.equal(scope.FindProxyForURL('', name), 'DIRECT', name)
+      }
+    }
+    for (const host of publicHosts) {
+      assert.equal(isPrivateHost(host), false, host)
+      assert.match(router(host).route, /^HTTPS/, host)
+      assert.match(scope.FindProxyForURL('', host), /^HTTPS/, host)
+    }
+  }
+})
