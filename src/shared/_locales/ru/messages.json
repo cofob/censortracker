@@ -1,4 +1,9 @@
 {
+  "proxyAdd": { "message": "Добавить прокси" },
+  "proxyEditTitle": { "message": "Редактировать прокси" },
+  "proxyNameOptional": { "message": "Название (необязательно)" },
+  "proxyProtocol": { "message": "Протокол" },
+  "proxyNoMatches": { "message": "Нет прокси, подходящих под эти фильтры." },
   "relatedDomainsSaveError": {
     "message": "Не удалось сохранить или применить правила. Некоторые домены уже могли сохраниться. Проверьте настройки прокси перед повторной попыткой."
   },

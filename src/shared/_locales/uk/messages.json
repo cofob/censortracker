@@ -1,4 +1,9 @@
 {
+  "proxyAdd": { "message": "Додати проксі" },
+  "proxyEditTitle": { "message": "Редагувати проксі" },
+  "proxyNameOptional": { "message": "Назва (необов’язково)" },
+  "proxyProtocol": { "message": "Протокол" },
+  "proxyNoMatches": { "message": "Немає проксі, що відповідають цим фільтрам." },
   "relatedDomainsSaveError": {
     "message": "Не вдалося зберегти або застосувати правила. Деякі домени вже могли зберегтися. Перевірте налаштування проксі перед повторною спробою."
   },

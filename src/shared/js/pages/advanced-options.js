@@ -22,6 +22,10 @@ import { mountSiteRules } from './site-rules'
   const resetSettingsToDefaultBtn = document.getElementById('resetSettingsToDefault')
   const exportSettingsBtn = document.getElementById('exportSettings')
   const importSettingsInput = document.getElementById('importSettingsInput')
+
+  document.getElementById('importSettings').addEventListener('click', () => {
+    importSettingsInput.click()
+  })
   const proxyAll = document.getElementById('proxyAll')
 
   proxyAll.checked = (await browser.storage.local.get({ proxyAll: false }))

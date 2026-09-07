@@ -138,6 +138,47 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
       }
       assert.fail(`Page did not update: ${expression}`)
     }
+    const checkSettingsLayout = async (name, expanded) => {
+      const previous = await evaluate('Array.from(document.querySelectorAll("details"), node => [node.id, node.open])')
+      await evaluate(`${JSON.stringify(expanded)}.forEach(id => { document.getElementById(id).open = true })`)
+      for (const theme of ['light', 'dark']) {
+        await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] })
+        for (const width of [1200, 760, 360, 320]) {
+          await command('Emulation.setDeviceMetricsOverride', { width, height: 1050, deviceScaleFactor: 1, mobile: false })
+          const layout = await evaluate(`(() => {
+            const visible = node => node.getBoundingClientRect().height > 0;
+            const fields = Array.from(document.querySelectorAll('.settings-field')).filter(visible);
+            const buttons = Array.from(document.querySelectorAll('.settings-section button')).filter(visible);
+            return {
+              overflow: document.documentElement.scrollWidth > innerWidth,
+              fields: fields.length,
+              labelsAbove: fields.every(field => {
+                const label = field.querySelector('label').getBoundingClientRect();
+                const input = field.querySelector('input, select, textarea').getBoundingClientRect();
+                return label.bottom <= input.top && input.right <= innerWidth;
+              }),
+              readableButtons: buttons.every(button => button.getBoundingClientRect().height >= 36),
+              labelWeights: fields.every(field => Number(getComputedStyle(field.querySelector('label')).fontWeight) <= 600),
+            };
+          })()`)
+          assert.ok(layout.fields > 0, name)
+          assert.deepEqual({ ...layout, fields: 0 }, { overflow: false, fields: 0, labelsAbove: true, readableButtons: true, labelWeights: true }, `${name}, ${theme}, ${width}px`)
+          if (global.process.env.CT_SETTINGS_SCREENSHOTS && width !== 320) {
+            if (name === 'proxies') {
+              await evaluate("['proxyFilters', 'proxyCheckOptions', 'proxyAuthOptions', 'proxyImportOptions'].forEach(id => { document.getElementById(id).open = false })")
+            }
+            await evaluate('scrollTo(0, 0)')
+            await new Promise(resolve => setTimeout(resolve, 160))
+            const { data } = await command('Page.captureScreenshot', { captureBeyondViewport: false })
+            await fs.writeFile(path.join(global.process.env.CT_SETTINGS_SCREENSHOTS, `${name}-${theme}-${width}.png`), Buffer.from(data, 'base64'))
+            await evaluate(`${JSON.stringify(expanded)}.forEach(id => { document.getElementById(id).open = true })`)
+          }
+        }
+      }
+      await evaluate(`${JSON.stringify(previous)}.forEach(([id, open]) => { document.getElementById(id).open = open })`)
+      await command('Emulation.clearDeviceMetricsOverride', {})
+      await command('Emulation.setEmulatedMedia', { features: [] })
+    }
     await new Promise(resolve => setTimeout(resolve, 1000))
     const { getPacScript } = load('background/pac')
     const data = getPacScript({ domains: ['example.co.uk', 'api.example.com', 'example.com.br', 'printer.local', 'router'],
@@ -246,7 +287,21 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
     assert.equal(await evaluate("document.querySelector('#proxyListOptions').open"), false)
-    await evaluate(`document.querySelector('#proxyName').value = '<img src=x onerror=alert(1)>'; document.querySelector('#proxyServerInput').value = '127.0.0.1:${proxy.address().port}'; document.querySelector('#select-toggle').textContent = 'HTTP'; document.querySelector('#proxyUsername').value = 'alice'; document.querySelector('#proxyPassword').value = 'secret'; document.querySelector('#proxyForm').requestSubmit()`)
+    assert.equal(await evaluate("document.querySelector('#proxyPagination').hidden"), true)
+    await evaluate("document.querySelector('#useProxyCheckbox').click()")
+    await until("chrome.storage.local.get('useProxy').then(data => data.useProxy === true)")
+    await checkSettingsLayout('proxies', ['proxyListOptions', 'proxyFilters', 'proxyCheckOptions', 'proxyAuthOptions', 'proxyImportOptions'])
+    await command('Page.bringToFront', {})
+    await evaluate("document.querySelector('#useDefaultProxy').focus()")
+    assert.equal(await evaluate('document.activeElement.id'), 'useDefaultProxy', 'Proxy mode must be keyboard-accessible')
+    await evaluate("document.querySelector('#proxyListOptions').open = true; document.querySelector('#select-toggle').focus()")
+    await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35 })
+    await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'End', code: 'End', windowsVirtualKeyCode: 35 })
+    assert.equal(await evaluate("document.querySelector('#select-toggle').value"), 'SOCKS4')
+    await evaluate("document.querySelector('#select-toggle').value = 'HTTPS'; document.querySelector('#proxyListOptions').open = false")
+    await evaluate("document.querySelector('#useProxyCheckbox').click()")
+    await until("chrome.storage.local.get('useProxy').then(data => data.useProxy === false)")
+    await evaluate(`document.querySelector('#proxyName').value = '<img src=x onerror=alert(1)>'; document.querySelector('#proxyServerInput').value = '127.0.0.1:${proxy.address().port}'; document.querySelector('#select-toggle').value = 'HTTP'; document.querySelector('#proxyUsername').value = 'alice'; document.querySelector('#proxyPassword').value = 'secret'; document.querySelector('#proxyForm').requestSubmit()`)
     await until("document.querySelectorAll('#proxyRows tr').length === 2")
     assert.equal(await evaluate("document.querySelector('#proxyRows img') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyRows').textContent.includes('secret')"), false)
@@ -259,6 +314,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.deepEqual(await evaluate("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds)"), ['builtin'])
     await evaluate("document.querySelector('#proxyFilterServer').add(new Option('DE', 'DE')); document.querySelector('#proxyFilterServer').value = 'DE'; document.querySelector('#proxyFilterServer').dispatchEvent(new Event('change', {bubbles: true}))")
     assert.equal(await evaluate("document.querySelectorAll('#proxyRows tr').length"), 0)
+    assert.equal(await evaluate("document.querySelector('#proxyNoMatches').hidden"), false)
     assert.equal(await evaluate("document.querySelector('#proxyPrevious').disabled && document.querySelector('#proxyNext').disabled && document.querySelector('#proxyRemoveFiltered').disabled"), true)
     await evaluate("document.querySelector('#proxyFilterExit').value = ''; document.querySelector('#proxyFilterServer').value = ''; document.querySelector('#proxyFilterExit').dispatchEvent(new Event('change', {bubbles: true}))")
     if (global.process.env.CT_BROWSER_SCREENSHOT) {
@@ -273,8 +329,13 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await evaluate("document.querySelectorAll('#proxyRows input')[1].click()")
     await until("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds.length === 2)")
     await until("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').disabled === false")
-    await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click(); document.querySelector('#proxyName').value = 'Renamed'; document.querySelector('#proxyForm').requestSubmit()")
+    await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click()")
+    assert.equal(await evaluate("document.querySelector('#proxyFormTitle').textContent"), 'Edit proxy')
+    assert.equal(await evaluate("document.querySelector('#select-toggle').value"), 'HTTP')
+    await evaluate("document.querySelector('#proxyName').value = 'Renamed'; document.querySelector('#proxyForm').requestSubmit()")
     await until("document.querySelector('#proxyRows').textContent.includes('Renamed')")
+    assert.equal(await evaluate("document.querySelector('#proxyFormTitle').textContent"), 'Add a proxy')
+    assert.equal(await evaluate("document.querySelector('#select-toggle').value"), 'HTTPS')
     assert.equal(await evaluate("document.querySelector('#proxyRows').textContent.includes('Available')"), true)
     await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click(); document.querySelector('#proxyPassword').value = 'changed'; document.querySelector('#proxyForm').requestSubmit()")
     await until("!document.querySelector('#proxyRows').textContent.includes('Available')")
@@ -305,6 +366,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'proxies', args: {operation: 'append', proxies: Array.from({length: 205}, (_, i) => ({id: 'bulk-' + i, name: 'Bulk ' + i, protocol: 'HTTP', host: 'bulk' + i + '.example', port: 8080}))}})")
     await evaluate("location.reload()")
     await until("document.querySelectorAll('#proxyRows tr').length === 100")
+    assert.equal(await evaluate("document.querySelector('#proxyPagination').hidden"), false)
     await evaluate("document.querySelectorAll('#proxyRows input')[1].click()")
     await until("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds.length === 2)")
     await until("document.querySelector('#proxyNext').disabled === false")
@@ -328,6 +390,12 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelector('#proxyAll')?.checked === true")
     await until("document.querySelector('#siteRuleSave')?.disabled === false")
     assert.equal(await evaluate("document.querySelector('#siteRuleOptions').open"), false)
+    await checkSettingsLayout('advanced', ['siteRuleOptions'])
+    await command('Page.bringToFront', {})
+    await evaluate("document.querySelector('#importSettingsInput').addEventListener('click', event => { event.preventDefault(); window.importClicked = true }, {once: true}); document.querySelector('#importSettings').focus()")
+    await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' })
+    await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
+    assert.equal(await evaluate('window.importClicked'), true, 'Import must work from the keyboard')
     await evaluate("document.querySelector('#siteRuleHost').value = 'ПРИМЕР.РФ'; document.querySelector('#siteRuleCountries').value = 'ru, cn'; document.querySelector('#siteRuleForm').requestSubmit()")
     await until("document.querySelector('#siteRuleRows').textContent.includes('xn--e1afmkfd.xn--p1ai')")
     assert.deepEqual(await evaluate("chrome.storage.local.get('siteCountryRules').then(data => data.siteCountryRules['xn--e1afmkfd.xn--p1ai'])"), ['RU', 'CN'])
@@ -358,6 +426,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await evaluate("location.href = chrome.runtime.getURL('registry.html')")
     await until("document.querySelector('#registrySourceSave')?.disabled === false")
     assert.equal(await evaluate("document.querySelector('#registrySourceOptions').open"), false)
+    await checkSettingsLayout('registry', ['registrySourceOptions'])
     assert.equal(await evaluate("document.querySelector('#registrySourceEnabled').checked || document.querySelector('#registrySourceAutoUpdate').checked"), false)
     await evaluate("document.querySelector('#registrySourceKind').value = 'anticensority'; document.querySelector('#registrySourceKind').dispatchEvent(new Event('change'))")
     assert.equal(await evaluate("document.querySelector('#registrySourceUrl').readOnly && document.querySelector('#registrySourceUrl').value.startsWith('https://raw.githubusercontent.com/anticensority/')"), true)

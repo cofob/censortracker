@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/options.css"/>
 </head>
 
-<body>
+<body class="settings-page">
 <div class="main-container">
   <div class="main-page">
     <div class="main-page__image">
@@ -30,49 +30,56 @@
       <div class="main-page__title page-main-title" data-i18n-key="advancedOptionsTitle"></div>
 
       <div class="option">
-        <label><input type="checkbox" id="proxyAll" disabled>
-          <span data-i18n-key="proxyAllTitle"></span>
-        </label>
-        <div class="main-page__about" data-i18n-key="proxyAllDescription"></div>
+        <div class="main-page__turn">
+          <label for="proxyAll" class="toggle-text" data-i18n-key="proxyAllTitle"></label>
+          <input type="checkbox" class="toggle-button" id="proxyAll" aria-describedby="proxyAllDescription" disabled>
+        </div>
+        <div id="proxyAllDescription" class="main-page__about" data-i18n-key="proxyAllDescription"></div>
       </div>
 
+      <details class="option settings-section" id="siteRuleOptions">
+        <summary data-i18n-key="siteRulesTitle"></summary>
+        <p class="main-page__about" data-i18n-key="siteRulesHelp"></p>
+        <form id="siteRuleForm">
+          <div class="settings-field">
+            <label for="siteRuleHost" data-i18n-key="siteRuleHost"></label>
+            <input id="siteRuleHost" class="input-proxy" required maxlength="4096" placeholder="example.com">
+          </div>
+          <div class="settings-field">
+            <label for="siteRuleCountries" data-i18n-key="siteRuleCountries"></label>
+            <input id="siteRuleCountries" class="input-proxy" maxlength="2028" placeholder="RU, CN">
+          </div>
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-dark" id="siteRuleSave" data-i18n-key="saveCustomProxyButton" disabled></button>
+          </div>
+        </form>
+        <p id="siteRuleError" role="alert" data-i18n-key="siteRuleError" hidden></p>
+        <ul id="siteRuleRows" class="settings-list"></ul>
+      </details>
+
       <div class="option">
-        <label for="importSettingsInput" data-i18n-key="importSettingsTitle" id="importSettings" class="option__link"></label>
+        <button type="button" data-i18n-key="importSettingsTitle" id="importSettings" class="option__link settings-link"></button>
         <div data-i18n-key="importSettingsDesc" class="main-page__about"></div>
         <input id="importSettingsInput" class="hidden" accept="application/json" type="file">
       </div>
 
-      <details class="option" id="siteRuleOptions">
-        <summary data-i18n-key="siteRulesTitle"></summary>
-        <p class="main-page__about" data-i18n-key="siteRulesHelp"></p>
-        <form id="siteRuleForm">
-          <p><label for="siteRuleHost" data-i18n-key="siteRuleHost"></label></p>
-          <input id="siteRuleHost" class="input-proxy" required maxlength="4096" placeholder="example.com">
-          <p><label for="siteRuleCountries" data-i18n-key="siteRuleCountries"></label></p>
-          <input id="siteRuleCountries" class="input-proxy" maxlength="2028" placeholder="RU, CN">
-          <button type="submit" id="siteRuleSave" data-i18n-key="saveCustomProxyButton" disabled></button>
-        </form>
-        <p id="siteRuleError" role="alert" data-i18n-key="siteRuleError" hidden></p>
-        <ul id="siteRuleRows"></ul>
-      </details>
-
       <div class="option">
-        <div data-i18n-key="exportSettingsTitle" id="exportSettings" class="option__link"></div>
+        <button type="button" data-i18n-key="exportSettingsTitle" id="exportSettings" class="option__link settings-link"></button>
         <div data-i18n-key="exportSettingsDesc" class="main-page__about"></div>
       </div>
 
       <div class="option">
-        <div data-i18n-key="updateLocalRegistryTitle" id="updateLocalRegistry" class="option__link"></div>
+        <button type="button" data-i18n-key="updateLocalRegistryTitle" id="updateLocalRegistry" class="option__link settings-link"></button>
         <div data-i18n-key="updateLocalRegistryDesc" class="main-page__about"></div>
       </div>
 
       <div class="option">
-        <div data-i18n-key="resetToDefaultTitle" id="resetSettingsToDefault" class="option__link"></div>
+        <button type="button" data-i18n-key="resetToDefaultTitle" id="resetSettingsToDefault" class="option__link settings-link"></button>
         <div data-i18n-key="resetToDefaultDesc" class="main-page__about"></div>
       </div>
 
       <div class="option">
-        <div data-i18n-key="showDebugInfoTitle" id="showDebugInfo" class="option__link"></div>
+        <button type="button" data-i18n-key="showDebugInfoTitle" id="showDebugInfo" class="option__link settings-link"></button>
         <div data-i18n-key="showDebugInfoDesc" class="main-page__about"></div>
       </div>
 

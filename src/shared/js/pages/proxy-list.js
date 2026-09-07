@@ -9,6 +9,7 @@ export const mountProxyList = async () => {
   const root = document.getElementById('proxyListOptions')
   const rows = document.getElementById('proxyRows')
   const form = document.getElementById('proxyForm')
+  const formTitle = document.getElementById('proxyFormTitle')
   const nameInput = document.getElementById('proxyName')
   const addressInput = document.getElementById('proxyServerInput')
   const protocolInput = document.getElementById('select-toggle')
@@ -46,16 +47,17 @@ export const mountProxyList = async () => {
   const resetForm = () => {
     editingId = undefined
     form.reset()
-    protocolInput.textContent = 'HTTPS'
+    formTitle.textContent = message('proxyAdd')
     cancel.hidden = true
     authOptions.open = false
     restriction.hidden = true
   }
   const editProxy = (proxy) => {
     editingId = proxy.id
+    formTitle.textContent = message('proxyEditTitle')
     nameInput.value = proxy.name
     addressInput.value = `${proxy.host}:${proxy.port}`
-    protocolInput.textContent = proxy.protocol
+    protocolInput.value = proxy.protocol
     username.value = proxy.username || ''
     password.value = proxy.password || ''
     authOptions.open = hasProxyAuth(proxy)
@@ -154,12 +156,14 @@ export const mountProxyList = async () => {
       rows.append(row)
     }
     for (const control of root.querySelectorAll(
-      '#proxyRows input, #proxyRows button, #proxyForm input, #proxyForm button, #proxyFilters select',
+      '#proxyRows input, #proxyRows button, #proxyForm input, #proxyForm button, #proxyForm select, #proxyFilters select',
     )) {
       control.disabled = busy
     }
     previous.disabled = busy || page === 0
     next.disabled = busy || (page + 1) * 100 >= visible.length
+    document.getElementById('proxyPagination').hidden = visible.length <= 100
+    document.getElementById('proxyNoMatches').hidden = visible.length > 0
     removeFiltered.disabled = busy || !visible.some(({ id }) => id !== 'builtin')
   }
   const run = async (args) => {
@@ -194,7 +198,7 @@ export const mountProxyList = async () => {
         proxy: {
           id: editingId,
           name: nameInput.value.trim() || undefined,
-          protocol: protocolInput.textContent.trim(),
+          protocol: protocolInput.value,
           username: username.value,
           password: password.value,
           restricted: !unrestricted.checked,

@@ -1,4 +1,9 @@
 {
+  "proxyAdd": { "message": "Add a proxy" },
+  "proxyEditTitle": { "message": "Edit proxy" },
+  "proxyNameOptional": { "message": "Name (optional)" },
+  "proxyProtocol": { "message": "Protocol" },
+  "proxyNoMatches": { "message": "No proxies match these filters." },
   "relatedDomainsSaveError": {
     "message": "Could not save or apply the rules. Some domains may already be saved. Check proxy settings before retrying."
   },

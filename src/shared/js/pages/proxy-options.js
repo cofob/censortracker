@@ -20,9 +20,6 @@ import { mountProxyList } from './proxy-list'
   const useDefaultProxyRadioButton = document.getElementById('useDefaultProxy')
   const useLocalProxyRadioButton = document.getElementById('useLocalProxy')
   const proxyCustomOptionsRadioGroup = document.getElementById('proxyCustomOptionsRadioGroup')
-  const selectProxyProtocol = document.querySelector('.select')
-  const currentProxyProtocol = document.querySelector('#select-toggle')
-  const proxyProtocols = document.querySelectorAll('.select-option')
   const localProxyOptions = document.getElementById('localProxyOptions')
   const addLocalProxyButton = document.getElementById('addLocalProxyButton')
   const addLocalProxyPopup = document.getElementById('addLocalProxyPopup')
@@ -292,26 +289,6 @@ import { mountProxyList } from './proxy-list'
     }
   }, false)
 
-  document.addEventListener('click', (event) => {
-    if (event.target.id === 'select-toggle') {
-      selectProxyProtocol.classList.toggle('show-protocols')
-    }
-
-    if (!event.target.closest('.select')) {
-      for (const element of document.querySelectorAll('.show-protocols')) {
-        element.classList.remove('show-protocols')
-      }
-    }
-  })
-
-  for (const option of proxyProtocols) {
-    option.addEventListener('click', async (event) => {
-      selectProxyProtocol.classList.remove('show-protocols')
-
-      currentProxyProtocol.value = event.target.dataset.value
-      currentProxyProtocol.textContent = event.target.dataset.value
-    })
-  }
   const refreshProxies = await mountProxyList()
 
   await mountProxyImport(refreshProxies)

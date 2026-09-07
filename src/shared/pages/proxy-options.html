@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/options.css"/>
 </head>
 
-<body>
+<body class="settings-page">
 <div class="main-container">
   <div class="main-page">
     <div class="main-page__image">
@@ -48,28 +48,30 @@
                      checked>
               <label class="radio-button-label" for="useDefaultProxy" data-i18n-key="useSelectedProxies"></label>
             </div>
-            <p id="proxySelectionSummary"></p>
-            <details id="proxyListOptions">
-              <summary data-i18n-key="proxyManage"></summary>
+            <p id="proxySelectionSummary" class="main-page__about"></p>
+            <details id="proxyListOptions" class="settings-section">
+              <summary id="proxyManageTitle" data-i18n-key="proxyManage"></summary>
               <p class="main-page__about" data-i18n-key="proxyPoolHelp"></p>
-              <details id="proxyFilters">
+              <details id="proxyFilters" class="settings-section">
                 <summary data-i18n-key="proxyFilters"></summary>
-                <p><label for="proxyFilterServer" data-i18n-key="proxyServerCountry"></label>
-                  <select id="proxyFilterServer" name="serverCountry"></select></p>
-                <p><label for="proxyFilterExit" data-i18n-key="proxyExitCountry"></label>
-                  <select id="proxyFilterExit" name="exitCountry"></select></p>
-                <p><label for="proxySort" data-i18n-key="proxySort"></label>
+                <div class="settings-grid">
+                  <div class="settings-field"><label for="proxyFilterServer" data-i18n-key="proxyServerCountry"></label>
+                    <select id="proxyFilterServer" name="serverCountry"></select></div>
+                  <div class="settings-field"><label for="proxyFilterExit" data-i18n-key="proxyExitCountry"></label>
+                    <select id="proxyFilterExit" name="exitCountry"></select></div>
+                </div>
+                <div class="settings-field"><label for="proxySort" data-i18n-key="proxySort"></label>
                   <select id="proxySort" name="sort">
                     <option value="" data-i18n-key="proxySortDefault"></option>
                     <option value="name" data-i18n-key="proxySortName"></option>
                     <option value="latency" data-i18n-key="proxySortLatency"></option>
                     <option value="serverCountry" data-i18n-key="proxyServerCountry"></option>
                     <option value="exitCountry" data-i18n-key="proxyExitCountry"></option>
-                  </select></p>
+                  </select></div>
                 <p id="proxyFilteredCount" role="status"></p>
                 <button type="button" id="proxyRemoveFiltered" data-i18n-key="proxyRemoveFiltered"></button>
               </details>
-              <div class="proxy-table-scroll">
+              <div class="proxy-table-scroll" tabindex="0" role="region" aria-labelledby="proxyManageTitle">
                 <table class="proxy-table">
                   <thead><tr>
                     <th data-i18n-key="proxySelected"></th>
@@ -81,85 +83,106 @@
                   <tbody id="proxyRows"></tbody>
                 </table>
               </div>
-              <button type="button" id="proxyPrevious" data-i18n-key="proxyPrevious"></button>
-              <button type="button" id="proxyNext" data-i18n-key="proxyNext"></button>
+              <p id="proxyNoMatches" class="main-page__about" data-i18n-key="proxyNoMatches" hidden></p>
+              <div id="proxyPagination" class="settings-actions" hidden>
+                <button type="button" id="proxyPrevious" data-i18n-key="proxyPrevious"></button>
+                <button type="button" id="proxyNext" data-i18n-key="proxyNext"></button>
+              </div>
               <p id="proxyListError" role="alert" hidden></p>
-              <details id="proxyCheckOptions">
+              <details id="proxyCheckOptions" class="settings-section">
                 <summary data-i18n-key="proxyCheckTitle"></summary>
                 <p class="main-page__about" data-i18n-key="proxyCheckPrivacy"></p>
-                <p>
+                <label class="settings-check">
                   <input id="proxyRecoveryEnabled" type="checkbox">
-                  <label for="proxyRecoveryEnabled" data-i18n-key="proxyRecoveryEnabled"></label>
-                </p>
-                <button type="button" id="proxyCheckSelected" data-i18n-key="proxyCheckSelected"></button>
-                <button type="button" id="proxyCheckAll" data-i18n-key="proxyCheckAll"></button>
-                <button type="button" id="proxyCheckStop" data-i18n-key="proxyCheckStop" disabled></button>
+                  <span data-i18n-key="proxyRecoveryEnabled"></span>
+                </label>
+                <div class="settings-actions">
+                  <button type="button" id="proxyCheckSelected" data-i18n-key="proxyCheckSelected"></button>
+                  <button type="button" id="proxyCheckAll" data-i18n-key="proxyCheckAll"></button>
+                  <button type="button" id="proxyCheckStop" data-i18n-key="proxyCheckStop" disabled></button>
+                </div>
                 <p id="proxyCheckStatus" role="status"></p>
                 <p id="proxyCheckError" role="alert" data-i18n-key="proxyCheckError" hidden></p>
               </details>
-              <form id="proxyForm" class="proxy-options-inputs">
-                <label for="proxyName" data-i18n-key="proxyName"></label>
-                <input id="proxyName" type="text" maxlength="100" class="input-proxy">
-              <div class="select" id="selectProxyProtocol">
-                <button type="button" class="select-toggle" id="select-toggle">
-                  HTTPS
-                </button>
-                <div class="select-dropdown">
-                  <ul class="select-options">
-                    <li class="select-option" data-value="SOCKS4">SOCKS4</li>
-                    <li class="select-option" data-value="SOCKS5">SOCKS5</li>
-                    <li class="select-option" data-value="HTTP">HTTP</li>
-                    <li class="select-option" data-value="HTTPS">HTTPS</li>
-                  </ul>
+              <form id="proxyForm" class="settings-section" aria-labelledby="proxyFormTitle">
+                <h2 id="proxyFormTitle" data-i18n-key="proxyAdd"></h2>
+                <div class="settings-field">
+                  <label for="proxyName" data-i18n-key="proxyNameOptional"></label>
+                  <input id="proxyName" type="text" maxlength="100" class="input-proxy">
                 </div>
-              </div>
-
-              <label for="proxyServerInput" data-i18n-key="proxyAddress"></label>
-              <input type="text" required autocomplete="off" spellcheck="false"
-                     id="proxyServerInput"
-                     class="input-proxy"
-                     placeholder="hostname:port">
-
-              <details id="proxyAuthOptions">
-                <summary data-i18n-key="proxyAuthTitle"></summary>
-                <label for="proxyUsername" data-i18n-key="proxyUsername"></label>
-                <input id="proxyUsername" autocomplete="off" spellcheck="false" class="input-proxy">
-                <label for="proxyPassword" data-i18n-key="proxyPassword"></label>
-                <input id="proxyPassword" type="password" autocomplete="new-password" class="input-proxy">
-                <p class="main-page__about" data-i18n-key="proxyAuthPrivacy"></p>
-                <p id="proxySocksUnsupported" class="main-page__about" data-i18n-key="proxySocksUnsupported" hidden></p>
-              </details>
-              <p id="proxyRestriction" hidden>
-                <input id="proxyUnrestricted" type="checkbox" checked>
-                <label for="proxyUnrestricted" data-i18n-key="proxyUnrestricted"></label>
-              </p>
-              <button type="submit" class="btn btn-dark" id="saveCustomProxyButton">
-                <span class="btn__text" data-i18n-key="saveCustomProxyButton"></span>
-              </button>
-              <button type="button" id="cancelProxyEdit" data-i18n-key="cancel" hidden></button>
+                <div class="settings-grid">
+                  <div class="settings-field">
+                    <label for="select-toggle" data-i18n-key="proxyProtocol"></label>
+                    <select id="select-toggle">
+                      <option>HTTPS</option><option>HTTP</option><option>SOCKS5</option><option>SOCKS4</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="proxyServerInput" data-i18n-key="proxyAddress"></label>
+                    <input type="text" required autocomplete="off" spellcheck="false"
+                           id="proxyServerInput" class="input-proxy" placeholder="hostname:port">
+                  </div>
+                </div>
+                <details id="proxyAuthOptions" class="settings-section">
+                  <summary data-i18n-key="proxyAuthTitle"></summary>
+                  <div class="settings-grid">
+                    <div class="settings-field">
+                      <label for="proxyUsername" data-i18n-key="proxyUsername"></label>
+                      <input id="proxyUsername" autocomplete="off" spellcheck="false" class="input-proxy">
+                    </div>
+                    <div class="settings-field">
+                      <label for="proxyPassword" data-i18n-key="proxyPassword"></label>
+                      <input id="proxyPassword" type="password" autocomplete="new-password" class="input-proxy">
+                    </div>
+                  </div>
+                  <p class="main-page__about" data-i18n-key="proxyAuthPrivacy"></p>
+                  <p id="proxySocksUnsupported" class="main-page__about" data-i18n-key="proxySocksUnsupported" hidden></p>
+                </details>
+                <label id="proxyRestriction" class="settings-check" hidden>
+                  <input id="proxyUnrestricted" type="checkbox" checked>
+                  <span data-i18n-key="proxyUnrestricted"></span>
+                </label>
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-dark" id="saveCustomProxyButton">
+                    <span class="btn__text" data-i18n-key="saveCustomProxyButton"></span>
+                  </button>
+                  <button type="button" id="cancelProxyEdit" data-i18n-key="cancel" hidden></button>
+                </div>
               </form>
-              <details id="proxyImportOptions">
+              <details id="proxyImportOptions" class="settings-section">
                 <summary data-i18n-key="proxyImportTitle"></summary>
                 <p class="main-page__about" data-i18n-key="proxyImportPrivacy"></p>
                 <p class="main-page__about" data-i18n-key="proxyPacWarning"></p>
-                <label for="proxyImportProtocol" data-i18n-key="proxyImportProtocol"></label>
-                <select id="proxyImportProtocol">
-                  <option>HTTPS</option><option>HTTP</option><option>SOCKS5</option><option>SOCKS4</option>
-                </select>
-                <p><label for="proxyImportText" data-i18n-key="proxyImportText"></label></p>
-                <textarea id="proxyImportText" rows="5" cols="50" spellcheck="false" maxlength="33554432"></textarea>
-                <p><label for="proxyImportFile" data-i18n-key="proxyImportFile"></label></p>
-                <input id="proxyImportFile" type="file" accept=".txt,.list,.pac">
-                <button type="button" id="proxyImportButton" data-i18n-key="proxyImportButton"></button>
-                <p><label for="proxyImportUrl" data-i18n-key="proxyImportUrl"></label></p>
-                <input id="proxyImportUrl" type="url" class="input-proxy" placeholder="https://" maxlength="4096" autocomplete="off">
-                <button type="button" id="proxyImportUrlButton" data-i18n-key="proxyImportButton"></button>
-                <button type="button" id="proxySubscribeButton" data-i18n-key="proxySubscribe"></button>
-                <p>
+                <div class="settings-field">
+                  <label for="proxyImportProtocol" data-i18n-key="proxyImportProtocol"></label>
+                  <select id="proxyImportProtocol">
+                    <option>HTTPS</option><option>HTTP</option><option>SOCKS5</option><option>SOCKS4</option>
+                  </select>
+                </div>
+                <div class="settings-field">
+                  <label for="proxyImportText" data-i18n-key="proxyImportText"></label>
+                  <textarea id="proxyImportText" rows="5" spellcheck="false" maxlength="33554432"></textarea>
+                </div>
+                <div class="settings-field">
+                  <label for="proxyImportFile" data-i18n-key="proxyImportFile"></label>
+                  <input id="proxyImportFile" type="file" accept=".txt,.list,.pac">
+                </div>
+                <div class="settings-actions">
+                  <button type="button" id="proxyImportButton" data-i18n-key="proxyImportButton"></button>
+                </div>
+                <div class="settings-field">
+                  <label for="proxyImportUrl" data-i18n-key="proxyImportUrl"></label>
+                  <input id="proxyImportUrl" type="url" class="input-proxy" placeholder="https://" maxlength="4096" autocomplete="off">
+                </div>
+                <div class="settings-actions">
+                  <button type="button" id="proxyImportUrlButton" data-i18n-key="proxyImportButton"></button>
+                  <button type="button" id="proxySubscribeButton" data-i18n-key="proxySubscribe"></button>
+                </div>
+                <label class="settings-check">
                   <input id="proxySubscriptionsEnabled" type="checkbox">
-                  <label for="proxySubscriptionsEnabled" data-i18n-key="proxySubscriptionsEnabled"></label>
-                </p>
-                <ul id="proxySubscriptions"></ul>
+                  <span data-i18n-key="proxySubscriptionsEnabled"></span>
+                </label>
+                <ul id="proxySubscriptions" class="settings-list"></ul>
                 <p class="main-page__about" data-i18n-key="proxyAntizapretHelp"></p>
                 <button type="button" id="proxyAntizapretImport" data-i18n-key="proxyAntizapretImport"></button>
                 <p id="proxyImportStatus" role="status"></p>

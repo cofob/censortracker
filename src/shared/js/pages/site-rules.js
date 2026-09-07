@@ -19,10 +19,11 @@ export const mountSiteRules = async () => {
     rows.replaceChildren()
     for (const [hostname, codes] of Object.entries(rules)) {
       const row = document.createElement('li')
+      const label = document.createElement('span')
       const edit = document.createElement('button')
       const remove = document.createElement('button')
 
-      row.textContent = `${hostname}: ${codes.length > 0
+      label.textContent = `${hostname}: ${codes.length > 0
         ? codes.map((code) => `${names.of(code)} (${code})`).join(', ')
         : browser.i18n.getMessage('siteRuleUnrestricted')} `
       edit.type = 'button'
@@ -35,7 +36,7 @@ export const mountSiteRules = async () => {
         host.focus()
       })
       remove.addEventListener('click', () => save(hostname, null))
-      row.append(edit, remove)
+      row.append(label, edit, remove)
       rows.append(row)
     }
   }
