@@ -9,6 +9,12 @@ export const newProxyId = () => Array.from(
 
 export const proxyKey = ({ protocol, host, port }) => `${protocol} ${host}:${port}`
 
+export const hasProxyAuth = (proxy) => Boolean(proxy.username || proxy.password)
+
+export const proxyAuthSupported = (proxy, isFirefox) =>
+  !hasProxyAuth(proxy) || proxy.protocol === 'HTTP' ||
+  proxy.protocol === 'HTTPS' || (isFirefox && proxy.protocol === 'SOCKS5')
+
 export const validateProxy = (input) => {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
     typeof input.id !== 'string' || !/^[a-z0-9-]{1,80}$/i.test(input.id) ||
@@ -26,7 +32,33 @@ export const validateProxy = (input) => {
   if (typeof name !== 'string' || !name.trim() || name.length > 100) {
     throw new Error('Invalid proxy name')
   }
-  return { id: input.id, name: name.trim(), protocol, host, port }
+  const credentials = {
+    username: input.username === undefined ? '' : input.username,
+    password: input.password === undefined ? '' : input.password,
+  }
+  const limit = protocol === 'SOCKS5' ? 255 : 1024
+
+  for (const value of Object.values(credentials)) {
+    // eslint-disable-next-line no-control-regex
+    if (typeof value !== 'string' || /[\u0000-\u001f\u007f]/.test(value) ||
+      new TextEncoder().encode(value).length > limit) {
+      throw new Error('Invalid proxy credentials')
+    }
+  }
+  if ((['HTTP', 'HTTPS'].includes(protocol) &&
+    credentials.username.includes(':')) || (hasProxyAuth(credentials) &&
+    (protocol === 'SOCKS4' || (protocol === 'SOCKS5' &&
+      (!credentials.username || !credentials.password))))) {
+    throw new Error('Invalid proxy credentials for protocol')
+  }
+  return {
+    id: input.id,
+    name: name.trim(),
+    protocol,
+    host,
+    port,
+    ...(hasProxyAuth(credentials) ? credentials : {}),
+  }
 }
 
 export const validateProxyList = (proxies) => {

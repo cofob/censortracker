@@ -5,6 +5,9 @@ import { isPrivateHost } from './private-host'
 
 let queue = Promise.resolve()
 let revision = 0
+let serviceRoute = null
+let permissionCache
+let watchingControl = false
 const routeKeys = new Set([
   'enableExtension', 'useProxy', 'domains', 'useRegistry', 'ignoredHosts',
   'customProxiedDomains', 'proxyServerURI', 'customProxyProtocol',
@@ -16,10 +19,12 @@ browser.storage.onChanged.addListener((changes, area) => {
   if ((!area || area === 'local') &&
     Object.keys(changes).some((key) => routeKeys.has(key))) {
     revision++
+    permissionCache = null
   }
 })
 
 export const getRouteRevision = () => revision
+export const getServiceRoute = () => serviceRoute
 
 export const mustUseDirect = async (hostname) => {
   const { ignoredHosts } = await browser.storage.local.get({ ignoredHosts: [] })
@@ -49,6 +54,36 @@ export const proxyAllowed = async () => {
       .includes(levelOfControl)
 }
 
+// Request listeners must not copy the full PAC from browser settings each time.
+export const proxyRequestAllowed = async () => {
+  const changed = browser.proxy.settings.onChange
+
+  if (!changed) {
+    return proxyAllowed()
+  }
+  if (!watchingControl) {
+    changed.addListener(() => {
+      permissionCache = null
+    })
+    watchingControl = true
+  }
+  const pending = permissionCache || proxyAllowed()
+
+  permissionCache = pending
+  let allowed
+
+  try {
+    allowed = await pending
+  } catch (error) {
+    if (permissionCache === pending) {
+      permissionCache = null
+    }
+    throw error
+  }
+
+  return permissionCache === pending ? allowed : proxyRequestAllowed()
+}
+
 export const applyPac = async (data, mandatory = false) => {
   const value = browser.isFirefox
     ? {
@@ -67,6 +102,7 @@ export const restoreServiceRoute = async () => {
   )
 
   if (!serviceRouteSnapshot) {
+    serviceRoute = null
     return
   }
   const { levelOfControl } = await browser.proxy.settings.get({})
@@ -82,6 +118,7 @@ export const restoreServiceRoute = async () => {
     await browser.proxy.settings.clear({})
   }
   await browser.storage.local.remove('serviceRouteSnapshot')
+  serviceRoute = null
 }
 
 // Caller holds the lock until the request and restoration have finished.
@@ -126,6 +163,7 @@ export const setServiceRoute = async (hostname, route) => {
   }
 
   await browser.storage.local.set({ serviceRouteSnapshot: snapshot })
+  serviceRoute = { hostname, route }
   await applyPac(`${base}
     var normalRoute = FindProxyForURL;
     FindProxyForURL = function(url, host) {

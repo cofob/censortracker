@@ -79,7 +79,7 @@ function fixture(options = {}) {
     }).code
     vm.runInNewContext(source, {
       module, exports: module.exports, require: load,
-      URL, AbortController, console: { warn() {}, info() {}, error() {}, group() {}, groupEnd() {}, log() {}, table() {} },
+      URL, AbortController, TextEncoder, console: { warn() {}, info() {}, error() {}, group() {}, groupEnd() {}, log() {}, table() {} },
       setTimeout: (fn, delay) => setTimeout(fn, options.fastTimeout ? 5 : delay), clearTimeout,
       fetch: async (url, init) => {
         if (url.startsWith('data:')) return { text: async () => decodeURIComponent(url.split(',').slice(1).join(',')) }
@@ -380,6 +380,37 @@ test('normal PAC update cannot re-enable proxy use during a disable action', asy
   assert.equal(state.settings().value.mode, 'direct')
 })
 
+test('request permission cache is invalidated by control and user setting changes', async () => {
+  const state = fixture()
+  let reads = 0
+  let control = 'controlled_by_this_extension'
+  state.browser.proxy.settings.get = async () => { reads++; return { levelOfControl: control } }
+  const { proxyRequestAllowed } = state.load('proxy-route')
+  assert.equal(await proxyRequestAllowed(), true)
+  assert.equal(await proxyRequestAllowed(), true)
+  assert.equal(reads, 1)
+  control = 'controlled_by_other_extensions'
+  for (const listener of state.routeListeners) listener({ levelOfControl: control })
+  assert.equal(await proxyRequestAllowed(), false)
+  control = 'controlled_by_this_extension'
+  state.storage.useProxy = false
+  for (const listener of state.listeners) listener({ useProxy: { newValue: false } }, 'local')
+  assert.equal(await proxyRequestAllowed(), false)
+})
+
+test('a transient permission read failure does not poison later authentication', async () => {
+  const state = fixture()
+  const original = state.browser.proxy.settings.get
+  let reads = 0
+  state.browser.proxy.settings.get = async () => {
+    if (++reads === 1) throw new Error('temporary read failure')
+    return original()
+  }
+  const { proxyRequestAllowed } = state.load('proxy-route')
+  await assert.rejects(proxyRequestAllowed())
+  assert.equal(await proxyRequestAllowed(), true)
+})
+
 test('a routing change during port knock cannot install the old proxy', async () => {
   const state = fixture({ storage: {
     customProxyProtocol: 'HTTPS', customProxyServerURI: 'old.example:443',
@@ -426,6 +457,7 @@ test('proxy-all reports failed application but preserves a disabled user prefere
   let actions
   const state = fixture({ mocks: {
     proxy: null, handlers: {}, server: {}, settings: { default: {} },
+    'proxy-auth': { registerProxyAuth() {} },
     registry: { default: { getDomains: async () => [] } },
     'background-rpc': { registerBackground: value => { actions = value } },
   } })

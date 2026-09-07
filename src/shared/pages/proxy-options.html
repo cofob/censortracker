@@ -89,6 +89,15 @@
                      class="input-proxy"
                      placeholder="hostname:port">
 
+              <details id="proxyAuthOptions">
+                <summary data-i18n-key="proxyAuthTitle"></summary>
+                <label for="proxyUsername" data-i18n-key="proxyUsername"></label>
+                <input id="proxyUsername" autocomplete="off" spellcheck="false" class="input-proxy">
+                <label for="proxyPassword" data-i18n-key="proxyPassword"></label>
+                <input id="proxyPassword" type="password" autocomplete="new-password" class="input-proxy">
+                <p class="main-page__about" data-i18n-key="proxyAuthPrivacy"></p>
+                <p id="proxySocksUnsupported" class="main-page__about" data-i18n-key="proxySocksUnsupported" hidden></p>
+              </details>
               <button type="submit" class="btn btn-dark" id="saveCustomProxyButton">
                 <span class="btn__text" data-i18n-key="saveCustomProxyButton"></span>
               </button>

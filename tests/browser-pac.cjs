@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const { createServer } = require('node:http')
-const { spawn } = require('node:child_process')
+const { createServer: createSecureServer } = require('node:https')
+const { spawn, execFile } = require('node:child_process')
+const { promisify } = require('node:util')
 const { createHash } = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
@@ -23,10 +25,24 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'ct-pac-test-'))
   let directHits = 0
   const origin = createServer((request, response) => { directHits++; response.end('DIRECT') })
-  const proxy = createServer((request, response) => response.end('PROXY'))
+  let authHits = 0
+  const proxyHandler = (request, response) => {
+    if (request.url.includes('auth.example')) {
+      if (request.headers['proxy-authorization'] !== 'Basic ' + Buffer.from('alice:secret').toString('base64')) {
+        response.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="test"' })
+        response.end('AUTH REQUIRED')
+        return
+      }
+      authHits++
+    }
+    response.end('PROXY')
+  }
+  const proxy = createServer(proxyHandler)
+  let secureProxy
   await Promise.all([origin, proxy].map(server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve))))
   const process = spawn(global.process.env.CHROMIUM || 'chromium', [
     '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+    '--ignore-certificate-errors', // Only the isolated test uses a self-signed proxy.
     '--disable-background-networking', '--disable-component-update',
     '--host-resolver-rules=MAP * 127.0.0.1, EXCLUDE localhost',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`,
@@ -36,6 +52,12 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
   let startError
   process.on('error', error => { startError = error })
   try {
+    const key = path.join(profile, 'proxy-key.pem')
+    const cert = path.join(profile, 'proxy-cert.pem')
+    await promisify(execFile)('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+      '-keyout', key, '-out', cert, '-subj', '/CN=localhost', '-days', '1'], { timeout: 5000 })
+    secureProxy = createSecureServer({ key: await fs.readFile(key), cert: await fs.readFile(cert) }, proxyHandler)
+    await new Promise(resolve => secureProxy.listen(0, '127.0.0.1', resolve))
     let port
     for (let attempt = 0; attempt < 100; attempt++) {
       if (startError) throw startError
@@ -54,16 +76,19 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
       const data = JSON.parse(event.data)
       if (data.id) { pending.get(data.id)(data); pending.delete(data.id) }
     }
-    const evaluate = async expression => {
+    const command = async (method, params) => {
       const result = await within(new Promise(resolve => {
         const id = ++next
         pending.set(id, resolve)
-        socket.send(JSON.stringify({ id, method: 'Runtime.evaluate',
-          params: { expression, awaitPromise: true, returnByValue: true } }))
+        socket.send(JSON.stringify({ id, method, params }))
       }))
       assert.equal(result.error, undefined, JSON.stringify(result))
-      assert.equal(result.result.exceptionDetails, undefined, JSON.stringify(result))
-      return result.result.result.value
+      return result.result
+    }
+    const evaluate = async expression => {
+      const result = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+      assert.equal(result.exceptionDetails, undefined, JSON.stringify(result))
+      return result.result.value
     }
     await new Promise(resolve => setTimeout(resolve, 1000))
     const { getPacScript } = load('background/pac')
@@ -88,6 +113,17 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(directHits, before)
     await install('function FindProxyForURL() { return "PROXY 127.0.0.1:0; PROXY 127.0.0.1:' + proxy.address().port + '" }')
     assert.equal(await evaluate(`fetch('http://failover.example:${origin.address().port}/').then(response => response.text())`), 'PROXY')
+    for (const [protocol, server] of [['HTTP', proxy], ['HTTPS', secureProxy]]) {
+      const beforeAuth = authHits
+      await evaluate(`chrome.storage.local.set(${JSON.stringify({ enableExtension: true, useProxy: true,
+        proxies: [{ id: 'auth', name: 'Authenticated', protocol, host: '127.0.0.1', port: server.address().port, username: 'alice', password: 'secret' }],
+        selectedProxyIds: ['auth'], customProxiedDomains: ['auth.example'],
+      })})`)
+      assert.equal(await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'}).then(result => result.error || result.value)"), true)
+      assert.equal(await evaluate(`fetch('http://auth.example:${origin.address().port}/${protocol}').then(response => response.text())`), 'PROXY')
+      assert.ok(authHits > beforeAuth, protocol)
+    }
+    assert.equal(await evaluate("chrome.proxy.settings.get({}).then(({value}) => /alice|secret/.test(value.pacScript.data))"), false)
     await evaluate("chrome.storage.local.set({useProxy: false, proxies: [], selectedProxyIds: ['builtin']})")
     await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
     const until = async expression => {
@@ -99,9 +135,20 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     }
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
     assert.equal(await evaluate("document.querySelector('#proxyListOptions').open"), false)
-    await evaluate(`document.querySelector('#proxyName').value = '<img src=x onerror=alert(1)>'; document.querySelector('#proxyServerInput').value = '127.0.0.1:${proxy.address().port}'; document.querySelector('#select-toggle').textContent = 'HTTP'; document.querySelector('#proxyForm').requestSubmit()`)
+    await evaluate(`document.querySelector('#proxyName').value = '<img src=x onerror=alert(1)>'; document.querySelector('#proxyServerInput').value = '127.0.0.1:${proxy.address().port}'; document.querySelector('#select-toggle').textContent = 'HTTP'; document.querySelector('#proxyUsername').value = 'alice'; document.querySelector('#proxyPassword').value = 'secret'; document.querySelector('#proxyForm').requestSubmit()`)
     await until("document.querySelectorAll('#proxyRows tr').length === 2")
     assert.equal(await evaluate("document.querySelector('#proxyRows img') === null"), true)
+    assert.equal(await evaluate("document.querySelector('#proxyRows').textContent.includes('secret')"), false)
+    assert.equal(await evaluate("chrome.storage.local.get('proxies').then(data => data.proxies[0].password)"), 'secret')
+    if (global.process.env.CT_BROWSER_SCREENSHOT) {
+      await evaluate("document.querySelector('#useProxyCheckbox').click(); document.querySelector('#proxyListOptions').open = true; document.querySelector('#proxyAuthOptions').open = true")
+      await until("chrome.storage.local.get('useProxy').then(data => data.useProxy === true)")
+      await command('Emulation.setDeviceMetricsOverride', { width: 1200, height: 1200, deviceScaleFactor: 1, mobile: false })
+      const { data } = await command('Page.captureScreenshot', { captureBeyondViewport: true })
+      await fs.writeFile(global.process.env.CT_BROWSER_SCREENSHOT, Buffer.from(data, 'base64'))
+      await evaluate("document.querySelector('#useProxyCheckbox').click()")
+      await until("chrome.storage.local.get('useProxy').then(data => data.useProxy === false)")
+    }
     await evaluate("document.querySelectorAll('#proxyRows input')[1].click()")
     await until("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds.length === 2)")
     await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click(); document.querySelector('#proxyName').value = 'Renamed'; document.querySelector('#proxyForm').requestSubmit()")
@@ -130,7 +177,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
         await within(exited, 2000)
       }
     }
-    for (const server of [origin, proxy]) { server.closeAllConnections(); server.close() }
+    for (const server of [origin, proxy, secureProxy].filter(Boolean)) { server.closeAllConnections(); server.close() }
     await fs.rm(profile, { recursive: true, force: true })
   }
 })

@@ -15,10 +15,13 @@ import {
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
+import { registerProxyAuth } from './proxy-auth'
 import { updateProxyList } from './proxy-list'
 import { proxyAllowed, withProxyLock } from './proxy-route'
 import { synchronizeInBackground } from './server'
 import Settings from './settings'
+
+registerProxyAuth()
 
 withProxyLock(() => {}).catch((error) => {
   console.error('[Service] Route recovery failed', error)

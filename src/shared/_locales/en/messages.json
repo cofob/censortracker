@@ -1,4 +1,9 @@
 {
+  "proxyAuthTitle": { "message": "Authentication (optional)" },
+  "proxyUsername": { "message": "Username" },
+  "proxyPassword": { "message": "Password" },
+  "proxyAuthPrivacy": { "message": "Credentials are stored on this device and included in settings backups. HTTP proxies do not encrypt the connection to the proxy." },
+  "proxySocksUnsupported": { "message": "SOCKS authentication requires Firefox. Chromium does not support it." },
   "proxyAllTitle": { "message": "Proxy all browser traffic" },
   "proxyAllDescription": { "message": "Use selected proxies for all browser traffic. Local addresses and exclusions stay direct. If no selected proxy works, sites cannot load." },
   "proxyPoolHelp": {

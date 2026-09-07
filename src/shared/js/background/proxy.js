@@ -2,10 +2,16 @@ import { getPacScript } from 'Background/pac'
 
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { findHostMatch } from './host-match'
+import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
 import { readProxyState } from './proxy-list'
+import { proxyAuthSupported } from './proxy-record'
 import { applyPac, getRouteRevision, proxyAllowed } from './proxy-route'
 import registry from './registry'
+import { createRouter, routingConfig } from './routing'
+
+let cachedRouter
 
 class ProxyManager {
   async getSelectedProxies () {
@@ -26,7 +32,47 @@ class ProxyManager {
     )
 
     return selectedProxyIds.map((id) => catalog.get(id))
-      .filter((proxy) => proxy?.host && proxy.port)
+      .filter((proxy) => proxy?.host && proxy.port &&
+        proxyAuthSupported(proxy, browser.isFirefox))
+  }
+
+  async getRoutingOptions () {
+    const domains = await registry.getDomains()
+    const { ignoredHosts, proxyAll } = await browser.storage.local.get({
+      ignoredHosts: [], proxyAll: false,
+    })
+
+    return {
+      domains,
+      ignoredHosts,
+      proxyAll,
+      proxies: await this.getSelectedProxies(),
+    }
+  }
+
+  async getRouteForHost (host) {
+    const revision = getRouteRevision()
+
+    if (!cachedRouter || cachedRouter.revision !== revision) {
+      const options = await this.getRoutingOptions()
+
+      if (revision !== getRouteRevision()) {
+        return this.getRouteForHost(host)
+      }
+      cachedRouter = {
+        revision,
+        resolve: createRouter(
+          routingConfig(options), findHostMatch, isPrivateHost,
+        ),
+        proxies: new Map(options.proxies.map((proxy) => [proxy.id, proxy])),
+      }
+    }
+    const decision = cachedRouter.resolve(host)
+
+    return {
+      ...decision,
+      proxies: decision.proxies.map((id) => cachedRouter.proxies.get(id)),
+    }
   }
 
   async getProxyingRules () {
@@ -73,15 +119,11 @@ class ProxyManager {
     if (!await proxyAllowed()) {
       return false
     }
-    const domains = await registry.getDomains()
-    const { ignoredHosts, proxyAll } =
-      await browser.storage.local.get({ ignoredHosts: [], proxyAll: false })
+    const options = await this.getRoutingOptions()
 
     if (revision !== getRouteRevision()) {
       return this.setProxyInBackground()
     }
-
-    const proxies = await this.getSelectedProxies()
 
     await this.ping()
 
@@ -94,12 +136,7 @@ class ProxyManager {
     }
 
     try {
-      const pacData = getPacScript({
-        domains,
-        ignoredHosts,
-        proxyAll,
-        proxies,
-      })
+      const pacData = getPacScript(options)
 
       await applyPac(pacData, true)
       if (!await proxyAllowed()) {

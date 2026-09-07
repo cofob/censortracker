@@ -1,6 +1,7 @@
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
 import { parseProxyAddress } from 'Background/proxy-address'
+import { hasProxyAuth, proxyAuthSupported } from 'Background/proxy-record'
 
 export const mountProxyList = async () => {
   const root = document.getElementById('proxyListOptions')
@@ -9,6 +10,11 @@ export const mountProxyList = async () => {
   const nameInput = document.getElementById('proxyName')
   const addressInput = document.getElementById('proxyServerInput')
   const protocolInput = document.getElementById('select-toggle')
+  const username = document.getElementById('proxyUsername')
+  const password = document.getElementById('proxyPassword')
+  const authOptions = document.getElementById('proxyAuthOptions')
+
+  document.getElementById('proxySocksUnsupported').hidden = browser.isFirefox
   const cancel = document.getElementById('cancelProxyEdit')
   const errorMessage = document.getElementById('proxyListError')
   const summary = document.getElementById('proxySelectionSummary')
@@ -24,12 +30,16 @@ export const mountProxyList = async () => {
     form.reset()
     protocolInput.textContent = 'HTTPS'
     cancel.hidden = true
+    authOptions.open = false
   }
   const editProxy = (proxy) => {
     editingId = proxy.id
     nameInput.value = proxy.name
     addressInput.value = `${proxy.host}:${proxy.port}`
     protocolInput.textContent = proxy.protocol
+    username.value = proxy.username || ''
+    password.value = proxy.password || ''
+    authOptions.open = hasProxyAuth(proxy)
     cancel.hidden = false
     addressInput.focus()
   }
@@ -63,6 +73,9 @@ export const mountProxyList = async () => {
       cells[2].textContent = proxy.host
         ? `${proxy.protocol} ${proxy.host}:${proxy.port}`
         : message('proxyUnavailable')
+      if (!proxyAuthSupported(proxy, browser.isFirefox)) {
+        cells[2].textContent += ` — ${message('proxySocksUnsupported')}`
+      }
       if (proxy.id !== 'builtin') {
         const edit = document.createElement('button')
         const remove = document.createElement('button')
@@ -115,6 +128,8 @@ export const mountProxyList = async () => {
           id: editingId,
           name: nameInput.value.trim() || undefined,
           protocol: protocolInput.textContent.trim(),
+          username: username.value,
+          password: password.value,
           ...endpoint,
         },
       })
