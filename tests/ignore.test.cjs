@@ -33,7 +33,7 @@ for (const useRegistry of [true, false]) {
     const { getPacScript } = load('background/pac')
     const context = {}
     vm.runInNewContext(getPacScript({ domains: await registry.getDomains(), ignoredHosts: storage.ignoredHosts,
-      proxyServerProtocol: 'HTTPS', proxyServerURI: 'proxy.example:443' }), context)
+      proxies: [{ protocol: 'HTTPS', host: 'proxy.example', port: 443 }] }), context)
     for (const host of ['api.example.com', 'child.api.example.com', 'api.other.com', '8.8.8.8']) {
       assert.equal((await registry.getDomainStatus(host)).ignored, true)
       assert.equal(context.FindProxyForURL('', host), 'DIRECT', host)

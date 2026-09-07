@@ -411,6 +411,17 @@ test('failed PAC application does not turn the user proxy setting off', async ()
   assert.equal(state.storage.proxyIsAlive, false)
 })
 
+test('an empty proxy pool installs a blocking route without disabling the extension', async () => {
+  const state = fixture({ storage: { proxies: [], selectedProxyIds: [] }, mocks: {
+    proxy: null, registry: { default: { getDomains: async () => [] } },
+  } })
+  assert.equal(await state.load('proxy').default.setProxyInBackground(), true)
+  assert.equal(state.route('test.onion'), 'PROXY 127.0.0.1:0')
+  assert.equal(state.route('other.example'), 'DIRECT')
+  assert.equal(state.settings().value.pacScript.mandatory, true)
+  assert.equal(state.storage.useProxy, true)
+})
+
 test('reset explicitly enables proxy use before applying the PAC', async () => {
   const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
   const handler = source.slice(source.indexOf('confirmResetBtn.addEventListener'), source.indexOf('exportSettingsBtn.addEventListener'))

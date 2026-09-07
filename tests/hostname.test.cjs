@@ -21,7 +21,7 @@ test('Unicode settings and proxy addresses produce an ASCII PAC route', () => {
   const domains = ['пример.рф', null]
   const context = { shExpMatch: () => false }
   vm.runInNewContext(getPacScript({ domains,
-    proxyServerProtocol: 'HTTPS', proxyServerURI: 'ПРОКСИ.РФ:443' }), context)
+    proxies: [{ protocol: 'HTTPS', host: 'ПРОКСИ.РФ', port: 443 }] }), context)
   assert.equal(context.FindProxyForURL('', 'xn--e1afmkfd.xn--p1ai'), 'HTTPS xn--h1adldfi.xn--p1ai:443;')
   assert.equal(context.FindProxyForURL('', 'XN--E1AFMKFD.XN--P1AI.'), 'HTTPS xn--h1adldfi.xn--p1ai:443;')
   assert.deepEqual(domains, ['пример.рф', null])

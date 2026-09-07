@@ -22,8 +22,8 @@ test('proxy endpoints require a valid host, explicit port, and known protocol', 
 test('generated PAC serializes data and cannot execute imported proxy text', () => {
   const context = { shExpMatch: () => false }
   vm.runInNewContext(getPacScript({ domains: ['example.com'],
-    proxyServerProtocol: 'HTTP', proxyServerURI: 'proxy.example:8080' }), context)
+    proxies: [{ protocol: 'HTTP', host: 'proxy.example', port: 8080 }] }), context)
   assert.equal(context.FindProxyForURL('https://example.com', 'example.com'), 'PROXY proxy.example:8080;')
-  assert.throws(() => getPacScript({ proxyServerProtocol: 'HTTPS', proxyServerURI: "x:1'; globalThis.injected = true; '" }))
+  assert.throws(() => getPacScript({ proxies: [{ protocol: 'HTTPS', host: "x:1'; globalThis.injected = true; '", port: 80 }] }))
   assert.equal(context.injected, undefined)
 })

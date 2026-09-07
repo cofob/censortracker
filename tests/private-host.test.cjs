@@ -27,7 +27,7 @@ test('PAC bypass takes priority over explicit proxy rules', () => {
     '[fd00::1]', '[::ffff:10.0.0.1]', '8.8.8.8', 'public.example']
   const context = {}
   vm.runInNewContext(getPacScript({ domains,
-    proxyServerProtocol: 'HTTPS', proxyServerURI: 'proxy.example:443' }), context)
+    proxies: [{ protocol: 'HTTPS', host: 'proxy.example', port: 443 }] }), context)
   for (const host of domains.slice(0, -2)) {
     assert.equal(context.FindProxyForURL('', host), 'DIRECT', host)
   }

@@ -28,7 +28,7 @@ test('PAC and registry preserve subdomains and multi-label suffixes', async () =
   const registry = load('background/registry', { 'browser-api': { default: browser } }).default
   const { getPacScript } = load('background/pac')
   const context = {}
-  vm.runInNewContext(getPacScript({ domains, proxyServerProtocol: 'HTTPS', proxyServerURI: 'proxy.example:443' }), context)
+  vm.runInNewContext(getPacScript({ domains, proxies: [{ protocol: 'HTTPS', host: 'proxy.example', port: 443 }] }), context)
   for (const host of ['a.b.example.co.uk', 'example.com.br', 'a.api.example.com']) {
     assert.match(context.FindProxyForURL('', host), /^HTTPS/)
     assert.equal((await registry.getDomainStatus(host)).blocked, true)

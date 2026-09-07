@@ -21,7 +21,8 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
   const id = createHash('sha256').update(extension).digest('hex').slice(0, 32)
     .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)))
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'ct-pac-test-'))
-  const origin = createServer((request, response) => response.end('DIRECT'))
+  let directHits = 0
+  const origin = createServer((request, response) => { directHits++; response.end('DIRECT') })
   const proxy = createServer((request, response) => response.end('PROXY'))
   await Promise.all([origin, proxy].map(server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve))))
   const process = spawn(global.process.env.CHROMIUM || 'chromium', [
@@ -68,7 +69,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     const { getPacScript } = load('background/pac')
     const data = getPacScript({ domains: ['example.co.uk', 'api.example.com', 'example.com.br', 'printer.local', 'router'],
       ignoredHosts: ['api.example.co.uk', 'example.com.br'],
-      proxyServerProtocol: 'HTTP', proxyServerURI: `127.0.0.1:${proxy.address().port}` })
+      proxies: [{ protocol: 'HTTP', host: '127.0.0.1', port: proxy.address().port }] })
     await evaluate(`chrome.proxy.settings.set(${JSON.stringify({ value: { mode: 'pac_script', pacScript: { data, mandatory: true } }, scope: 'regular' })})`)
     for (const [host, expected] of [
       ['example.co.uk', 'PROXY'], ['deep.api.example.com', 'PROXY'], ['a.example.com.br', 'DIRECT'],
@@ -78,6 +79,15 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     ]) {
       assert.equal(await evaluate(`fetch(${JSON.stringify(`http://${host}:${origin.address().port}/`)}).then(response => response.text())`), expected, host)
     }
+    const install = async data => evaluate(`chrome.proxy.settings.set(${JSON.stringify({
+      value: { mode: 'pac_script', pacScript: { data, mandatory: true } }, scope: 'regular',
+    })})`)
+    await install(getPacScript({ domains: ['blocked.example'] }))
+    const before = directHits
+    assert.equal(await evaluate(`fetch('http://blocked.example:${origin.address().port}/').then(() => 'LEAK', () => 'BLOCKED')`), 'BLOCKED')
+    assert.equal(directHits, before)
+    await install('function FindProxyForURL() { return "PROXY 127.0.0.1:0; PROXY 127.0.0.1:' + proxy.address().port + '" }')
+    assert.equal(await evaluate(`fetch('http://failover.example:${origin.address().port}/').then(response => response.text())`), 'PROXY')
     await evaluate("chrome.storage.local.set({useProxy: false, proxies: [], selectedProxyIds: ['builtin']})")
     await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
     const until = async expression => {

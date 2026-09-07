@@ -2,30 +2,35 @@ import { getPacScript } from 'Background/pac'
 
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { parseProxyAddress } from './proxy-address'
 import { readProxyState } from './proxy-list'
 import { applyPac, getRouteRevision, proxyAllowed } from './proxy-route'
 import registry from './registry'
 
 class ProxyManager {
-  async getProxyingRules () {
+  async getSelectedProxies () {
     const { localProxyURI } = await browser.storage.local.get('localProxyURI')
 
     // When Censor Tracker Proxy Server is used
     if (localProxyURI) {
-      console.log(`Using local proxy server: ${localProxyURI}`)
-      return {
+      return [{
         id: 'local',
-        proxyServerProtocol: 'SOCKS5',
-        proxyServerURI: localProxyURI,
-      }
+        protocol: 'SOCKS5',
+        ...parseProxyAddress(localProxyURI),
+      }]
     }
 
     const { proxies, selectedProxyIds, builtin } = await readProxyState()
     const catalog = new Map(
       [builtin, ...proxies].map((proxy) => [proxy.id, proxy]),
     )
-    const selected = selectedProxyIds.map((id) => catalog.get(id))
-      .find((proxy) => proxy?.host && proxy.port)
+
+    return selectedProxyIds.map((id) => catalog.get(id))
+      .filter((proxy) => proxy?.host && proxy.port)
+  }
+
+  async getProxyingRules () {
+    const [selected] = await this.getSelectedProxies()
 
     return selected ? {
       id: selected.id,
@@ -76,19 +81,7 @@ class ProxyManager {
       return this.setProxyInBackground()
     }
 
-    if (domains.length === 0) {
-      console.info('No domains to proxy; clearing proxy settings.')
-      await this.removeProxyInBackground()
-      if (revision !== getRouteRevision()) {
-        return this.setProxyInBackground()
-      }
-      return false
-    }
-
-    const {
-      proxyServerURI,
-      proxyServerProtocol,
-    } = await this.getProxyingRules()
+    const proxies = await this.getSelectedProxies()
 
     await this.ping()
 
@@ -104,11 +97,10 @@ class ProxyManager {
       const pacData = getPacScript({
         domains,
         ignoredHosts,
-        proxyServerURI,
-        proxyServerProtocol,
+        proxies,
       })
 
-      await applyPac(pacData)
+      await applyPac(pacData, true)
       if (!await proxyAllowed()) {
         await this.removeProxyInBackground()
         return false
