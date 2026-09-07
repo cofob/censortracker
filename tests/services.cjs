@@ -422,6 +422,24 @@ test('an empty proxy pool installs a blocking route without disabling the extens
   assert.equal(state.storage.useProxy, true)
 })
 
+test('proxy-all reports failed application but preserves a disabled user preference', async () => {
+  let actions
+  const state = fixture({ mocks: {
+    proxy: null, handlers: {}, server: {}, settings: { default: {} },
+    registry: { default: { getDomains: async () => [] } },
+    'background-rpc': { registerBackground: value => { actions = value } },
+  } })
+  state.browser.proxy.settings.set = async () => { throw new Error('cannot apply') }
+  state.load('background')
+  await assert.rejects(actions.setProxyAll(true), /could not be applied/)
+  assert.equal(state.storage.proxyAll, true)
+  state.storage.useProxy = false
+  await actions.setProxyAll(false)
+  assert.equal(state.storage.proxyAll, false)
+  await assert.rejects(actions.setProxyAll('true'), /Invalid/)
+  assert.equal(state.storage.proxyAll, false)
+})
+
 test('reset explicitly enables proxy use before applying the PAC', async () => {
   const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
   const handler = source.slice(source.indexOf('confirmResetBtn.addEventListener'), source.indexOf('exportSettingsBtn.addEventListener'))

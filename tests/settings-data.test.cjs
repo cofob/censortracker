@@ -62,7 +62,7 @@ test('export migrates a legacy selection before it applies defaults', async () =
 
 test('invalid known settings reject the full import before any write', () => {
   for (const input of [null, [], { formatVersion: 2 }, { formatVersion: 1, settings: [] },
-    { useProxy: 'false' }, { ignoredHosts: 'example.com' }, { customProxiedDomains: [null] },
+    { useProxy: 'false' }, { proxyAll: 'true' }, { ignoredHosts: 'example.com' }, { customProxiedDomains: [null] },
     { currentRegionCode: 'Russia' }, { customProxyProtocol: 'DIRECT' },
     { customProxyServerURI: "host:1'; alert(1);'" }]) {
     assert.throws(() => validateSettings(input))

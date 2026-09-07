@@ -1,5 +1,6 @@
 import './page-errors'
 
+import { callBackground } from 'Background/background-rpc'
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
@@ -19,6 +20,21 @@ import Settings from 'Background/settings'
   const resetSettingsToDefaultBtn = document.getElementById('resetSettingsToDefault')
   const exportSettingsBtn = document.getElementById('exportSettings')
   const importSettingsInput = document.getElementById('importSettingsInput')
+  const proxyAll = document.getElementById('proxyAll')
+
+  proxyAll.checked = (await browser.storage.local.get({ proxyAll: false }))
+    .proxyAll
+  proxyAll.addEventListener('change', async () => {
+    proxyAll.disabled = true
+    try {
+      await callBackground('setProxyAll', proxyAll.checked)
+    } finally {
+      proxyAll.checked = (await browser.storage.local.get({ proxyAll: false }))
+        .proxyAll
+      proxyAll.disabled = false
+    }
+  })
+  proxyAll.disabled = false
 
   const togglePopup = (id) => {
     const showPopupClass = 'popup-show'

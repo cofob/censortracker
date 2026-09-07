@@ -1,4 +1,6 @@
 {
+  "proxyAllTitle": { "message": "Proxy all browser traffic" },
+  "proxyAllDescription": { "message": "Use selected proxies for all browser traffic. Local addresses and exclusions stay direct. If no selected proxy works, sites cannot load." },
   "proxyPoolHelp": {
     "message": "Selected proxies share sites and provide backup routes. They do not form a multi-hop chain."
   },

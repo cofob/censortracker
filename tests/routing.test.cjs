@@ -40,3 +40,16 @@ test('no selected endpoint blocks protected destinations, including onion with a
     assert.equal(context.FindProxyForURL('', host), 'DIRECT')
   }
 })
+
+test('proxy-all preserves local and explicit exclusions and blocks without a proxy', () => {
+  for (const proxies of [[], [{ id: 'one', protocol: 'HTTPS', host: 'one.example', port: 443 }]]) {
+    const context = {}
+    vm.runInNewContext(getPacScript({ proxyAll: true, ignoredHosts: ['excluded.example'], proxies }), context)
+    for (const host of ['public.example', 'other.co.uk', '8.8.8.8']) {
+      assert.equal(context.FindProxyForURL('', host), proxies.length ? 'HTTPS one.example:443;' : 'PROXY 127.0.0.1:0')
+    }
+    for (const host of ['excluded.example', 'cdn.excluded.example', 'router', 'printer.local', '192.168.1.1', '100.64.0.1', '224.1.2.3', '[fd00::1]']) {
+      assert.equal(context.FindProxyForURL('', host), 'DIRECT', host)
+    }
+  }
+})

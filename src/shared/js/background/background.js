@@ -16,7 +16,7 @@ import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
 import { updateProxyList } from './proxy-list'
-import { withProxyLock } from './proxy-route'
+import { proxyAllowed, withProxyLock } from './proxy-route'
 import { synchronizeInBackground } from './server'
 import Settings from './settings'
 
@@ -25,6 +25,15 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  setProxyAll: (enabled) => withProxyLock(async () => {
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('Invalid proxy-all option')
+    }
+    await browser.storage.local.set({ proxyAll: enabled })
+    if (!await ProxyManager.setProxyInBackground() && await proxyAllowed()) {
+      throw new Error('Proxy mode saved, but routing could not be applied')
+    }
+  }),
   importSettings: (args) => withProxyLock(async () => {
     await Settings.importSettingsInBackground(args)
     await ProxyManager.setProxyInBackground()

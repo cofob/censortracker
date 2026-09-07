@@ -110,6 +110,16 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
     assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
     assert.equal(await evaluate("document.querySelector('#pageError') === null"), true)
+    assert.equal(await evaluate("document.querySelector('#proxyAll') === null"), true)
+    await evaluate("location.href = chrome.runtime.getURL('advanced-options.html')")
+    await until("document.querySelector('#proxyAll')?.disabled === false")
+    assert.equal(await evaluate("document.querySelector('#proxyAll').checked"), false)
+    await evaluate("document.querySelector('#proxyAll').click()")
+    await until("chrome.storage.local.get('proxyAll').then(data => data.proxyAll === true)")
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
+    await until("document.querySelector('#proxyAll').disabled === false")
+    await evaluate("location.reload()")
+    await until("document.querySelector('#proxyAll')?.checked === true")
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

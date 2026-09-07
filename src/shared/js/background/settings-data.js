@@ -5,6 +5,7 @@ import { proxyStateFromSettings } from './proxy-record'
 export const settingsDefaults = {
   enableExtension: false,
   useProxy: true,
+  proxyAll: false,
   useRegistry: true,
   showNotifications: true,
   useOwnProxy: false,

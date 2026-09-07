@@ -2,8 +2,9 @@ import { normalizeHostname } from './hostname'
 import { proxyDirective } from './proxy-address'
 
 export const routingConfig = ({
-  domains = [], ignoredHosts = [], proxies = [],
+  domains = [], ignoredHosts = [], proxies = [], proxyAll = false,
 }) => ({
+  proxyAll,
   domains: Array.from(new Set(domains.map(normalizeHostname).filter(Boolean))),
   ignoredHosts: ignoredHosts.map(normalizeHostname).filter(Boolean),
   proxies: proxies.map(({ id, protocol, host, port }) => ({
@@ -19,7 +20,7 @@ export const createRouter = (config, matchHost, privateHost) => {
   return (host) => {
     host = host.toLowerCase().replace(/\.$/, '')
     if (privateHost(host) || matchHost(host, ignored) ||
-      !(host.endsWith('.onion') || host.endsWith('.i2p') ||
+      !(config.proxyAll || host.endsWith('.onion') || host.endsWith('.i2p') ||
         matchHost(host, domains))) {
       return { type: 'direct', proxies: [], route: 'DIRECT' }
     }

@@ -74,8 +74,8 @@ class ProxyManager {
       return false
     }
     const domains = await registry.getDomains()
-    const { ignoredHosts } =
-      await browser.storage.local.get({ ignoredHosts: [] })
+    const { ignoredHosts, proxyAll } =
+      await browser.storage.local.get({ ignoredHosts: [], proxyAll: false })
 
     if (revision !== getRouteRevision()) {
       return this.setProxyInBackground()
@@ -97,6 +97,7 @@ class ProxyManager {
       const pacData = getPacScript({
         domains,
         ignoredHosts,
+        proxyAll,
         proxies,
       })
 
