@@ -14,25 +14,45 @@ import {
 
 import browser from './browser-api'
 
+const registerListener = (event, eventName, listener, ...args) => {
+  if (typeof event?.addListener !== 'function') {
+    console.warn(`[Background] ${eventName} is unavailable.`)
+    return
+  }
+
+  event.addListener(listener, ...args)
+}
+
 // Handle alarms for async tasks
-browser.alarms.onAlarm.addListener(handleOnAlarm)
+registerListener(browser.alarms?.onAlarm, 'alarms.onAlarm', handleOnAlarm)
 // Handle extension lifecycle events
-browser.runtime.onStartup.addListener(handleStartup)
-browser.runtime.onInstalled.addListener(handleInstalled)
-browser.runtime.onUpdateAvailable.addListener(handleOnUpdateAvailable)
+registerListener(browser.runtime?.onStartup, 'runtime.onStartup', handleStartup)
+registerListener(browser.runtime?.onInstalled, 'runtime.onInstalled', handleInstalled)
+registerListener(
+  browser.runtime?.onUpdateAvailable,
+  'runtime.onUpdateAvailable',
+  handleOnUpdateAvailable,
+)
 // Handle tab changes (e.g. new tab, tab closed)
-browser.tabs.onUpdated.addListener(handleTabState)
-browser.tabs.onCreated.addListener(handleTabCreate)
+registerListener(browser.tabs?.onUpdated, 'tabs.onUpdated', handleTabState)
+registerListener(browser.tabs?.onCreated, 'tabs.onCreated', handleTabCreate)
 // Handle storage changes (e.g. settings)
-browser.storage.onChanged.addListener(handleStorageChanged)
-browser.storage.onChanged.addListener(handleIgnoredHostsChange)
-browser.storage.onChanged.addListener(handleCustomProxiedDomainsChange)
+registerListener(browser.storage?.onChanged, 'storage.onChanged', handleStorageChanged)
+registerListener(browser.storage?.onChanged, 'storage.onChanged', handleIgnoredHostsChange)
+registerListener(
+  browser.storage?.onChanged,
+  'storage.onChanged',
+  handleCustomProxiedDomainsChange,
+)
 
 if (browser.isFirefox) {
   // Firefox-specific handlers
-  browser.proxy.onError.addListener(handleProxyError)
-  browser.webRequest.onBeforeRequest.addListener(
-    handleBeforeRequest, {
+  registerListener(browser.proxy?.onError, 'proxy.onError', handleProxyError)
+  registerListener(
+    browser.webRequest?.onBeforeRequest,
+    'webRequest.onBeforeRequest',
+    handleBeforeRequest,
+    {
       urls: [
         'http://*/*',
         'https://*/*',
@@ -42,8 +62,11 @@ if (browser.isFirefox) {
       ],
     },
   )
-  browser.webRequest.onErrorOccurred.addListener(
-    handleProxyError, {
+  registerListener(
+    browser.webRequest?.onErrorOccurred,
+    'webRequest.onErrorOccurred',
+    handleProxyError,
+    {
       urls: [
         '<all_urls>',
       ],
@@ -51,8 +74,11 @@ if (browser.isFirefox) {
   )
 } else {
   // Chrome-specific handlers
-  browser.webNavigation.onBeforeNavigate.addListener(
-    handleBeforeRequest, {
+  registerListener(
+    browser.webNavigation?.onBeforeNavigate,
+    'webNavigation.onBeforeNavigate',
+    handleBeforeRequest,
+    {
       urls: [
         'http://*/*',
         'https://*/*',
@@ -62,5 +88,5 @@ if (browser.isFirefox) {
       ],
     },
   )
-  browser.proxy.onProxyError.addListener(handleProxyError)
+  registerListener(browser.proxy?.onProxyError, 'proxy.onProxyError', handleProxyError)
 }
