@@ -1,6 +1,6 @@
 import browser from './browser-api'
-import * as utilities from './utilities'
-import { extractDomainFromUrl } from './utilities'
+import { findHostMatch } from './host-match'
+import { extractHostnameFromUrl, removeDuplicates } from './utilities'
 
 export class Ignore {
   /**
@@ -19,7 +19,7 @@ export class Ignore {
     const { ignoredHosts } =
       await browser.storage.local.get({ ignoredHosts: [] })
 
-    return ignoredHosts
+    return removeDuplicates(ignoredHosts)
   }
 
   /**
@@ -28,20 +28,24 @@ export class Ignore {
    * @returns {Promise<boolean>}
    */
   async add (url) {
-    const hostname = extractDomainFromUrl(url)
-    const { ignoredHosts } =
-      await browser.storage.local.get({ ignoredHosts: [] })
+    const hostname = extractHostnameFromUrl(url)
+    const ignoredHosts = await this.getAll()
 
+    if (!hostname) {
+      return false
+    }
     if (!ignoredHosts.includes(hostname)) {
       ignoredHosts.push(hostname)
       console.info(`Adding ${hostname} to ignore`)
-      await browser.storage.local.set({ ignoredHosts })
+      await this.set(ignoredHosts)
     }
     return true
   }
 
   async set (ignoredHosts = []) {
-    await browser.storage.local.set({ ignoredHosts })
+    await browser.storage.local.set({
+      ignoredHosts: removeDuplicates(ignoredHosts),
+    })
   }
 
   /**
@@ -50,15 +54,13 @@ export class Ignore {
    * @returns {Promise<boolean>}
    */
   async remove (url) {
-    const hostname = extractDomainFromUrl(url)
-    const { ignoredHosts } =
-      await browser.storage.local.get({ ignoredHosts: [] })
+    const hostname = extractHostnameFromUrl(url)
+    const ignoredHosts = await this.getAll()
+    const remaining = ignoredHosts.filter((name) =>
+      !findHostMatch(hostname, new Set([name])))
 
-    if (ignoredHosts.includes(hostname)) {
-      const index = ignoredHosts.indexOf(hostname)
-
-      ignoredHosts.splice(index, 1)
-      await browser.storage.local.set({ ignoredHosts })
+    if (remaining.length !== ignoredHosts.length) {
+      await this.set(remaining)
       console.info(`Removing ${hostname} from ignore`)
     }
     return true
@@ -71,9 +73,9 @@ export class Ignore {
    */
   async contains (url) {
     const ignoredHosts = await this.getAll()
-    const hostname = utilities.extractDomainFromUrl(url)
+    const hostname = extractHostnameFromUrl(url)
 
-    if (ignoredHosts.includes(hostname)) {
+    if (findHostMatch(hostname, new Set(ignoredHosts))) {
       console.debug(`Ignoring host: ${hostname}`)
       return true
     }

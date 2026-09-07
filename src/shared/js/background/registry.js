@@ -14,33 +14,17 @@ class Registry {
     const {
       domains,
       useRegistry,
-      ignoredHosts,
       customProxiedDomains,
     } = await browser.storage.local.get({
       domains: [],
       useRegistry: true,
-      ignoredHosts: [],
       customProxiedDomains: [],
     })
 
-    if (!useRegistry) {
-      if (customProxiedDomains.length > 0) {
-        return customProxiedDomains
-      }
-      return []
-    }
-
-    const allDomains = [
-      ...domains,
+    return [
+      ...(useRegistry ? domains : []),
       ...customProxiedDomains,
-    ].filter((element) => {
-      return !ignoredHosts.includes(element)
-    })
-
-    if (allDomains.length > 0) {
-      return allDomains
-    }
-    return []
+    ]
   }
 
   async isEmpty () {

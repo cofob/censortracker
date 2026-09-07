@@ -94,13 +94,36 @@ function fixture(options = {}) {
 
 const response = data => ({ ok: true, json: async () => data })
 
+test('a service exclusion prevents remote retries', async () => {
+  let calls = 0
+  const state = fixture({ storage: { ignoredHosts: ['example.com'] },
+    fetch: async () => { calls++; throw new Error('offline') } })
+  await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray),
+    /excluded services/)
+  assert.equal(calls, 1)
+})
+
+test('an exclusion added during retry PAC installation prevents the request', async () => {
+  let calls = 0
+  const state = fixture({ fetch: async () => { calls++; throw new Error('offline') } })
+  const setting = state.browser.proxy.settings
+  const originalSet = setting.set
+  setting.set = async args => {
+    await originalSet(args)
+    if (state.events.includes('knock')) state.storage.ignoredHosts = ['example.com']
+  }
+  await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray))
+  assert.equal(calls, 1)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
 for (const firefox of [false, true]) {
   for (const host of ['192.168.1.1', '[64:ff9b:1::a00:1]', 'router.local']) {
     test(`local services never retry through a remote proxy: ${host}, Firefox=${firefox}`, async () => {
       let calls = 0
       const state = fixture({ firefox, fetch: async () => { calls++; throw new Error('offline') } })
       await assert.rejects(state.load('service-request').requestService(`http://${host}/registry.json`, Array.isArray),
-        /Local services cannot use proxy retry/)
+        /Local or excluded services cannot use proxy retry/)
       assert.equal(calls, 1)
       assert.equal(state.storage.serviceRouteSnapshot, undefined)
     })

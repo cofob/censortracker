@@ -1,4 +1,6 @@
 import browser from './browser-api'
+import { findHostMatch } from './host-match'
+import { normalizeHostname } from './hostname'
 import { isPrivateHost } from './private-host'
 
 let queue = Promise.resolve()
@@ -17,6 +19,13 @@ browser.storage.onChanged.addListener((changes, area) => {
 })
 
 export const getRouteRevision = () => revision
+
+export const mustUseDirect = async (hostname) => {
+  const { ignoredHosts } = await browser.storage.local.get({ ignoredHosts: [] })
+
+  return isPrivateHost(hostname) || Boolean(findHostMatch(hostname,
+    new Set(ignoredHosts.map(normalizeHostname))))
+}
 
 export const withProxyLock = (operation) => {
   const result = queue.then(async () => {
@@ -76,8 +85,8 @@ export const restoreServiceRoute = async () => {
 
 // Caller holds the lock until the request and restoration have finished.
 export const setServiceRoute = async (hostname, route) => {
-  if (route !== 'DIRECT' && isPrivateHost(hostname)) {
-    throw new Error('Local services cannot use proxy retry')
+  if (route !== 'DIRECT' && await mustUseDirect(hostname)) {
+    throw new Error('Local or excluded services cannot use proxy retry')
   }
   if (!await proxyAllowed()) {
     throw new Error('Service routing unavailable: proxy disabled or not controlled')

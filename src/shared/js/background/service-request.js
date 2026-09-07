@@ -2,7 +2,8 @@ import browser from './browser-api'
 import ProxyManager from './proxy'
 import { proxyDirective } from './proxy-address'
 import {
-  proxyAllowed, restoreServiceRoute, setServiceRoute, withProxyLock,
+  mustUseDirect, proxyAllowed, restoreServiceRoute,
+  setServiceRoute, withProxyLock,
 } from './proxy-route'
 
 const attempt = async (url, validate, viaProxy = false) => {
@@ -10,7 +11,8 @@ const attempt = async (url, validate, viaProxy = false) => {
   const timeout = setTimeout(() => controller.abort(), 15000)
   const onSettingsChanged = (changes) => {
     if (changes.enableExtension?.newValue === false ||
-      changes.useProxy?.newValue === false) {
+      changes.useProxy?.newValue === false ||
+      (viaProxy && changes.ignoredHosts)) {
       controller.abort()
     }
   }
@@ -18,7 +20,8 @@ const attempt = async (url, validate, viaProxy = false) => {
   browser.storage.onChanged.addListener(onSettingsChanged)
 
   try {
-    if (viaProxy && !await proxyAllowed()) {
+    if (viaProxy && (!await proxyAllowed() ||
+      await mustUseDirect(new URL(url).hostname))) {
       throw new Error('Proxy retry disabled before request')
     }
     const response = await fetch(url, {
