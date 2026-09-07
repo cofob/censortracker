@@ -301,7 +301,6 @@ export const handleProxyError = async ({ error }) => {
 
       console.warn('Requesting new proxy server...')
       await server.synchronize({
-        syncIgnore: false,
         syncRegistry: false,
         syncProxy: true,
       })

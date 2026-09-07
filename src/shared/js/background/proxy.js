@@ -1,6 +1,8 @@
 import { getPacScript } from 'Background/pac'
 
+import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { applyPac, proxyAllowed } from './proxy-route'
 import registry from './registry'
 
 class ProxyManager {
@@ -66,12 +68,18 @@ class ProxyManager {
   }
 
   async setProxy () {
-    const config = {}
+    return callBackground('setProxy')
+  }
+
+  async setProxyInBackground () {
+    if (!await proxyAllowed()) {
+      return false
+    }
     const domains = await registry.getDomains()
 
     if (domains.length === 0) {
       console.error('No domains to proxy, aborting...')
-      await this.removeProxy()
+      await this.removeProxyInBackground()
       return false
     }
 
@@ -82,35 +90,19 @@ class ProxyManager {
 
     await this.ping()
 
+    if (!await proxyAllowed()) {
+      return false
+    }
+
     const pacData = getPacScript({
       domains,
       proxyServerURI,
       proxyServerProtocol,
     })
 
-    if (browser.isFirefox) {
-      const blob = new Blob([pacData], {
-        type: 'application/x-ns-proxy-autoconfig',
-      })
-
-      config.value = {
-        proxyType: 'autoConfig',
-        autoConfigUrl: URL.createObjectURL(blob),
-      }
-    } else {
-      config.scope = 'regular'
-      config.value = {
-        mode: 'pac_script',
-        pacScript: {
-          data: pacData,
-          mandatory: false,
-        },
-      }
-    }
-
     try {
-      await browser.proxy.settings.set(config)
-      await this.enableProxy()
+      await applyPac(pacData)
+      await browser.storage.local.set({ proxyIsAlive: true })
       await this.grantIncognitoAccess()
       console.warn('PAC has been set successfully!')
       return true
@@ -123,6 +115,10 @@ class ProxyManager {
   }
 
   async removeProxy () {
+    return callBackground('removeProxy')
+  }
+
+  async removeProxyInBackground () {
     await browser.proxy.settings.clear({})
     console.warn('Proxy settings removed.')
   }

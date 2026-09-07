@@ -18,6 +18,7 @@
     "release:chrome": "web-ext build -o --source-dir=./dist/chrome/prod --artifacts-dir=./releases/chrome",
     "release": "web-ext build -o --source-dir=./dist/firefox/prod --artifacts-dir=./releases/firefox && web-ext build -o --source-dir=./dist/chrome/prod --artifacts-dir=./releases/chrome",
     "lint": "eslint --ext=.js ./src/",
+    "test:services": "node --test tests/services.cjs",
     "stylelint": "stylelint ./src/",
     "lint:fix": "eslint --fix --ext=.js ./src/",
     "locales:fmt": "node tasks/fixLocales.js",

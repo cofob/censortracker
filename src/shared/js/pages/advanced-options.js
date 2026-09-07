@@ -95,12 +95,16 @@ import Settings from 'Background/settings'
       fallbackProxyInUse = false,
       fallbackProxyError,
       proxyLastFetchTs,
+      serviceErrors = [],
+      geoIPStatus,
     } = await browser.storage.local.get([
       'localConfig',
       'fallbackReason',
       'fallbackProxyInUse',
       'fallbackProxyError',
       'proxyLastFetchTs',
+      'serviceErrors',
+      'geoIPStatus',
     ])
 
     if (extensionsInfo.length > 0) {
@@ -120,6 +124,8 @@ import Settings from 'Background/settings'
     }
     localConfig.browser = getBrowserInfo()
     localConfig.proxyLastFetchTs = proxyLastFetchTs
+    localConfig.serviceErrors = serviceErrors
+    localConfig.geoIPStatus = geoIPStatus
     localConfig.badProxies = await ProxyManager.getBadProxies()
     localConfig.currentProxyURI = await ProxyManager.getProxyingRules()
     localConfig.proxyControlled = await ProxyManager.controlledByThisExtension()
@@ -135,6 +141,7 @@ import Settings from 'Background/settings'
     await Settings.enableNotifications()
     await Settings.disableParentalControl()
     await ProxyManager.removeBadProxies()
+    await ProxyManager.enableProxy()
     await ProxyManager.setProxy()
     await ProxyManager.ping()
     console.warn('Censor Tracker has been reset to default settings.')

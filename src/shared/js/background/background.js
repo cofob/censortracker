@@ -12,7 +12,23 @@ import {
   handleTabState,
 } from 'Background/handlers'
 
+import { registerBackground } from './background-rpc'
 import browser from './browser-api'
+import ProxyManager from './proxy'
+import { withProxyLock } from './proxy-route'
+import { synchronizeInBackground } from './server'
+
+withProxyLock(() => {}).catch((error) => {
+  console.error('[Service] Route recovery failed', error)
+})
+
+registerBackground({
+  synchronize: synchronizeInBackground,
+  setProxy: () => withProxyLock(() => ProxyManager.setProxyInBackground()),
+  removeProxy: () => withProxyLock(
+    () => ProxyManager.removeProxyInBackground(),
+  ),
+})
 
 const registerListener = (event, eventName, listener, ...args) => {
   if (typeof event?.addListener !== 'function') {

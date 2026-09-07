@@ -66,18 +66,13 @@ import * as server from 'Background/server'
       currentOption.textContent = countryName
       currentOption.dataset.i18nKey = `country${countryCode}`
 
-      await browser.storage.local.set({
-        currentRegionName: countryName,
-        currentRegionCode: countryAutoDetectionEnabled ? '' : countryCode.toUpperCase(),
+      await server.synchronize({
+        region: {
+          countryName,
+          countryCode: countryAutoDetectionEnabled ? '' : countryCode.toUpperCase(),
+        },
       })
-
-      ProxyManager.isEnabled().then(async (proxyingEnabled) => {
-        if (proxyingEnabled) {
-          await server.synchronize()
-          await ProxyManager.setProxy()
-          console.warn(`Region changed to ${countryName}`)
-        }
-      })
+      console.debug(`Region changed to ${countryName}`)
     })
   }
 })()
