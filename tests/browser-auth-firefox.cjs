@@ -16,6 +16,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
   let report
   let directHits = 0
   const socksRequests = []
+  const socks4Requests = []
   const sockets = new Set()
   const origin = createServer((request, response) => {
     response.setHeader('Access-Control-Allow-Origin', '*')
@@ -78,7 +79,32 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       }
     })
   })
-  const servers = [origin, httpProxy, socksProxy]
+  const socks4Proxy = net.createServer(socket => {
+    sockets.add(socket)
+    socket.on('close', () => sockets.delete(socket))
+    socket.on('error', () => {})
+    let buffer = Buffer.alloc(0)
+    let connected = false
+    socket.on('data', data => {
+      buffer = Buffer.concat([buffer, data])
+      if (!connected && buffer.length >= 9) {
+        const end = buffer.indexOf(0, 8)
+        if (end < 0) return
+        const address = Array.from(buffer.subarray(4, 8)).join('.')
+        socks4Requests.push(address)
+        if (buffer[0] !== 4 || buffer[1] !== 1 || address !== '127.0.0.1') {
+          socket.end(Buffer.from([0, 91, 0, 0, 0, 0, 0, 0])); return
+        }
+        buffer = buffer.subarray(end + 1)
+        connected = true
+        socket.write(Buffer.from([0, 90, 0, 0, 127, 0, 0, 1]))
+      }
+      if (connected && buffer.includes('\r\n\r\n')) {
+        socket.end('HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\nSOCKS4')
+      }
+    })
+  })
+  const servers = [origin, httpProxy, socksProxy, socks4Proxy]
   let child
   let remote
   let timer
@@ -89,6 +115,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       { protocol: 'HTTP', port: httpProxy.address().port, password: 'secret' },
       { protocol: 'SOCKS5', port: socksProxy.address().port, password: 'secret' },
       { protocol: 'SOCKS5', port: socksProxy.address().port, password: 'wrong' },
+      { protocol: 'SOCKS4', port: socks4Proxy.address().port, username: '', password: '' },
     ]
     const entry = path.join(temporary, 'entry.js')
     await fs.writeFile(entry, `
@@ -184,10 +211,12 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       await remote.installTemporaryAddon(addon)
       return results
     }
-    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'AUTH_HTTP', 'AUTH_SOCKS', 'cdn.related.example'])
+    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'SOCKS4', 'AUTH_HTTP', 'AUTH_SOCKS', 'cdn.related.example'])
     assert.equal(directHits, 0)
     assert.ok(socksRequests.length > 0)
     assert.ok(socksRequests.every(request => request.addressType === 3 && request.hostname === 'protected.example'))
+    assert.ok(socks4Requests.length > 0)
+    assert.ok(socks4Requests.every(address => address === '127.0.0.1'))
   } finally {
     clearTimeout(timer)
     if (remote) remote.disconnect()

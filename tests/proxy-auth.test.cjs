@@ -116,6 +116,14 @@ test('Firefox SOCKS authentication uses remote DNS and a terminal null failover'
   assert.deepEqual(plain(await state.handleFirefoxProxy({ url: 'https://direct.example/' })), {type: 'direct'})
 })
 
+test('Firefox requests remote DNS only for SOCKS5, not plain SOCKS4', () => {
+  const { firefoxProxyInfo } = fixture(true)
+  for (const protocol of ['HTTP', 'HTTPS', 'SOCKS4', 'SOCKS5']) {
+    const info = firefoxProxyInfo({ ...record, protocol, username: '', password: '' })
+    assert.equal(Boolean(info.proxyDNS), protocol === 'SOCKS5', protocol)
+  }
+})
+
 test('Firefox routes HTTP through the same listener and respects inactive and service-direct routes', async () => {
   const state = fixture(true)
   const result = plain(await state.handleFirefoxProxy({url: 'https://protected.example/'}))

@@ -85,7 +85,7 @@ export const firefoxProxyInfo = (proxy) => {
     host: proxy.host.replace(/^\[|\]$/g, ''),
     port: proxy.port,
     failoverTimeout: 8,
-    ...(['SOCKS4', 'SOCKS5'].includes(proxy.protocol) ? { proxyDNS: true } : {}),
+    ...(proxy.protocol === 'SOCKS5' ? { proxyDNS: true } : {}),
     ...(proxy.protocol === 'SOCKS5' && hasProxyAuth(proxy)
       ? { username: proxy.username, password: proxy.password } : {}),
   }
