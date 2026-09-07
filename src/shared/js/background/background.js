@@ -12,6 +12,7 @@ import {
   handleTabState,
 } from 'Background/handlers'
 
+import { importAntizapret } from './antizapret'
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
@@ -76,6 +77,7 @@ registerBackground({
   stopProxyChecks,
   proxyCheckState: getProxyCheckState,
   importProxies,
+  importAntizapret,
   subscriptions: updateSubscriptions,
   refreshSubscription: ({ id }) => refreshSubscription({ id }),
   setProxyAll: (enabled) => withProxyLock(async () => {

@@ -83,6 +83,9 @@ export const mountProxyImport = async (refreshProxies) => {
   document.getElementById('proxySubscribeButton').addEventListener('click', () => run(
     () => callBackground('subscriptions', { operation: 'add', url: url.value.trim(), protocol: protocol.value }),
   ))
+  document.getElementById('proxyAntizapretImport').addEventListener('click', () => run(
+    () => callBackground('importAntizapret'),
+  ))
   enabled.addEventListener('change', () => run(() => callBackground('subscriptions', {
     operation: 'enable', enabled: enabled.checked,
   })))

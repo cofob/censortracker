@@ -16,7 +16,7 @@ const routeKeys = new Set([
   'customProxyServerURI', 'localProxyURI',
   'proxies', 'selectedProxyIds', 'proxyAll', 'proxyFailures',
   'siteCountryRules', 'proxyChecks',
-  'registrySource', 'externalRegistry',
+  'registrySource', 'externalRegistry', 'antizapret',
 ])
 
 browser.storage.onChanged.addListener((changes, area) => {

@@ -276,6 +276,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(await evaluate("document.querySelector('#pageError') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyAll') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyImportOptions').open"), false)
+    assert.equal(await evaluate("document.querySelector('#proxyAntizapretImport').textContent"), 'Import or refresh Antizapret')
     assert.equal(await evaluate("document.querySelector('#proxyCheckOptions').open"), false)
     assert.equal(await evaluate("document.querySelector('#proxyRecoveryEnabled').checked"), false)
     await evaluate("document.querySelector('#proxyRecoveryEnabled').click()")
@@ -345,6 +346,16 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("chrome.storage.local.get('useRegistry').then(data => data.useRegistry === false)")
     assert.deepEqual(await evaluate("chrome.storage.local.get('domains').then(data => data.domains)"), ['builtin-only.example'])
     assert.deepEqual(await evaluate("chrome.storage.local.get('externalRegistry').then(data => data.externalRegistry.domains)"), ['external.example', 'cdn.example.co.uk'])
+    await evaluate(`chrome.storage.local.set({enableExtension: true, useProxy: true, proxyAll: true,
+      proxies: [{id: 'provider', name: 'Antizapret test', protocol: 'HTTP', host: '127.0.0.1', port: ${proxy.address().port}, provider: 'antizapret', restricted: true}],
+      selectedProxyIds: ['provider'], ignoredHosts: ['ignored.provider.example'],
+      antizapret: {domains: ['provider.example'], proxyKeys: ['HTTP 127.0.0.1:${proxy.address().port}'], updatedAt: Date.now()}})`)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'})")
+    assert.equal(await evaluate(`fetch('http://child.provider.example:${origin.address().port}/allowed').then(response => response.text())`), 'PROXY')
+    const beforeProviderBlock = directHits
+    assert.equal(await evaluate(`fetch('http://outside-provider.example:${origin.address().port}/blocked').then(response => response.text(), () => 'BLOCKED')`), 'BLOCKED')
+    assert.equal(directHits, beforeProviderBlock)
+    assert.equal(await evaluate(`fetch('http://ignored.provider.example:${origin.address().port}/ignored').then(response => response.text())`), 'DIRECT')
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

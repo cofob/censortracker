@@ -35,6 +35,9 @@ export const validateProxy = (input) => {
   if (input.restricted !== undefined && typeof input.restricted !== 'boolean') {
     throw new Error('Invalid proxy restriction')
   }
+  if (input.provider !== undefined && input.provider !== 'antizapret') {
+    throw new Error('Invalid proxy provider')
+  }
   const credentials = {
     username: input.username === undefined ? '' : input.username,
     password: input.password === undefined ? '' : input.password,
@@ -60,7 +63,8 @@ export const validateProxy = (input) => {
     protocol,
     host,
     port,
-    ...(input.restricted ? { restricted: true } : {}),
+    ...(input.provider ? { provider: input.provider } : {}),
+    ...(input.restricted || input.provider ? { restricted: true } : {}),
     ...(hasProxyAuth(credentials) ? credentials : {}),
   }
 }

@@ -1,4 +1,13 @@
 {
+  "proxyAntizapretImport": {
+    "message": "Import or refresh Antizapret"
+  },
+  "proxyAntizapretLimited": {
+    "message": "Antizapret list only"
+  },
+  "proxyAntizapretHelp": {
+    "message": "Manual download of Antizapret proxy addresses and allowed domains. Only listed sites can use these proxies, even in proxy-all mode. Select imported entries yourself. General proxy checks are not available. The service supports Russian providers only; downloads can return 403 elsewhere. Import again to refresh the list."
+  },
   "registrySourceTitle": {
     "message": "External registry (optional)"
   },

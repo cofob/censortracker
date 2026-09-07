@@ -5,16 +5,18 @@ import { validateSiteRules } from './site-rules'
 
 export const routingConfig = ({
   domains = [], ignoredHosts = [], proxies = [], proxyAll = false, probes = [],
-  siteCountryRules = {},
+  siteCountryRules = {}, providerDomains = [],
 }) => ({
   proxyAll,
+  providerDomains,
   siteCountryRules: validateSiteRules(siteCountryRules),
   domains: Array.from(new Set(domains.map(normalizeHostname).filter(Boolean))),
   ignoredHosts: ignoredHosts.map(normalizeHostname).filter(Boolean),
   proxies: proxies.map(({
-    id, protocol, host, port, retryAt, exitCountry, countryExpiresAt,
+    id, protocol, host, port, retryAt, exitCountry, countryExpiresAt, provider,
   }) => ({
     id,
+    provider,
     route: proxyDirective(protocol, `${host}:${port}`),
     retryAt: Number.isFinite(retryAt) ? retryAt : 0,
     exitCountry: countryCode(exitCountry),
@@ -31,6 +33,7 @@ export const routingConfig = ({
 // Self-contained so PAC and extension code use the same route decision.
 export const createRouter = (config, matchHost, privateHost) => {
   const domains = new Set(config.domains)
+  const providerDomains = new Set(config.providerDomains)
   const ignored = new Set(config.ignoredHosts)
   const ruleHosts = new Set(Object.keys(config.siteCountryRules))
   const probes = new Map(config.probes.map((probe) => [probe.hostname, probe]))
@@ -50,11 +53,13 @@ export const createRouter = (config, matchHost, privateHost) => {
         : { type: 'blocked', proxies: [], route: 'PROXY 127.0.0.1:0' }
     }
     if (!(config.proxyAll || host.endsWith('.onion') || host.endsWith('.i2p') ||
-      matchHost(host, domains))) {
+      matchHost(host, domains) || matchHost(host, providerDomains))) {
       return { type: 'direct', proxies: [], route: 'DIRECT' }
     }
     const available = config.proxies.filter((proxy) =>
-      proxy.retryAt <= Date.now() && (forbidden.length === 0 ||
+      proxy.retryAt <= Date.now() &&
+      (!proxy.provider || matchHost(host, providerDomains)) &&
+      (forbidden.length === 0 ||
         (proxy.exitCountry && proxy.countryExpiresAt > Date.now() &&
           !forbidden.includes(proxy.exitCountry))))
 

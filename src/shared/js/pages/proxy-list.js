@@ -59,7 +59,7 @@ export const mountProxyList = async () => {
     username.value = proxy.username || ''
     password.value = proxy.password || ''
     authOptions.open = hasProxyAuth(proxy)
-    restriction.hidden = !proxy.restricted
+    restriction.hidden = !proxy.restricted || Boolean(proxy.provider)
     unrestricted.checked = !proxy.restricted
     cancel.hidden = false
     addressInput.focus()
@@ -117,7 +117,9 @@ export const mountProxyList = async () => {
       if (!proxyAuthSupported(proxy, browser.isFirefox)) {
         cells[2].textContent += ` — ${message('proxySocksUnsupported')}`
       }
-      if (proxy.restricted) {
+      if (proxy.provider) {
+        cells[2].textContent += ` — ${message('proxyAntizapretLimited')}`
+      } else if (proxy.restricted) {
         cells[2].textContent += ` — ${message('proxyRestricted')}`
       }
       const check = checks[proxy.id]

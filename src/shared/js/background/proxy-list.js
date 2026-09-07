@@ -40,17 +40,26 @@ export const updateProxyList = async ({
     if (index < 0) {
       state.proxies.push(record)
     } else {
+      if (state.proxies[index].provider) {
+        record.provider = state.proxies[index].provider
+        record.restricted = true
+      }
       state.proxies[index] = record
     }
   } else if (operation === 'append') {
-    const seen = new Set(state.proxies.map(proxyKey))
+    const seen = new Map(state.proxies.map((record) => [proxyKey(record), record]))
     let added = 0
 
     for (const record of validateProxyList(proxies)) {
+      const existing = seen.get(proxyKey(record))
+
+      if (existing?.restricted && record.provider) {
+        existing.provider = record.provider
+      }
       if (seen.has(proxyKey(record)) || state.proxies.length === MAX_PROXIES) {
         continue
       }
-      seen.add(proxyKey(record))
+      seen.set(proxyKey(record), record)
       state.proxies.push({ ...record, id: newProxyId() })
       added++
     }

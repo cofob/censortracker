@@ -7,7 +7,7 @@ import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
 import { countryCode, currentProxyCheck } from './proxy-check-data'
 import { readProxyState } from './proxy-list'
-import { proxyAuthSupported } from './proxy-record'
+import { proxyAuthSupported, proxyKey } from './proxy-record'
 import { applyPac, getProbeRoutes, getRouteRevision, proxyAllowed } from './proxy-route'
 import registry from './registry'
 import { createRouter, routingConfig } from './routing'
@@ -33,10 +33,11 @@ class ProxyManager {
     )
 
     const selected = selectedProxyIds.map((id) => catalog.get(id))
-      .filter((proxy) => proxy?.host && proxy.port && !proxy.restricted &&
+      .filter((proxy) => proxy?.host && proxy.port &&
+        (!proxy.restricted || proxy.provider) &&
         proxyAuthSupported(proxy, browser.isFirefox))
-    const { proxyFailures, proxyChecks } = await browser.storage.local.get({
-      proxyFailures: {}, proxyChecks: {},
+    const { proxyFailures, proxyChecks, antizapret } = await browser.storage.local.get({
+      proxyFailures: {}, proxyChecks: {}, antizapret: null,
     })
 
     return Promise.all(selected.map(async (proxy) => {
@@ -45,7 +46,8 @@ class ProxyManager {
 
       return {
         ...proxy,
-        retryAt: failure?.retryAt || 0,
+        retryAt: proxy.provider && !antizapret?.proxyKeys.includes(proxyKey(proxy))
+          ? Number.MAX_SAFE_INTEGER : failure?.retryAt || 0,
         exitCountry: check?.status === 'ok' ? countryCode(check.exitCountry) : '',
         countryExpiresAt: Number.isFinite(check?.checkedAt)
           ? check.checkedAt + 24 * 60 * 60 * 1000 : 0,
@@ -55,18 +57,22 @@ class ProxyManager {
 
   async getRoutingOptions () {
     const domains = await registry.getDomains()
-    const { ignoredHosts, proxyAll, siteCountryRules } =
+    const { ignoredHosts, proxyAll, siteCountryRules, antizapret } =
       await browser.storage.local.get({
-        ignoredHosts: [], proxyAll: false, siteCountryRules: {},
+        ignoredHosts: [], proxyAll: false, siteCountryRules: {}, antizapret: null,
       })
+    const proxies = await this.getSelectedProxies()
+    const providerDomains = proxies.some((proxy) => proxy.provider)
+      ? antizapret?.domains || [] : []
 
     return {
       domains,
+      providerDomains,
       ignoredHosts,
       proxyAll,
       siteCountryRules,
       probes: getProbeRoutes(),
-      proxies: await this.getSelectedProxies(),
+      proxies,
     }
   }
 
@@ -104,7 +110,7 @@ class ProxyManager {
 
   async getProxyingRules () {
     const selected = (await this.getSelectedProxies())
-      .find(({ retryAt = 0 }) => retryAt <= Date.now())
+      .find(({ retryAt = 0, provider }) => !provider && retryAt <= Date.now())
 
     return selected ? {
       id: selected.id,
