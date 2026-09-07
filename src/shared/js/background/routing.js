@@ -52,13 +52,16 @@ export const createRouter = (config, matchHost, privateHost) => {
         ? { type: 'probe', proxies: [probe.id], route: probe.route }
         : { type: 'blocked', proxies: [], route: 'PROXY 127.0.0.1:0' }
     }
+    const domain = matchHost(host, domains)
+    const providerDomain = matchHost(host, providerDomains)
+
     if (!(config.proxyAll || host.endsWith('.onion') || host.endsWith('.i2p') ||
-      matchHost(host, domains) || matchHost(host, providerDomains))) {
+      domain || providerDomain)) {
       return { type: 'direct', proxies: [], route: 'DIRECT' }
     }
     const available = config.proxies.filter((proxy) =>
       proxy.retryAt <= Date.now() &&
-      (!proxy.provider || matchHost(host, providerDomains)) &&
+      (!proxy.provider || providerDomain) &&
       (forbidden.length === 0 ||
         (proxy.exitCountry && proxy.countryExpiresAt > Date.now() &&
           !forbidden.includes(proxy.exitCountry))))
@@ -67,9 +70,11 @@ export const createRouter = (config, matchHost, privateHost) => {
       return { type: 'blocked', proxies: [], route: 'PROXY 127.0.0.1:0' }
     }
     let hash = 0
+    const site = /\.(onion|i2p)$/.test(host)
+      ? host.split('.').slice(-2).join('.') : domain || providerDomain || host
 
-    for (let index = 0; index < host.length; index++) {
-      hash = (hash * 31 + host.charCodeAt(index)) % 2147483647
+    for (let index = 0; index < site.length; index++) {
+      hash = (hash * 31 + site.charCodeAt(index)) % 2147483647
     }
     const offset = hash % available.length
     const proxies = available.slice(offset).concat(available.slice(0, offset))

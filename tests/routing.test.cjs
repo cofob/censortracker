@@ -84,7 +84,7 @@ test('probe routes are isolated, fail closed on expiry, and respect local and ex
 })
 
 test('sites have stable first proxies and all selected failover candidates', () => {
-  const options = { domains: ['example.com'], proxies: [
+  const options = { domains: Array.from({ length: 100 }, (_, index) => `site${index}.co.uk`), proxies: [
     { id: 'one', protocol: 'HTTP', host: 'one.example', port: 80 },
     { id: 'two', protocol: 'HTTPS', host: 'two.example', port: 443 },
     { id: 'three', protocol: 'SOCKS5', host: 'three.example', port: 1080 },
@@ -94,16 +94,36 @@ test('sites have stable first proxies and all selected failover candidates', () 
   vm.runInNewContext(getPacScript(options), context)
   const first = new Set()
   for (let index = 0; index < 100; index++) {
-    const host = `site${index}.example.com`
+    const host = `site${index}.co.uk`
     const result = router(host)
     first.add(result.proxies[0])
     assert.equal(result.type, 'proxy')
     assert.equal(new Set(result.proxies).size, 3)
     assert.equal(context.FindProxyForURL('', host.toUpperCase() + '.'), result.route)
     assert.doesNotMatch(result.route, /DIRECT/)
+    for (const prefix of ['www.', 'api.', 'nested.cdn.']) {
+      assert.equal(router(prefix + host).route, result.route)
+      assert.equal(context.FindProxyForURL('', prefix + host), result.route)
+    }
   }
   assert.equal(first.size, 3)
   assert.equal(router('other.example').type, 'direct')
+})
+
+test('provider and nested registry entries keep their subdomains on one route', () => {
+  const options = { domains: ['example.com.br', 'nested.example.com.br'],
+    providerDomains: ['provider.co.uk'], proxies: [
+      { id: 'one', protocol: 'HTTP', host: 'one.example', port: 80 },
+      { id: 'two', protocol: 'HTTPS', host: 'two.example', port: 443 },
+      { id: 'provider', protocol: 'HTTPS', host: 'provider.example', port: 443, provider: 'antizapret' },
+    ] }
+  for (const proxyAll of [false, true]) {
+    const scope = {}
+    vm.runInNewContext(getPacScript({ ...options, proxyAll }), scope)
+    for (const host of ['example.com.br', 'nested.example.com.br', 'provider.co.uk']) {
+      assert.equal(scope.FindProxyForURL('', 'cdn.' + host), scope.FindProxyForURL('', host))
+    }
+  }
 })
 
 test('no selected endpoint blocks protected destinations, including onion with an empty registry', () => {
@@ -114,6 +134,27 @@ test('no selected endpoint blocks protected destinations, including onion with a
   }
   for (const host of ['api.example.com', 'router', '10.0.0.1', 'other.example']) {
     assert.equal(context.FindProxyForURL('', host), 'DIRECT')
+  }
+})
+
+test('hidden-service subdomains share their root proxy order with or without registry entries', () => {
+  const options = { proxies: [
+    { id: 'one', protocol: 'HTTP', host: 'one.example', port: 80 },
+    { id: 'two', protocol: 'HTTPS', host: 'two.example', port: 443 },
+    { id: 'three', protocol: 'SOCKS5', host: 'three.example', port: 1080 },
+  ] }
+  const hosts = ['a'.repeat(56) + '.onion', 'service.i2p']
+  for (const domains of [[], hosts.map(host => `api.${host}`)]) {
+    const config = { ...options, domains }
+    const router = createRouter(routingConfig(config), findHostMatch, isPrivateHost)
+    const scope = {}
+    vm.runInNewContext(getPacScript(config), scope)
+    for (const host of hosts) {
+      for (const prefix of ['', 'api.', 'nested.cdn.']) {
+        assert.equal(router(prefix + host).route, router(host).route)
+        assert.equal(scope.FindProxyForURL('', prefix + host), router(host).route)
+      }
+    }
   }
 })
 
