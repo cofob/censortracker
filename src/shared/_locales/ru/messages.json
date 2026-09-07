@@ -1,4 +1,14 @@
 {
+"proxyFilters": {"message": "Фильтры, сортировка и удаление"},
+"proxyFilterAny": {"message": "Все страны"},
+"proxyFilterUnknown": {"message": "Неизвестно"},
+"proxyFilteredCount": {"message": "Найдено: $1 из $2."},
+"proxySort": {"message": "Сортировать по"},
+"proxySortDefault": {"message": "Исходный порядок"},
+"proxySortName": {"message": "Название (А–Я)"},
+"proxySortLatency": {"message": "Задержка (сначала быстрые)"},
+"proxyRemoveFiltered": {"message": "Удалить найденные пользовательские прокси"},
+"proxyRemoveConfirm": {"message": "Удалить все $1 найденных пользовательских прокси на всех страницах, включая выбранные? Встроенный прокси не будет удалён."},
   "proxyRecoveryEnabled": {
     "message": "Разрешить фоновые IP-проверки отказавших выбранных прокси (раз в пять минут). Прокси с сохранёнными учётными данными автоматически не проверяются."
   },

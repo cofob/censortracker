@@ -1,4 +1,14 @@
 {
+"proxyFilters": {"message": "Filter, sort and delete"},
+"proxyFilterAny": {"message": "All countries"},
+"proxyFilterUnknown": {"message": "Unknown"},
+"proxyFilteredCount": {"message": "Matches: $1 of $2."},
+"proxySort": {"message": "Sort by"},
+"proxySortDefault": {"message": "Original order"},
+"proxySortName": {"message": "Name (A–Z)"},
+"proxySortLatency": {"message": "Delay (fastest first)"},
+"proxyRemoveFiltered": {"message": "Delete matching custom proxies"},
+"proxyRemoveConfirm": {"message": "Delete all $1 matching custom proxies on all pages, including selected proxies? The built-in proxy will not be deleted."},
   "proxyRecoveryEnabled": {
     "message": "Allow background IP checks for failed selected proxies (every five minutes). Proxies with saved credentials are not retried automatically."
   },

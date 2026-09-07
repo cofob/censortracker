@@ -1,4 +1,14 @@
 {
+"proxyFilters": {"message": "Фільтри, сортування та видалення"},
+"proxyFilterAny": {"message": "Усі країни"},
+"proxyFilterUnknown": {"message": "Невідомо"},
+"proxyFilteredCount": {"message": "Знайдено: $1 з $2."},
+"proxySort": {"message": "Сортувати за"},
+"proxySortDefault": {"message": "Початковий порядок"},
+"proxySortName": {"message": "Назва (А–Я)"},
+"proxySortLatency": {"message": "Затримка (спочатку швидкі)"},
+"proxyRemoveFiltered": {"message": "Видалити знайдені користувацькі проксі"},
+"proxyRemoveConfirm": {"message": "Видалити всі $1 знайдених користувацьких проксі на всіх сторінках, включно з вибраними? Вбудований проксі не буде видалено."},
   "proxyRecoveryEnabled": {
     "message": "Дозволити фонові IP-перевірки несправних вибраних проксі (раз на п’ять хвилин). Проксі зі збереженими обліковими даними автоматично не перевіряються."
   },

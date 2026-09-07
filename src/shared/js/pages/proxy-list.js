@@ -3,6 +3,8 @@ import browser from 'Background/browser-api'
 import { parseProxyAddress } from 'Background/proxy-address'
 import { hasProxyAuth, proxyAuthSupported } from 'Background/proxy-record'
 
+import { checkedCountry, filterProxies } from './proxy-filter'
+
 export const mountProxyList = async () => {
   const root = document.getElementById('proxyListOptions')
   const rows = document.getElementById('proxyRows')
@@ -22,11 +24,24 @@ export const mountProxyList = async () => {
   const summary = document.getElementById('proxySelectionSummary')
   const previous = document.getElementById('proxyPrevious')
   const next = document.getElementById('proxyNext')
+  const filters = document.getElementById('proxyFilters')
+  const removeFiltered = document.getElementById('proxyRemoveFiltered')
+  const count = document.getElementById('proxyFilteredCount')
+  const countryNames = new Intl.DisplayNames([browser.i18n.getUILanguage()], {
+    type: 'region',
+  })
   const message = (key) => browser.i18n.getMessage(key)
   let state
   let checks = {}
   let editingId
   let page = 0
+  let visible = []
+  let busy = false
+
+  const viewOptions = () => Object.fromEntries(
+    Array.from(filters.querySelectorAll('select'), (input) =>
+      [input.name, input.value]),
+  )
 
   const resetForm = () => {
     editingId = undefined
@@ -52,6 +67,7 @@ export const mountProxyList = async () => {
   const render = () => {
     const catalog = [state.builtin, ...state.proxies]
     const selected = new Set(state.selectedProxyIds)
+    const currentChecks = checks
 
     const selectedNames = catalog.filter(({ id }) => selected.has(id))
       .map(({ name }) => name)
@@ -61,9 +77,28 @@ export const mountProxyList = async () => {
     if (selectedNames.length > 3) {
       summary.textContent += ` (+${selectedNames.length - 3})`
     }
-    page = Math.min(page, Math.floor((catalog.length - 1) / 100))
+    for (const field of ['serverCountry', 'exitCountry']) {
+      const input = filters.querySelector(`[name="${field}"]`)
+      const value = input.value
+      const countries = new Set(catalog.map(({ id }) =>
+        checkedCountry(currentChecks[id], field)))
+
+      if (value) {
+        countries.add(value)
+      }
+      input.replaceChildren(new Option(message('proxyFilterAny'), ''))
+      for (const code of Array.from(countries).sort()) {
+        input.add(new Option(code === '?' ? message('proxyFilterUnknown')
+          : `${countryNames.of(code)} (${code})`, code))
+      }
+      input.value = value
+    }
+    visible = filterProxies(catalog, checks, viewOptions())
+    count.textContent = browser.i18n.getMessage('proxyFilteredCount',
+      [String(visible.length), String(catalog.length)])
+    page = Math.max(0, Math.min(page, Math.floor((visible.length - 1) / 100)))
     rows.replaceChildren()
-    for (const proxy of catalog.slice(page * 100, (page + 1) * 100)) {
+    for (const proxy of visible.slice(page * 100, (page + 1) * 100)) {
       const row = document.createElement('tr')
       const choice = document.createElement('input')
       const cells = Array.from({ length: 5 }, () => document.createElement('td'))
@@ -116,14 +151,22 @@ export const mountProxyList = async () => {
       row.append(...cells)
       rows.append(row)
     }
-    previous.disabled = page === 0
-    next.disabled = (page + 1) * 100 >= catalog.length
+    for (const control of root.querySelectorAll(
+      '#proxyRows input, #proxyRows button, #proxyForm input, #proxyForm button, #proxyFilters select',
+    )) {
+      control.disabled = busy
+    }
+    previous.disabled = busy || page === 0
+    next.disabled = busy || (page + 1) * 100 >= visible.length
+    removeFiltered.disabled = busy || !visible.some(({ id }) => id !== 'builtin')
   }
   const run = async (args) => {
-    errorMessage.hidden = true
-    for (const control of root.querySelectorAll('input, button')) {
-      control.disabled = true
+    if (busy) {
+      return
     }
+    busy = true
+    errorMessage.hidden = true
+    render()
     try {
       state = await callBackground('proxies', args)
       checks = (await callBackground('proxyCheckState')).checks
@@ -134,9 +177,7 @@ export const mountProxyList = async () => {
       errorMessage.textContent = message('proxyListInvalid')
       errorMessage.hidden = false
     } finally {
-      for (const control of root.querySelectorAll('input, button')) {
-        control.disabled = false
-      }
+      busy = false
       render()
     }
   }
@@ -169,6 +210,20 @@ export const mountProxyList = async () => {
   })
   next.addEventListener('click', () => {
     page++; render()
+  })
+  filters.addEventListener('change', () => {
+    page = 0; render()
+  })
+  removeFiltered.addEventListener('click', () => {
+    const ids = visible.filter(({ id }) => id !== 'builtin').map(({ id }) => id)
+
+    // Bulk deletion needs explicit confirmation, including off-page records.
+    // eslint-disable-next-line no-alert
+    if (ids.length > 0 && window.confirm(browser.i18n.getMessage(
+      'proxyRemoveConfirm', String(ids.length),
+    ))) {
+      run({ operation: 'remove', ids })
+    }
   })
   const refresh = async () => {
     state = await callBackground('proxies', { operation: 'list' })

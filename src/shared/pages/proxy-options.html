@@ -52,6 +52,23 @@
             <details id="proxyListOptions">
               <summary data-i18n-key="proxyManage"></summary>
               <p class="main-page__about" data-i18n-key="proxyPoolHelp"></p>
+              <details id="proxyFilters">
+                <summary data-i18n-key="proxyFilters"></summary>
+                <p><label for="proxyFilterServer" data-i18n-key="proxyServerCountry"></label>
+                  <select id="proxyFilterServer" name="serverCountry"></select></p>
+                <p><label for="proxyFilterExit" data-i18n-key="proxyExitCountry"></label>
+                  <select id="proxyFilterExit" name="exitCountry"></select></p>
+                <p><label for="proxySort" data-i18n-key="proxySort"></label>
+                  <select id="proxySort" name="sort">
+                    <option value="" data-i18n-key="proxySortDefault"></option>
+                    <option value="name" data-i18n-key="proxySortName"></option>
+                    <option value="latency" data-i18n-key="proxySortLatency"></option>
+                    <option value="serverCountry" data-i18n-key="proxyServerCountry"></option>
+                    <option value="exitCountry" data-i18n-key="proxyExitCountry"></option>
+                  </select></p>
+                <p id="proxyFilteredCount" role="status"></p>
+                <button type="button" id="proxyRemoveFiltered" data-i18n-key="proxyRemoveFiltered"></button>
+              </details>
               <div class="proxy-table-scroll">
                 <table class="proxy-table">
                   <thead><tr>
