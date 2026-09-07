@@ -4,8 +4,8 @@
       "@babel/preset-env",
       {
         "targets": {
-          "chrome": "94",
-          "firefox": "98"
+          "chrome": "108",
+          "firefox": "91"
         }
       }
     ],
