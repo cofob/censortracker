@@ -33,7 +33,7 @@ const inquireCountryCode = async (geoIPServiceURL) => {
 
     return countryCode
   } catch (error) {
-    console.error('[GeoIP] Error on fetching country code. Using fallback.')
+    console.warn('[GeoIP] Error on fetching country code. Using fallback.')
     return FALLBACK_COUNTRY_CODE
   }
 }
