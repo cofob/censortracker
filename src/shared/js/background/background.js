@@ -16,6 +16,7 @@ import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
 import { registerProxyAuth } from './proxy-auth'
+import { getProxyCheckState, registerProxyChecks, startProxyChecks, stopProxyChecks } from './proxy-check'
 import { importProxies, refreshSubscription, scheduleSubscriptions, updateSubscriptions } from './proxy-importer'
 import { updateProxyList } from './proxy-list'
 import { proxyAllowed, withProxyLock } from './proxy-route'
@@ -23,6 +24,7 @@ import { synchronizeInBackground } from './server'
 import Settings from './settings'
 
 registerProxyAuth()
+registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
 
 const rescheduleSubscriptions = () => scheduleSubscriptions().catch(() => {
   console.warn('Could not schedule proxy subscriptions')
@@ -40,6 +42,9 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  startProxyChecks,
+  stopProxyChecks,
+  proxyCheckState: getProxyCheckState,
   importProxies,
   subscriptions: updateSubscriptions,
   refreshSubscription: ({ id }) => refreshSubscription({ id }),

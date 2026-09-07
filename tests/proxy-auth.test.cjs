@@ -51,6 +51,18 @@ test('HTTP auth matches the selected challenger and never answers origin authent
   assert.ok((await handle(details)).authCredentials)
 })
 
+test('checks cancel missing HTTP credentials without opening a browser authentication prompt', async () => {
+  const { createAuthHandler } = fixture()
+  const failed = []
+  const proxy = { ...record, username: '', password: '', checking: true }
+  const { handle } = createAuthHandler(async () => [proxy], id => failed.push(id))
+  const details = { requestId: 'probe', isProxy: true, challenger: { host: proxy.host, port: proxy.port } }
+  assert.deepEqual(plain(await handle(details)), { cancel: true })
+  assert.deepEqual(failed, ['one'])
+  proxy.checking = false
+  assert.deepEqual(plain(await handle(details)), {})
+})
+
 test('auth honors direct service overrides and disabled proxy use', async () => {
   const state = fixture()
   const { handle } = state.createAuthHandler()

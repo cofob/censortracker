@@ -58,6 +58,7 @@
                     <th data-i18n-key="proxySelected"></th>
                     <th data-i18n-key="proxyName"></th>
                     <th data-i18n-key="proxyAddress"></th>
+                    <th data-i18n-key="proxyCheckResult"></th>
                     <th data-i18n-key="proxyActions"></th>
                   </tr></thead>
                   <tbody id="proxyRows"></tbody>
@@ -66,6 +67,15 @@
               <button type="button" id="proxyPrevious" data-i18n-key="proxyPrevious"></button>
               <button type="button" id="proxyNext" data-i18n-key="proxyNext"></button>
               <p id="proxyListError" role="alert" hidden></p>
+              <details id="proxyCheckOptions">
+                <summary data-i18n-key="proxyCheckTitle"></summary>
+                <p class="main-page__about" data-i18n-key="proxyCheckPrivacy"></p>
+                <button type="button" id="proxyCheckSelected" data-i18n-key="proxyCheckSelected"></button>
+                <button type="button" id="proxyCheckAll" data-i18n-key="proxyCheckAll"></button>
+                <button type="button" id="proxyCheckStop" data-i18n-key="proxyCheckStop" disabled></button>
+                <p id="proxyCheckStatus" role="status"></p>
+                <p id="proxyCheckError" role="alert" data-i18n-key="proxyCheckError" hidden></p>
+              </details>
               <form id="proxyForm" class="proxy-options-inputs">
                 <label for="proxyName" data-i18n-key="proxyName"></label>
                 <input id="proxyName" type="text" maxlength="100" class="input-proxy">

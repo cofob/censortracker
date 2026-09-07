@@ -1,4 +1,55 @@
 {
+  "proxyCheckTitle": {
+    "message": "Проверить прокси"
+  },
+  "proxyCheckResult": {
+    "message": "Последняя проверка"
+  },
+  "proxyCheckPrivacy": {
+    "message": "Проверка обращается к ipify.org, myip.com, ipwho.is и country.is через каждый прокси. Cloudflare DNS и country.is получают адрес или IP прокси для определения его страны. Эти сервисы могут видеть ваш IP. Во время проверки другие запросы к тестовым доменам используют тот же тестируемый прокси. Домены посещённых сайтов не отправляются. Результаты приблизительны и не подтверждают маршрут страницы. До четырёх проверок одновременно; тайм-аут IP-запроса — 8 секунд."
+  },
+  "proxyCheckAll": {
+    "message": "Проверить все"
+  },
+  "proxyCheckSelected": {
+    "message": "Проверить выбранные"
+  },
+  "proxyCheckStop": {
+    "message": "Остановить"
+  },
+  "proxyCheckProgress": {
+    "message": "Проверено: $1 из $2."
+  },
+  "proxyCheckCancelled": {
+    "message": "Остановлено."
+  },
+  "proxyCheckError": {
+    "message": "Не удалось начать или завершить проверку. Включите расширение и проксирование, выберите прокси и убедитесь, что другая проверка не запущена."
+  },
+  "proxyServerCountry": {
+    "message": "Страна сервера"
+  },
+  "proxyExitCountry": {
+    "message": "Страна выхода"
+  },
+  "proxyStatus_unchecked": {
+    "message": "Не проверен"
+  },
+  "proxyStatus_ok": {
+    "message": "Доступен"
+  },
+  "proxyStatus_failed": {
+    "message": "Проверка не пройдена"
+  },
+  "proxyStatus_auth": {
+    "message": "Требуется авторизация или данные отклонены"
+  },
+  "proxyStatus_restricted": {
+    "message": "Ограничен; не проверен"
+  },
+  "proxyStatus_unsupported": {
+    "message": "Недоступен или не поддерживается"
+  },
   "proxyImportTitle": {
     "message": "Импорт прокси и подписки"
   },

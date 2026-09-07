@@ -3,7 +3,7 @@ import { normalizeHostname } from './hostname'
 import ProxyManager from './proxy'
 import { proxyDirective } from './proxy-address'
 import { hasProxyAuth, proxyKey } from './proxy-record'
-import { getServiceRoute, proxyRequestAllowed } from './proxy-route'
+import { getServiceRoute, noteProbeAuthFailure, proxyRequestAllowed } from './proxy-route'
 
 const requestProxies = async (url) => {
   const hostname = normalizeHostname(url)
@@ -20,7 +20,9 @@ const requestProxies = async (url) => {
   return (await ProxyManager.getRouteForHost(hostname)).proxies
 }
 
-export const createAuthHandler = (getProxies = requestProxies) => {
+export const createAuthHandler = (
+  getProxies = requestProxies, onFailure = () => {},
+) => {
   const attempts = new Map()
   const handle = async (details) => {
     if (!details.isProxy || !details.challenger) {
@@ -29,11 +31,18 @@ export const createAuthHandler = (getProxies = requestProxies) => {
     const host = normalizeHostname(details.challenger.host) ||
       normalizeHostname(`[${details.challenger.host}]`)
     const candidates = await getProxies(details.url)
-    const proxy = candidates.find((entry) => hasProxyAuth(entry) &&
+    const proxy = candidates.find((entry) =>
       ['HTTP', 'HTTPS'].includes(entry.protocol) && entry.host === host &&
       entry.port === details.challenger.port)
 
     if (!proxy) {
+      return {}
+    }
+    if (!hasProxyAuth(proxy)) {
+      if (proxy.checking) {
+        onFailure(proxy.id)
+        return { cancel: true }
+      }
       return {}
     }
     const tried = attempts.get(details.requestId) || new Set()
@@ -41,6 +50,7 @@ export const createAuthHandler = (getProxies = requestProxies) => {
 
     if (tried.has(key) || tried.size >= 10 ||
       (!attempts.has(details.requestId) && attempts.size >= 1024)) {
+      onFailure(proxy.id)
       return { cancel: true }
     }
     tried.add(key)
@@ -78,7 +88,9 @@ export const handleFirefoxProxy = async ({ url }) => {
 }
 
 export const registerProxyAuth = () => {
-  const { handle, clear } = createAuthHandler()
+  const { handle, clear } = createAuthHandler(
+    requestProxies, noteProbeAuthFailure,
+  )
   const filter = { urls: ['<all_urls>'] }
 
   browser.webRequest.onAuthRequired.addListener(browser.isFirefox

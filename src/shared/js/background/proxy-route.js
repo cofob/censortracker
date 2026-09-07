@@ -6,6 +6,7 @@ import { isPrivateHost } from './private-host'
 let queue = Promise.resolve()
 let revision = 0
 let serviceRoute = null
+const probes = new Map()
 let permissionCache
 let watchingControl = false
 const routeKeys = new Set([
@@ -25,6 +26,22 @@ browser.storage.onChanged.addListener((changes, area) => {
 
 export const getRouteRevision = () => revision
 export const getServiceRoute = () => serviceRoute
+export const getProbeRoutes = () => Array.from(probes.values())
+export const noteProbeAuthFailure = (id) => {
+  for (const probe of probes.values()) {
+    if (probe.proxy.id === id) {
+      probe.authFailed = true
+    }
+  }
+}
+export const setProbeRoute = (hostname, proxy) => {
+  if (proxy) {
+    probes.set(hostname, { hostname, proxy, expiresAt: Date.now() + 10000 })
+  } else {
+    probes.delete(hostname)
+  }
+  revision++
+}
 
 export const mustUseDirect = async (hostname) => {
   const { ignoredHosts } = await browser.storage.local.get({ ignoredHosts: [] })

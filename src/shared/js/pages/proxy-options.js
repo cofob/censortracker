@@ -4,6 +4,7 @@ import browser from 'Background/browser-api'
 import ProxyClient from 'Background/localproxy'
 import ProxyManager from 'Background/proxy'
 
+import { mountProxyCheck } from './proxy-check'
 import { mountProxyImport } from './proxy-import'
 import { mountProxyList } from './proxy-list'
 
@@ -314,4 +315,5 @@ import { mountProxyList } from './proxy-list'
   const refreshProxies = await mountProxyList()
 
   await mountProxyImport(refreshProxies)
+  await mountProxyCheck(refreshProxies)
 })()

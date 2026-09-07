@@ -7,6 +7,24 @@ const { createRouter, routingConfig } = load('background/routing')
 const { findHostMatch } = load('background/host-match')
 const { isPrivateHost } = load('background/private-host')
 
+test('probe routes are isolated, fail closed on expiry, and respect local and explicit exclusions', () => {
+  const proxy = { id: 'probe', protocol: 'HTTP', host: 'check.example', port: 80, username: 'secret' }
+  const options = { domains: ['protected.example'], ignoredHosts: ['ignored.example'],
+    proxies: [{ id: 'normal', protocol: 'HTTPS', host: 'normal.example', port: 443 }],
+    probes: ['echo.example', 'expired.example', 'ignored.example', '127.0.0.1'].map(hostname => ({
+      hostname, proxy, expiresAt: hostname === 'expired.example' ? 1 : Date.now() + 10000,
+    })),
+  }
+  const script = getPacScript(options)
+  const scope = {}
+  vm.runInNewContext(script, scope)
+  assert.equal(scope.FindProxyForURL('', 'echo.example'), 'PROXY check.example:80')
+  assert.equal(scope.FindProxyForURL('', 'expired.example'), 'PROXY 127.0.0.1:0')
+  assert.equal(scope.FindProxyForURL('', 'protected.example'), 'HTTPS normal.example:443;')
+  for (const host of ['ignored.example', '127.0.0.1', 'other.example']) assert.equal(scope.FindProxyForURL('', host), 'DIRECT')
+  assert.doesNotMatch(script, /secret/)
+})
+
 test('sites have stable first proxies and all selected failover candidates', () => {
   const options = { domains: ['example.com'], proxies: [
     { id: 'one', protocol: 'HTTP', host: 'one.example', port: 80 },

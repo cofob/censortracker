@@ -5,6 +5,7 @@ const { createServer: createSecureServer } = require('node:https')
 const { spawn, execFile } = require('node:child_process')
 const { promisify } = require('node:util')
 const { createHash } = require('node:crypto')
+const { connect } = require('node:net')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 const os = require('node:os')
@@ -39,6 +40,9 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
   }
   const proxy = createServer(proxyHandler)
   let secureProxy
+  let echo
+  let echoHits = 0
+  let slowEcho = false
   await Promise.all([origin, proxy].map(server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve))))
   const process = spawn(global.process.env.CHROMIUM || 'chromium', [
     '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
@@ -58,6 +62,27 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
       '-keyout', key, '-out', cert, '-subj', '/CN=localhost', '-days', '1'], { timeout: 5000 })
     secureProxy = createSecureServer({ key: await fs.readFile(key), cert: await fs.readFile(cert) }, proxyHandler)
     await new Promise(resolve => secureProxy.listen(0, '127.0.0.1', resolve))
+    echo = createSecureServer({ key: await fs.readFile(key), cert: await fs.readFile(cert) }, (request, response) => {
+      echoHits++
+      if (!slowEcho) response.end(JSON.stringify({ ip: '8.8.8.8', cc: 'US' }))
+    })
+    await new Promise(resolve => echo.listen(0, '127.0.0.1', resolve))
+    const tunnel = (request, client, head) => {
+      if (request.headers['proxy-authorization'] !== 'Basic ' + Buffer.from('alice:secret').toString('base64')) {
+        client.end('HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="probe"\r\nContent-Length: 0\r\n\r\n')
+        return
+      }
+      const upstream = connect(echo.address().port, '127.0.0.1', () => {
+        client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+        upstream.write(head)
+        client.pipe(upstream).pipe(client)
+      })
+      client.on('error', () => upstream.destroy())
+      upstream.on('error', () => client.destroy())
+      client.on('close', () => upstream.destroy())
+    }
+    proxy.on('connect', tunnel)
+    secureProxy.on('connect', tunnel)
     let port
     for (let attempt = 0; attempt < 100; attempt++) {
       if (startError) throw startError
@@ -124,6 +149,31 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
       assert.ok(authHits > beforeAuth, protocol)
     }
     assert.equal(await evaluate("chrome.proxy.settings.get({}).then(({value}) => /alice|secret/.test(value.pacScript.data))"), false)
+    const checkRecords = [['HTTP', proxy], ['HTTPS', secureProxy]].map(([protocol, server], index) => ({
+      id: `check-${index}`, name: `Check ${index}`, protocol, host: '127.0.0.1', port: server.address().port, username: 'alice', password: 'secret',
+    }))
+    await evaluate(`chrome.storage.local.set(${JSON.stringify({ proxies: checkRecords, selectedProxyIds: ['check-0'] })})`)
+    assert.equal(await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'startProxyChecks', args: {ids: ['check-0', 'check-1']}}).then(result => result.error || result.value.running)"), true)
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await evaluate("chrome.storage.local.get('proxyCheckRun').then(data => data.proxyCheckRun?.running === false)")) break
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    const results = await evaluate("chrome.storage.local.get('proxyChecks').then(data => data.proxyChecks)")
+    assert.equal(results['check-0']?.status, 'ok', JSON.stringify(results))
+    assert.equal(results['check-1']?.status, 'ok', JSON.stringify(results))
+    assert.equal(results['check-0'].exitIP, '8.8.8.8')
+    assert.equal(results['check-0'].exitCountry, 'US')
+    assert.equal(await evaluate("chrome.proxy.settings.get({}).then(({value}) => value.pacScript.data.includes('api.ipify.org'))"), false)
+    const checkedAt = results['check-0'].checkedAt
+    const beforeSlow = echoHits
+    slowEcho = true
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'startProxyChecks', args: {ids: ['check-0']}})")
+    for (let attempt = 0; echoHits === beforeSlow && attempt < 100; attempt++) await new Promise(resolve => setTimeout(resolve, 20))
+    assert.ok(echoHits > beforeSlow)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'stopProxyChecks'})")
+    assert.equal(await evaluate("chrome.storage.local.get('proxyChecks').then(data => data.proxyChecks['check-0'].checkedAt)"), checkedAt)
+    assert.equal(await evaluate("chrome.storage.local.get('proxyProbeActive').then(data => data.proxyProbeActive)"), false)
+    slowEcho = false
     await evaluate("chrome.storage.local.set({useProxy: false, proxies: [], selectedProxyIds: ['builtin']})")
     await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
     const until = async expression => {
@@ -140,6 +190,8 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(await evaluate("document.querySelector('#proxyRows img') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyRows').textContent.includes('secret')"), false)
     assert.equal(await evaluate("chrome.storage.local.get('proxies').then(data => data.proxies[0].password)"), 'secret')
+    await evaluate("chrome.storage.local.get(['proxies', 'proxyChecks']).then(({proxies, proxyChecks}) => chrome.storage.local.set({proxyChecks: {...proxyChecks, [proxies[0].id]: proxyChecks['check-0']}}))")
+    await until("document.querySelector('#proxyRows').textContent.includes('Available')")
     if (global.process.env.CT_BROWSER_SCREENSHOT) {
       await evaluate("document.querySelector('#useProxyCheckbox').click(); document.querySelector('#proxyListOptions').open = true; document.querySelector('#proxyAuthOptions').open = true")
       await until("chrome.storage.local.get('useProxy').then(data => data.useProxy === true)")
@@ -154,12 +206,16 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').disabled === false")
     await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click(); document.querySelector('#proxyName').value = 'Renamed'; document.querySelector('#proxyForm').requestSubmit()")
     await until("document.querySelector('#proxyRows').textContent.includes('Renamed')")
+    assert.equal(await evaluate("document.querySelector('#proxyRows').textContent.includes('Available')"), true)
+    await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelector('button').click(); document.querySelector('#proxyPassword').value = 'changed'; document.querySelector('#proxyForm').requestSubmit()")
+    await until("!document.querySelector('#proxyRows').textContent.includes('Available')")
     await evaluate("document.querySelectorAll('#proxyRows tr')[1].querySelectorAll('button')[1].click()")
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
     assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
     assert.equal(await evaluate("document.querySelector('#pageError') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyAll') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyImportOptions').open"), false)
+    assert.equal(await evaluate("document.querySelector('#proxyCheckOptions').open"), false)
     await evaluate("document.querySelector('#proxyImportText').value = 'http://imported.example:8080'; document.querySelector('#proxyImportButton').click()")
     await until("document.querySelector('#proxyRows').textContent.includes('imported.example')")
     assert.deepEqual(await evaluate("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds)"), ['builtin'])
@@ -187,7 +243,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
         await within(exited, 2000)
       }
     }
-    for (const server of [origin, proxy, secureProxy].filter(Boolean)) { server.closeAllConnections(); server.close() }
+    for (const server of [origin, proxy, secureProxy, echo].filter(Boolean)) { server.closeAllConnections(); server.close() }
     await fs.rm(profile, { recursive: true, force: true })
   }
 })

@@ -3,6 +3,7 @@ import { TaskType } from './constants'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
 import { refreshNextSubscription, SUBSCRIPTION_ALARM } from './proxy-importer'
+import { getProbeRoutes } from './proxy-route'
 import Registry from './registry'
 import * as server from './server'
 import Settings from './settings'
@@ -256,7 +257,12 @@ export const handleTabCreate = async (tab) => {
     })
 }
 
-export const handleProxyError = async ({ error }) => {
+export const handleProxyError = async ({ error, url, tabId }) => {
+  // Internal requests and probe routes must not replace the managed endpoint.
+  if (tabId === -1 || getProbeRoutes().some(({ hostname }) =>
+    hostname === utilities.extractHostnameFromUrl(url))) {
+    return
+  }
   const usingCustomProxy = await ProxyManager.usingCustomProxy()
 
   // Custom proxy is used, so we don't need to handle this error

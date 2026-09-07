@@ -89,6 +89,7 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
       import browser from ${JSON.stringify(path.join(root, 'browser-api.js'))};
       import manager from ${JSON.stringify(path.join(root, 'proxy.js'))};
       import { registerProxyAuth } from ${JSON.stringify(path.join(root, 'proxy-auth.js'))};
+      import { setProbeRoute } from ${JSON.stringify(path.join(root, 'proxy-route.js'))};
       registerProxyAuth();
       (async () => {
         const results = [];
@@ -108,6 +109,19 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
             } catch (error) { results.push(error.name === 'AbortError' ? 'TIMEOUT' : 'BLOCKED'); }
             finally { clearTimeout(timeout); }
           }
+          await browser.storage.local.set({ selectedProxyIds: [] });
+          for (const config of ${JSON.stringify(cases.slice(0, 2))}) {
+            setProbeRoute('protected.example', { id: 'probe', host: '127.0.0.1', username: 'alice', ...config });
+            if (!await manager.setProxyInBackground({ ping: false })) throw new Error('Probe PAC was not applied');
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 6000);
+            try {
+              results.push(await fetch('http://protected.example:${origin.address().port}/probe',
+                { signal: controller.signal, cache: 'no-store' }).then(response => response.text()));
+            } catch (error) { results.push(error.name === 'AbortError' ? 'TIMEOUT' : 'BLOCKED'); }
+            finally { clearTimeout(timeout); setProbeRoute('protected.example', null); }
+          }
+          await manager.setProxyInBackground({ ping: false });
         } catch (error) { results.push(error.message); }
         await fetch('http://127.0.0.1:${origin.address().port}/report?data=' + encodeURIComponent(JSON.stringify(results)));
       })();
@@ -150,7 +164,7 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
       await remote.installTemporaryAddon(addon)
       return results
     }
-    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED'])
+    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'AUTH_HTTP', 'AUTH_SOCKS'])
     assert.equal(directHits, 0)
     assert.ok(socksRequests.length > 0)
     assert.ok(socksRequests.every(request => request.addressType === 3 && request.hostname === 'protected.example'))

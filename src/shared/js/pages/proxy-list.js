@@ -24,6 +24,7 @@ export const mountProxyList = async () => {
   const next = document.getElementById('proxyNext')
   const message = (key) => browser.i18n.getMessage(key)
   let state
+  let checks = {}
   let editingId
   let page = 0
 
@@ -65,7 +66,7 @@ export const mountProxyList = async () => {
     for (const proxy of catalog.slice(page * 100, (page + 1) * 100)) {
       const row = document.createElement('tr')
       const choice = document.createElement('input')
-      const cells = Array.from({ length: 4 }, () => document.createElement('td'))
+      const cells = Array.from({ length: 5 }, () => document.createElement('td'))
 
       choice.type = 'checkbox'
       choice.checked = selected.has(proxy.id)
@@ -84,6 +85,20 @@ export const mountProxyList = async () => {
       if (proxy.restricted) {
         cells[2].textContent += ` — ${message('proxyRestricted')}`
       }
+      const check = checks[proxy.id]
+
+      cells[3].textContent = message(`proxyStatus_${check?.status || 'unchecked'}`)
+      if (check) {
+        cells[3].title = new Date(check.checkedAt).toLocaleString()
+        if (check.status === 'ok') {
+          cells[3].textContent += ` · ${check.latency} ms`
+          const location = document.createElement('div')
+
+          location.textContent = `${message('proxyServerCountry')}: ${check.serverCountry || '?'}; ` +
+            `${message('proxyExitCountry')}: ${check.exitCountry || '?'} (${check.exitIP})`
+          cells[3].append(location)
+        }
+      }
       if (proxy.id !== 'builtin') {
         const edit = document.createElement('button')
         const remove = document.createElement('button')
@@ -96,7 +111,7 @@ export const mountProxyList = async () => {
         remove.addEventListener('click', () => run({
           operation: 'remove', ids: [proxy.id],
         }))
-        cells[3].append(edit, remove)
+        cells[4].append(edit, remove)
       }
       row.append(...cells)
       rows.append(row)
@@ -111,6 +126,7 @@ export const mountProxyList = async () => {
     }
     try {
       state = await callBackground('proxies', args)
+      checks = (await callBackground('proxyCheckState')).checks
       if (args.operation === 'save' || args.operation === 'remove') {
         resetForm()
       }
@@ -156,6 +172,7 @@ export const mountProxyList = async () => {
   })
   const refresh = async () => {
     state = await callBackground('proxies', { operation: 'list' })
+    checks = (await callBackground('proxyCheckState')).checks
     render()
   }
 

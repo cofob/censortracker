@@ -1,4 +1,55 @@
 {
+  "proxyCheckTitle": {
+    "message": "Check proxies"
+  },
+  "proxyCheckResult": {
+    "message": "Last check"
+  },
+  "proxyCheckPrivacy": {
+    "message": "Check uses ipify.org, myip.com, ipwho.is and country.is through each proxy. Cloudflare DNS and country.is receive the proxy host or IP to estimate its location. These services can see your IP. While a check runs, other requests to its test hosts use the same test proxy. No visited site names are sent. Results are estimates, not proof of the route used by a page. Up to four checks run at once; each IP request has an 8-second limit."
+  },
+  "proxyCheckAll": {
+    "message": "Check all"
+  },
+  "proxyCheckSelected": {
+    "message": "Check selected"
+  },
+  "proxyCheckStop": {
+    "message": "Stop"
+  },
+  "proxyCheckProgress": {
+    "message": "Checked: $1 of $2."
+  },
+  "proxyCheckCancelled": {
+    "message": "Stopped."
+  },
+  "proxyCheckError": {
+    "message": "Cannot start or finish the check. Enable the extension and proxy use, select a proxy, and make sure no other check is running."
+  },
+  "proxyServerCountry": {
+    "message": "Server country"
+  },
+  "proxyExitCountry": {
+    "message": "Exit country"
+  },
+  "proxyStatus_unchecked": {
+    "message": "Not checked"
+  },
+  "proxyStatus_ok": {
+    "message": "Available"
+  },
+  "proxyStatus_failed": {
+    "message": "Check failed"
+  },
+  "proxyStatus_auth": {
+    "message": "Authentication required or rejected"
+  },
+  "proxyStatus_restricted": {
+    "message": "Restricted; not checked"
+  },
+  "proxyStatus_unsupported": {
+    "message": "Unavailable or unsupported"
+  },
   "proxyImportTitle": {
     "message": "Import proxies and subscriptions"
   },

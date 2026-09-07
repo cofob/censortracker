@@ -7,7 +7,7 @@ import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
 import { readProxyState } from './proxy-list'
 import { proxyAuthSupported } from './proxy-record'
-import { applyPac, getRouteRevision, proxyAllowed } from './proxy-route'
+import { applyPac, getProbeRoutes, getRouteRevision, proxyAllowed } from './proxy-route'
 import registry from './registry'
 import { createRouter, routingConfig } from './routing'
 
@@ -46,6 +46,7 @@ class ProxyManager {
       domains,
       ignoredHosts,
       proxyAll,
+      probes: getProbeRoutes(),
       proxies: await this.getSelectedProxies(),
     }
   }
@@ -64,14 +65,21 @@ class ProxyManager {
         resolve: createRouter(
           routingConfig(options), findHostMatch, isPrivateHost,
         ),
-        proxies: new Map(options.proxies.map((proxy) => [proxy.id, proxy])),
+        proxies: new Map([
+          ...options.proxies,
+          ...options.probes.map(({ proxy }) => proxy),
+        ].map((proxy) => [proxy.id, proxy])),
       }
     }
     const decision = cachedRouter.resolve(host)
 
     return {
       ...decision,
-      proxies: decision.proxies.map((id) => cachedRouter.proxies.get(id)),
+      proxies: decision.proxies.map((id) => {
+        const proxy = cachedRouter.proxies.get(id)
+
+        return decision.type === 'probe' ? { ...proxy, checking: true } : proxy
+      }),
     }
   }
 
@@ -113,7 +121,7 @@ class ProxyManager {
     return callBackground('setProxy')
   }
 
-  async setProxyInBackground () {
+  async setProxyInBackground ({ ping = true } = {}) {
     const revision = getRouteRevision()
 
     if (!await proxyAllowed()) {
@@ -122,17 +130,19 @@ class ProxyManager {
     const options = await this.getRoutingOptions()
 
     if (revision !== getRouteRevision()) {
-      return this.setProxyInBackground()
+      return this.setProxyInBackground({ ping })
     }
 
-    await this.ping()
+    if (ping) {
+      await this.ping()
+    }
 
     if (!await proxyAllowed()) {
       return false
     }
 
     if (revision !== getRouteRevision()) {
-      return this.setProxyInBackground()
+      return this.setProxyInBackground({ ping })
     }
 
     try {
@@ -144,7 +154,7 @@ class ProxyManager {
         return false
       }
       if (revision !== getRouteRevision()) {
-        return this.setProxyInBackground()
+        return this.setProxyInBackground({ ping })
       }
       await browser.storage.local.set({ proxyIsAlive: true })
       await this.grantIncognitoAccess()
@@ -174,7 +184,7 @@ class ProxyManager {
     return proxyIsAlive
   }
 
-  async ping () {
+  async ping (force = false) {
     const {
       localProxyURI,
       proxyPingURI,
@@ -190,7 +200,7 @@ class ProxyManager {
     const usesBuiltin = selectedProxyIds
       ? selectedProxyIds.includes('builtin') : !useOwnProxy
 
-    if (!usesBuiltin || localProxyURI || !proxyPingURI) {
+    if ((!force && (!usesBuiltin || localProxyURI)) || !proxyPingURI) {
       return
     }
 
