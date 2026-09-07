@@ -88,5 +88,12 @@ if (browser.isFirefox) {
       ],
     },
   )
+  // «onProxyError» only reports errors in the PAC script itself.
+  // Connection failures are reported by webNavigation.
   registerListener(browser.proxy?.onProxyError, 'proxy.onProxyError', handleProxyError)
+  registerListener(
+    browser.webNavigation?.onErrorOccurred,
+    'webNavigation.onErrorOccurred',
+    handleProxyError,
+  )
 }

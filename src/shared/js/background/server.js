@@ -150,7 +150,7 @@ const fetchProxy = async () => {
       throw new TypeError('Proxy list response must be an array')
     }
 
-    const availableProxies = proxyList.filter(({
+    const activeProxies = proxyList.filter(({
       active,
       server,
       port,
@@ -163,9 +163,22 @@ const fetchProxy = async () => {
         port &&
         pingHost &&
         pingPort &&
-        !badProxies.includes(server) &&
         Number(weight) > 0
     })
+
+    let availableProxies = activeProxies.filter(({ server }) => {
+      return !badProxies.includes(server)
+    })
+
+    if (
+      availableProxies.length === 0 &&
+      activeProxies.length > 0 &&
+      badProxies.length > 0
+    ) {
+      console.warn('All active proxies were excluded. Retrying the active pool.')
+      availableProxies = activeProxies
+      await browser.storage.local.set({ badProxies: [] })
+    }
 
     const proxy = selectProxy(availableProxies)
 

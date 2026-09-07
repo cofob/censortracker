@@ -8,6 +8,8 @@ import Settings from './settings'
 import Task from './task'
 import * as utilities from './utilities'
 
+let proxyRecoveryInProgress = false
+
 export const showDisseminatorWarning = async (url) => {
   const hostname = utilities.extractDomainFromUrl(url)
   const {
@@ -282,9 +284,14 @@ export const handleProxyError = async ({ error }) => {
       return
     }
 
-    console.error(`Error on connection to ${currentProxyServer}: ${error}`)
+    if (!currentProxyServer || proxyRecoveryInProgress) {
+      return
+    }
 
-    if (currentProxyServer) {
+    proxyRecoveryInProgress = true
+
+    try {
+      console.warn(`Error on connection to ${currentProxyServer}: ${error}`)
       const badProxies = await ProxyManager.getBadProxies()
 
       if (!badProxies.includes(currentProxyServer)) {
@@ -292,18 +299,15 @@ export const handleProxyError = async ({ error }) => {
         await browser.storage.local.set({ badProxies })
       }
 
-      browser.tabs.query({
-        active: true,
-        lastFocusedWindow: true,
-      }).then(async (tab) => {
-        console.warn('Requesting new proxy server...')
-        await server.synchronize({
-          syncIgnore: false,
-          syncRegistry: false,
-          syncProxy: true,
-        })
-        await ProxyManager.setProxy()
+      console.warn('Requesting new proxy server...')
+      await server.synchronize({
+        syncIgnore: false,
+        syncRegistry: false,
+        syncProxy: true,
       })
+      await ProxyManager.setProxy()
+    } finally {
+      proxyRecoveryInProgress = false
     }
   }
 }
