@@ -193,7 +193,7 @@ const fetchProxy = async () => {
       pingPort,
     } = proxy
 
-    console.warn(`Status: ${response.status}`)
+    console.debug(`[Proxy] Status: ${response.status}`)
 
     const proxyPingURI = `${pingHost}:${pingPort}`
     const proxyServerURI = `${server}:${port}`
@@ -232,7 +232,7 @@ const fetchRegistry = async ({ registryUrl, specifics = {} } = {}) => {
     return
   }
 
-  console.warn('[Registry] Fetching registry...')
+  console.debug('[Registry] Fetching registry...')
 
   const apis = [{
     url: registryUrl,
@@ -267,29 +267,36 @@ const fetchRegistry = async ({ registryUrl, specifics = {} } = {}) => {
  */
 const fetchIgnore = async ({ ignoreUrl } = {}) => {
   if (!ignoreUrl) {
-    console.warn('[Ignore] «ignoreUrl» is not present in config.')
+    console.debug('[Ignore] No ignoreUrl configured. Skipping remote ignore list.')
     return
   }
 
-  fetch(ignoreUrl)
-    .then((response) => response.json())
-    .then((domains) => {
-      browser.storag.local.get({ ignoredHosts: [] })
-        .then(({ ignoredHosts }) => {
-          for (const domain of domains) {
-            if (!ignoredHosts.includes(domain)) {
-              ignoredHosts.push(domain)
-            }
-          }
-          browser.storag.local.set({ ignoredHosts })
-            .then(() => {
-              console.log('[Ignore] Globally ignored domains fetched.')
-            })
-        })
+  try {
+    const response = await fetch(ignoreUrl)
+
+    if (!response.ok) {
+      throw new Error(`Ignore list request failed with status ${response.status}`)
+    }
+
+    const domains = await response.json()
+
+    if (!Array.isArray(domains) || domains.some((domain) => {
+      return typeof domain !== 'string' || domain.trim().length === 0
+    })) {
+      throw new TypeError('Ignore list response must be an array of domain strings')
+    }
+
+    const { ignoredHosts } = await browser.storage.local.get({
+      ignoredHosts: [],
     })
-    .catch((error) => {
-      console.error(`[Ignore] Error on fetching ignored hosts: ${error}`)
+
+    await browser.storage.local.set({
+      ignoredHosts: [...new Set([...ignoredHosts, ...domains])],
     })
+    console.log('[Ignore] Globally ignored domains fetched.')
+  } catch (error) {
+    console.error(`[Ignore] Error on fetching ignored hosts: ${error}`)
+  }
 }
 
 export const synchronize = async ({
