@@ -16,10 +16,13 @@ test('match full names and label-boundary parents, including multi-label suffixe
   assert.equal(findHostMatch('1.1.1.1', rules), '1.1.1.1')
   assert.equal(findHostMatch('8.8.8.8', new Set(['8.8'])), null)
   assert.equal(findHostMatch('a.api.example.com', new Set(['example.com', 'api.example.com'])), 'api.example.com')
+  assert.equal(findHostMatch('unrelated.com', new Set(['com'])), null)
+  assert.equal(findHostMatch('example.co.uk', new Set(['uk'])), null)
+  assert.equal(findHostMatch('printer', new Set(['printer'])), 'printer')
 })
 
 test('PAC and registry preserve subdomains and multi-label suffixes', async () => {
-  const domains = ['example.co.uk', 'example.com.br', 'api.example.com']
+  const domains = ['example.co.uk', 'example.com.br', 'api.example.com', 'com', 'uk']
   const storage = { domains, customProxiedDomains: [], ignoredHosts: [] }
   let changed = () => {}
   const browser = { storage: { local: {

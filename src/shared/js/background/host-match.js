@@ -12,7 +12,7 @@ export const findHostMatch = (hostname, rules) => {
     }
     const dot = host.indexOf('.')
 
-    if (address || dot < 0) {
+    if (address || dot < 0 || host.indexOf('.', dot + 1) < 0) {
       return null
     }
     host = host.slice(dot + 1)
