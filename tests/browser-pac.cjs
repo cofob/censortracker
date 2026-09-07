@@ -113,10 +113,28 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     socket = new WebSocket(target.webSocketDebuggerUrl)
     await within(new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject }))
     let next = 0
+    let localConfigs = {}
+    let holdLocalPing
+    const localRequests = []
     const pending = new Map()
     socket.onmessage = event => {
       const data = JSON.parse(event.data)
       if (data.id) { pending.get(data.id)(data); pending.delete(data.id) }
+      if (data.method === 'Fetch.requestPaused') {
+        const { request, requestId } = data.params
+        localRequests.push(request)
+        if (request.url.includes('/ping') && holdLocalPing) {
+          holdLocalPing(requestId)
+          holdLocalPing = null
+          return
+        }
+        const body = request.url.includes('/ping')
+          ? { xray_running: true, config_count: Object.keys(localConfigs).length }
+          : { status: 'success', configs: localConfigs }
+        command('Fetch.fulfillRequest', { requestId, responseCode: 200,
+          responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+          body: Buffer.from(JSON.stringify(body)).toString('base64') })
+      }
     }
     const command = async (method, params) => {
       const result = await within(new Promise(resolve => {
@@ -495,6 +513,52 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("chrome.proxy.settings.get({}).then(data => data.value.mode === 'pac_script')")
     await evaluate("chrome.storage.local.remove('enableExtension')")
     await until("chrome.proxy.settings.get({}).then(data => data.value.mode !== 'pac_script')")
+    const configId = 'id"><img src=x>&extra=1'
+    const configName = '<img src=x> & "Local proxy"'
+    localConfigs = { [configId]: { name: configName, isActive: true },
+      useProxyCheckbox: { name: 'Control ID collision', isActive: false } }
+    await command('Fetch.enable', { patterns: [{ urlPattern: 'http://localhost:49490/api/v1/*' }] })
+    await evaluate('chrome.storage.local.set({useLocalProxy: true})')
+    await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
+    await until("document.querySelector('#changeLocalProxyRadio input') !== null")
+    assert.equal(await evaluate("document.querySelector('#changeLocalProxyRadio label').textContent"), configName)
+    assert.equal(await evaluate("document.querySelector('#changeLocalProxyRadio img') === null"), true)
+    assert.equal(await evaluate("document.querySelector('#changeLocalProxyRadio input').value"), configId)
+    assert.equal(await evaluate("document.querySelector('#changeLocalProxyRadio input').dataset.configName"), configName)
+    assert.equal(await evaluate("Array.from(document.querySelectorAll('#changeLocalProxyRadio label')).every(label => label.control.type === 'radio')"), true)
+    await evaluate("document.querySelector('#changeLocalProxyRadio .delete-config').click()")
+    await until("document.querySelector('#changeLocalProxyRadio').children.length === 1")
+    const deletion = localRequests.find(request => request.method === 'DELETE')
+    assert.equal(new URL(deletion.url).searchParams.get('uuid'), configId)
+    assert.equal(new URL(deletion.url).searchParams.has('extra'), false)
+    await until("document.querySelectorAll('#proxyRows tr').length === 2")
+    await evaluate("document.querySelector('#useDefaultProxy').click()")
+    await until("chrome.storage.local.get('useLocalProxy').then(data => data.useLocalProxy === false)")
+    const localPing = new Promise(resolve => { holdLocalPing = resolve })
+    await evaluate("document.querySelector('#useLocalProxy').click()")
+    const requestId = await within(localPing)
+    await evaluate("document.querySelector('#useDefaultProxy').click()")
+    await until("chrome.storage.local.get('useLocalProxy').then(data => data.useLocalProxy === false)")
+    await command('Fetch.fulfillRequest', { requestId, responseCode: 200,
+      responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+      body: Buffer.from(JSON.stringify({ xray_running: true, config_count: 2 })).toString('base64') })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    assert.equal(await evaluate("chrome.storage.local.get('useLocalProxy').then(data => data.useLocalProxy)"), false,
+      'A late local-client response must not restore the old proxy mode')
+    assert.equal(await evaluate("document.querySelector('#localProxyOptions').style.display"), 'none')
+    const startupPing = new Promise(resolve => { holdLocalPing = resolve })
+    await evaluate("chrome.storage.local.set({useLocalProxy: true, localProxyURI: '127.0.0.1:10808'})")
+    await evaluate('location.reload()')
+    const startupRequestId = await within(startupPing)
+    await evaluate("document.querySelector('#useDefaultProxy').click()")
+    await until("chrome.storage.local.get('useLocalProxy').then(data => data.useLocalProxy === false)")
+    assert.equal(await evaluate("chrome.storage.local.get('localProxyURI').then(data => data.localProxyURI || null)"), null)
+    await command('Fetch.fulfillRequest', { requestId: startupRequestId, responseCode: 200,
+      responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+      body: Buffer.from(JSON.stringify({ xray_running: true, config_count: 2 })).toString('base64') })
+    await until("document.querySelectorAll('#proxyRows tr').length === 2")
+    assert.equal(await evaluate("chrome.storage.local.get('useLocalProxy').then(data => data.useLocalProxy)"), false)
+    await command('Fetch.disable', {})
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

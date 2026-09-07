@@ -110,6 +110,9 @@ import { mountProxyList } from './proxy-list'
   const renderLocalProxyConfigs = async () => {
     const { configs = {} } = await ProxyClient.getConfig('', 350)
 
+    if (!useLocalProxyRadioButton.checked) {
+      return
+    }
     if (Object.keys(configs).length === 0) {
       rksVPNBanner.classList.remove('hidden')
       return
@@ -126,7 +129,6 @@ import { mountProxyList } from './proxy-list'
 
       if (isActive) {
         await browser.storage.local.set({
-          useLocalProxy: true,
           activeProxyConfigName: name,
         })
       }
@@ -134,28 +136,35 @@ import { mountProxyList } from './proxy-list'
       div.className = 'proxy-list__block'
       div.innerHTML = `
        <div class="radio-button proxy-list__block-item">
-        <input class="radio-button-input" type="radio" name="local-proxy" id="${id}" value="${id}"
-          ${isActive ? 'checked' : ''} data-config-name="${name}"/>
-        <label class="radio-button-label" for="${id}">${name}</label>
-        <div class="proxy-list__block-item__btn delete-config" data-id="${id}">
+        <input class="radio-button-input" type="radio" name="local-proxy"/>
+        <label class="radio-button-label"></label>
+        <div class="proxy-list__block-item__btn delete-config">
           <svg class="close-icon" width="24" height="24" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
             <path d="M10 10L34 34M34 10L10 34" stroke="currentColor" stroke-opacity="0.8" stroke-width="2"/>
           </svg>
         </div>
        </div>`
+      const input = div.querySelector('input')
+      const label = div.querySelector('label')
+
+      input.id = `local-proxy-${id}`
+      input.value = id
+      input.checked = Boolean(isActive)
+      input.dataset.configName = name
+      label.htmlFor = input.id
+      label.textContent = name
+      div.querySelector('.delete-config').dataset.id = id
       changeLocalProxyRadio.append(div)
     }
     loading.style.display = 'none'
-
-    if (await ProxyManager.isEnabled()) {
-      await ProxyClient.setLocalProxyURI()
-      await ProxyManager.setProxy()
-    }
   }
 
   const showLocalProxySettings = async () => {
     const pingData = await ProxyClient.ping(500)
 
+    if (!useLocalProxyRadioButton.checked) {
+      return
+    }
     if (Object.keys(pingData).length === 0) {
       addLocalProxyButton.style.display = 'none'
       localProxyOptions.style.display = 'block'
@@ -213,13 +222,14 @@ import { mountProxyList } from './proxy-list'
     )
 
     if (status === 'success') {
+      if (!useLocalProxyRadioButton.checked) {
+        return
+      }
       console.log(`Config ${activeProxyConfigId} has been activated`)
       await browser.storage.local.set({
-        useLocalProxy: true,
         activeProxyConfigId,
         activeProxyConfigName,
       })
-      await ProxyClient.setLocalProxyURI()
       await ProxyManager.setProxy()
     } else {
       console.error(message)
@@ -232,8 +242,6 @@ import { mountProxyList } from './proxy-list'
   proxySelectionSummary.hidden = Boolean(useLocalProxy)
   if (useLocalProxy) {
     useLocalProxyRadioButton.checked = true
-    await showLocalProxySettings()
-    await renderLocalProxyConfigs()
   } else {
     useDefaultProxyRadioButton.checked = true
   }
@@ -252,7 +260,6 @@ import { mountProxyList } from './proxy-list'
       await ProxyManager.removeLocalProxy()
       await ProxyManager.setProxy()
     } else if (value === 'local') {
-      await browser.storage.local.set({ useLocalProxy: true })
       await ProxyClient.setLocalProxyURI()
       await ProxyManager.setProxy()
       await showLocalProxySettings()
@@ -289,6 +296,10 @@ import { mountProxyList } from './proxy-list'
     }
   }, false)
 
+  if (useLocalProxy) {
+    await showLocalProxySettings()
+    await renderLocalProxyConfigs()
+  }
   const refreshProxies = await mountProxyList()
 
   await mountProxyImport(refreshProxies)

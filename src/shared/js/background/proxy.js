@@ -318,8 +318,9 @@ class ProxyManager {
   }
 
   async removeLocalProxy () {
-    await browser.storage.local.set({ useLocalProxy: false })
-    await browser.storage.local.remove(['localProxyURI'])
+    await browser.storage.local.set({
+      useLocalProxy: false, localProxyURI: null,
+    })
   }
 
   async removeBadProxies () {
