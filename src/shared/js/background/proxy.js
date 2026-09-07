@@ -80,6 +80,8 @@ class ProxyManager {
       proxyServerProtocol,
     } = await this.getProxyingRules()
 
+    await this.ping()
+
     const pacData = getPacScript({
       domains,
       proxyServerURI,
@@ -133,24 +135,41 @@ class ProxyManager {
   }
 
   async ping () {
-    const usingCustomProxy = await this.usingCustomProxy()
+    const {
+      localProxyURI,
+      proxyPingURI,
+      useOwnProxy,
+    } = await browser.storage.local.get({
+      localProxyURI: null,
+      proxyPingURI: null,
+      useOwnProxy: false,
+    })
 
-    if (!usingCustomProxy) {
-      const { proxyPingURI } = await browser.storage.local.get('proxyPingURI')
+    if (useOwnProxy || localProxyURI || !proxyPingURI) {
+      return
+    }
 
-      fetch(`https://${proxyPingURI}`, {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 1000)
+
+    try {
+      await fetch(`https://${proxyPingURI}`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-type': 'application/json; charset=UTF-8',
         },
         body: JSON.stringify({
           type: 'ping',
         }),
-      }).catch(() => {
-        // We don't care about the result.
-        console.log(`Pinged ${proxyPingURI}!`)
       })
+    } catch (error) {
+      // The knock port can reject the connection after it receives the packet.
+    } finally {
+      clearTimeout(timeout)
     }
+
+    console.log(`Knocked ${proxyPingURI}!`)
   }
 
   async usingCustomProxy () {

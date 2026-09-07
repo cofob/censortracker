@@ -303,7 +303,6 @@ export const handleProxyError = async ({ error }) => {
           syncProxy: true,
         })
         await ProxyManager.setProxy()
-        await ProxyManager.ping()
       })
     }
   }
