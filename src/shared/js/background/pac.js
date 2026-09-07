@@ -1,3 +1,5 @@
+import { proxyDirective } from './proxy-address'
+
 /**
  * Return PAC Script data.
  * @param domains {Array<string>} - List of domains to proxy.
@@ -12,6 +14,8 @@ export const getPacScript = (
     proxyServerProtocol,
   },
 ) => {
+  const route = JSON.stringify(`${proxyDirective(proxyServerProtocol, proxyServerURI)};`)
+
   // Sort domains alphabetically to make binary search work.
   domains.sort()
   return `
@@ -55,12 +59,12 @@ export const getPacScript = (
         
         // Proxy *.onion and *.i2p domains.
         if (shExpMatch(host, '*.onion') || shExpMatch(host, '*.i2p')) {
-          return '${proxyServerProtocol} ${proxyServerURI};';
+          return ${route};
         }
 
         // Return result
         if (isHostBlocked(domains, host)) {
-          return '${proxyServerProtocol} ${proxyServerURI};';
+          return ${route};
         } else {
           return 'DIRECT';
         }

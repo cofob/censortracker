@@ -10,7 +10,7 @@ const clone = value => JSON.parse(JSON.stringify(value))
 const normalPac = 'function FindProxyForURL(url, host) { return "HTTPS normal.example:443"; }'
 
 function fixture(options = {}) {
-  const storage = { enableExtension: true, useProxy: true, ...options.storage }
+  const storage = { enableExtension: true, useProxy: true, proxyServerURI: 'normal.example:443', ...options.storage }
   const original = options.value || (options.firefox
     ? { proxyType: 'autoConfig', autoConfigUrl: 'data:text/plain,' + encodeURIComponent(normalPac) }
     : { mode: 'pac_script', pacScript: { data: normalPac } })

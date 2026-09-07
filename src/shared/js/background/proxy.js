@@ -107,13 +107,13 @@ class ProxyManager {
       return this.setProxyInBackground()
     }
 
-    const pacData = getPacScript({
-      domains,
-      proxyServerURI,
-      proxyServerProtocol,
-    })
-
     try {
+      const pacData = getPacScript({
+        domains,
+        proxyServerURI,
+        proxyServerProtocol,
+      })
+
       await applyPac(pacData)
       if (!await proxyAllowed()) {
         await this.removeProxyInBackground()

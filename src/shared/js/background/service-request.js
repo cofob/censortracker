@@ -1,5 +1,6 @@
 import browser from './browser-api'
 import ProxyManager from './proxy'
+import { proxyDirective } from './proxy-address'
 import {
   proxyAllowed, restoreServiceRoute, setServiceRoute, withProxyLock,
 } from './proxy-route'
@@ -96,15 +97,11 @@ export const requestService = (url, validate) => withProxyLock(async () => {
     if (!proxyServerURI || !proxyServerProtocol) {
       throw new Error(`${directError.message}; no cached proxy for retry`)
     }
-    if (/[;\s]/.test(proxyServerURI) ||
-      !['HTTP', 'HTTPS', 'PROXY', 'SOCKS', 'SOCKS4', 'SOCKS5']
-        .includes(proxyServerProtocol)) {
-      throw new Error('Invalid proxy route for service retry')
-    }
-    await ProxyManager.ping()
-    const protocol = proxyServerProtocol === 'HTTP' ? 'PROXY' : proxyServerProtocol
+    const route = proxyDirective(proxyServerProtocol, proxyServerURI)
 
-    if (!await setServiceRoute(hostname, `${protocol} ${proxyServerURI}`)) {
+    await ProxyManager.ping()
+
+    if (!await setServiceRoute(hostname, route)) {
       throw new Error('Proxy retry cannot preserve existing browser routes')
     }
     const data = await attempt(url, validate, true)

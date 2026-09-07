@@ -3,6 +3,7 @@ import './page-errors'
 import browser from 'Background/browser-api'
 import ProxyClient from 'Background/localproxy'
 import ProxyManager from 'Background/proxy'
+import { parseProxyAddress } from 'Background/proxy-address'
 import * as server from 'Background/server'
 
 (async () => {
@@ -271,6 +272,7 @@ import * as server from 'Background/server'
     const proxyProtocol = currentProxyProtocol.textContent.trim()
 
     if (customProxyServer) {
+      parseProxyAddress(customProxyServer)
       await browser.storage.local.set({
         useOwnProxy: true,
         customProxyProtocol: proxyProtocol,
