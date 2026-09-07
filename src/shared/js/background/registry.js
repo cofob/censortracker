@@ -79,6 +79,15 @@ class Registry {
    * Checks if the given URL is in the registry of banned websites.
    */
   async contains (url) {
+    const { blocked, custom, ignored } = await this.getDomainStatus(url)
+
+    return !ignored && (blocked || custom)
+  }
+
+  /**
+   * Returns list membership, independent of proxy settings.
+   */
+  async getDomainStatus (url) {
     const domain = extractDomainFromUrl(url)
     const {
       domains,
@@ -90,12 +99,11 @@ class Registry {
       customProxiedDomains: [],
     })
 
-    if (ignoredHosts.includes(domain)) {
-      return false
+    return {
+      blocked: domains.includes(domain),
+      custom: customProxiedDomains.includes(domain),
+      ignored: ignoredHosts.includes(domain),
     }
-
-    return !!(domains.includes(domain) ||
-      customProxiedDomains.includes(domain))
   }
 
   /**

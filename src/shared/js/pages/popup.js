@@ -214,8 +214,8 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
               'siteActionNeverDesc',
             )
           } else {
-            Registry.contains(currentUrl).then((blocked) => {
-              if (blocked) {
+            Registry.getDomainStatus(currentUrl).then(({ custom }) => {
+              if (custom) {
                 document.querySelector('input[value="always"]').checked = true
                 siteActionDescription.textContent = i18nGetMessage(
                   'siteActionAlwaysDesc',
@@ -307,18 +307,25 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
         currentDomainHeader.removeAttribute('hidden')
         footerExtensionIsOn.removeAttribute('hidden')
 
-        const restrictionsFound = await Registry.contains(currentHostname)
+        const { blocked: restrictionsFound, custom } =
+          await Registry.getDomainStatus(currentHostname)
 
-        if (restrictionsFound) {
+        if (restrictionsFound || custom) {
           const restrictionsIcon = document.querySelector('#restrictions img')
           const restrictionsTitle = document.querySelector('#restrictions-title')
           const restrictionsDesc = document.querySelector('#restrictions-desc')
 
           restrictionsIcon.setAttribute('src', 'images/popup/status/info.svg')
 
-          restrictionsTitle.textContent = i18nGetMessage('blockedTitle')
-          restrictionsDesc.textContent = i18nGetMessage('blockedDesc')
-          statusImage.setAttribute('src', 'images/icons/512x512/blocked.png')
+          restrictionsTitle.textContent = i18nGetMessage(
+            restrictionsFound ? 'blockedTitle' : 'customProxiedTitle',
+          )
+          restrictionsDesc.textContent = i18nGetMessage(
+            restrictionsFound ? 'blockedDesc' : 'customProxiedDesc',
+          )
+          if (restrictionsFound) {
+            statusImage.setAttribute('src', 'images/icons/512x512/blocked.png')
+          }
         }
 
         Registry.retrieveDisseminator(currentHostname)

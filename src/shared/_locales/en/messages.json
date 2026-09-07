@@ -39,10 +39,16 @@
     "message": "There was a problem getting the extension configuration."
   },
   "blockedDesc": {
-    "message": "This website is either blocked or added to your custom proxying list, so Censor Tracker provides you access to it through a reliable proxy."
+    "message": "This domain is in the blocked-site registry for your region. This status does not indicate whether the proxy is enabled or working."
   },
   "blockedTitle": {
     "message": "Blocked"
+  },
+  "customProxiedDesc": {
+    "message": "This domain is in your custom proxying list, but not in the blocked-site registry for your region. This status does not indicate whether the proxy is enabled or working."
+  },
+  "customProxiedTitle": {
+    "message": "In proxying list"
   },
   "cancel": {
     "message": "Cancel"
