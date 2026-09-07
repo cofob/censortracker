@@ -83,7 +83,7 @@ import * as server from 'Background/server'
       const { status, message } = await ProxyClient.deleteConfig(configId, 250)
 
       if (status === 'success') {
-        console.warn(`Config ${configId} has been deleted`)
+        console.info(`Config ${configId} has been deleted`)
 
         if (proxyBlock) {
           proxyBlock.remove()

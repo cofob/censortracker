@@ -299,7 +299,7 @@ export const handleProxyError = async ({ error }) => {
         await browser.storage.local.set({ badProxies })
       }
 
-      console.warn('Requesting new proxy server...')
+      console.info('Requesting new proxy server...')
       await server.synchronize({
         syncRegistry: false,
         syncProxy: true,
@@ -313,5 +313,5 @@ export const handleProxyError = async ({ error }) => {
 
 export const handleOnUpdateAvailable = async ({ version }) => {
   await browser.storage.local.set({ updateAvailable: true })
-  console.warn(`Update available: ${version}`)
+  console.info(`Update available: ${version}`)
 }

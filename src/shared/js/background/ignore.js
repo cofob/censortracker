@@ -34,7 +34,7 @@ export class Ignore {
 
     if (!ignoredHosts.includes(hostname)) {
       ignoredHosts.push(hostname)
-      console.warn(`Adding ${hostname} to ignore`)
+      console.info(`Adding ${hostname} to ignore`)
       await browser.storage.local.set({ ignoredHosts })
     }
     return true
@@ -59,7 +59,7 @@ export class Ignore {
 
       ignoredHosts.splice(index, 1)
       await browser.storage.local.set({ ignoredHosts })
-      console.warn(`Removing ${hostname} from ignore`)
+      console.info(`Removing ${hostname} from ignore`)
     }
     return true
   }
@@ -74,7 +74,7 @@ export class Ignore {
     const hostname = utilities.extractDomainFromUrl(url)
 
     if (ignoredHosts.includes(hostname)) {
-      console.warn(`Ignoring host: ${hostname}`)
+      console.debug(`Ignoring host: ${hostname}`)
       return true
     }
     return false

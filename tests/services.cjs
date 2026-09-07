@@ -350,7 +350,7 @@ test('reset explicitly enables proxy use before applying the PAC', async () => {
   let reset
   vm.runInNewContext(handler, {
     confirmResetBtn: { addEventListener: (name, fn) => { reset = fn } },
-    togglePopup() {}, console: { warn() {} },
+    togglePopup() {}, console: { info() {} },
     server: { synchronize: async () => {} },
     Settings: { enableExtension() {}, enableNotifications() {}, disableParentalControl() {} },
     ProxyManager: {

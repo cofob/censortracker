@@ -78,7 +78,7 @@ class ProxyManager {
     const domains = await registry.getDomains()
 
     if (domains.length === 0) {
-      console.error('No domains to proxy, aborting...')
+      console.info('No domains to proxy; clearing proxy settings.')
       await this.removeProxyInBackground()
       return false
     }
@@ -104,7 +104,7 @@ class ProxyManager {
       await applyPac(pacData)
       await browser.storage.local.set({ proxyIsAlive: true })
       await this.grantIncognitoAccess()
-      console.warn('PAC has been set successfully!')
+      console.info('PAC has been set successfully!')
       return true
     } catch (error) {
       console.error(`PAC could not be set: ${error}`)
@@ -120,7 +120,7 @@ class ProxyManager {
 
   async removeProxyInBackground () {
     await browser.proxy.settings.clear({})
-    console.warn('Proxy settings removed.')
+    console.info('Proxy settings removed.')
   }
 
   async alive () {
@@ -189,7 +189,7 @@ class ProxyManager {
   }
 
   async disableProxy () {
-    console.warn('Proxying disabled.')
+    console.info('Proxying disabled.')
     await browser.storage.local.set({ useProxy: false })
   }
 
