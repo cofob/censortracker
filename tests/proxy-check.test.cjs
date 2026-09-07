@@ -179,6 +179,23 @@ test('restart cleanup restores normal routing and invalidates old endpoint or cr
   assert.equal((await state.getProxyCheckState()).checks[proxy.id], undefined)
 })
 
+test('checks do not override country-restricted services and stop when site rules change', async () => {
+  const state = fixture((proxy, signal) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true })
+  }))
+  await state.registerProxyChecks()
+  state.storage.siteCountryRules = Object.fromEntries([0, 1, 2, 3].map(i => [`echo${i}.example`, ['RU']]))
+  await assert.rejects(state.startProxyChecks({ ids: ['proxy-0'] }))
+  assert.equal(state.maxActive(), 0)
+  state.storage.siteCountryRules['echo0.example'] = []
+  await state.startProxyChecks({ ids: ['proxy-0'] })
+  await until(() => state.maxActive() === 1)
+  await state.browser.storage.local.set({ siteCountryRules: { 'echo0.example': ['RU'] } })
+  await state.stopProxyChecks()
+  assert.deepEqual(state.storage.proxyChecks, {})
+  assert.equal(state.probes.size, 0)
+})
+
 test('IP and country data reject private, malformed, and unknown service values', () => {
   for (const ip of ['10.0.0.1', '100.64.1.2', '[fd00::1]', 'https://8.8.8.8/', 'example.com', '134744072', null]) assert.equal(publicIP(ip), '', String(ip))
   assert.equal(publicIP('8.8.8.8'), '8.8.8.8')

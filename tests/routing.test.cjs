@@ -7,6 +7,47 @@ const { createRouter, routingConfig } = load('background/routing')
 const { findHostMatch } = load('background/host-match')
 const { isPrivateHost } = load('background/private-host')
 
+test('site-country rules have identical PAC and runtime decisions and fail closed on unknown exits', () => {
+  const options = { domains: ['example.co.uk', 'example.com.br'], ignoredHosts: ['ignored.example.co.uk'],
+    siteCountryRules: { 'example.co.uk': ['RU'], 'api.example.co.uk': ['US'],
+      'free.api.example.co.uk': [], 'example.com.br': ['US', 'RU'] },
+    proxies: [
+      { id: 'ru', protocol: 'HTTP', host: 'ru.example', port: 80, exitCountry: 'RU', countryExpiresAt: Date.now() + 10000 },
+      { id: 'us', protocol: 'HTTPS', host: 'us.example', port: 443, exitCountry: 'US', countryExpiresAt: Date.now() + 10000 },
+      { id: 'unknown', protocol: 'SOCKS5', host: 'unknown.example', port: 1080 },
+    ],
+  }
+  const router = createRouter(routingConfig(options), findHostMatch, isPrivateHost)
+  const context = {}
+  vm.runInNewContext(getPacScript(options), context)
+  for (const [host, expected] of [['example.co.uk', ['us']], ['cdn.example.co.uk', ['us']],
+    ['api.example.co.uk', ['ru']], ['child.api.example.co.uk', ['ru']],
+    ['example.com.br', []], ['ignored.example.co.uk', []], ['other.example', []]]) {
+    assert.deepEqual(Array.from(router(host).proxies), expected, host)
+    assert.equal(context.FindProxyForURL('', host), router(host).route, host)
+  }
+  assert.equal(router('free.api.example.co.uk').proxies.length, 3)
+  assert.equal(router('example.com.br').type, 'blocked')
+  assert.equal(router('ignored.example.co.uk').type, 'direct')
+  vm.runInNewContext(getPacScript({ ...options, proxies: [options.proxies[2]], proxyAll: true }), context)
+  assert.equal(context.FindProxyForURL('', 'example.co.uk'), 'PROXY 127.0.0.1:0')
+})
+
+test('country metadata expires inside the PAC and probes cannot bypass a site restriction', () => {
+  let now = 1000
+  const scope = { Date: { now: () => now } }
+  const proxy = { id: 'one', protocol: 'HTTP', host: 'proxy.example', port: 80,
+    exitCountry: 'US', countryExpiresAt: 2000 }
+  const options = { proxyAll: true, proxies: [proxy], siteCountryRules: { 'protected.example': ['RU'], 'echo.example': ['CN'] },
+    probes: [{ hostname: 'echo.example', proxy, expiresAt: 9000 }] }
+  vm.runInNewContext(getPacScript(options), scope)
+  assert.equal(scope.FindProxyForURL('', 'protected.example'), 'PROXY proxy.example:80;')
+  assert.equal(scope.FindProxyForURL('', 'echo.example'), 'PROXY 127.0.0.1:0')
+  now = 2000
+  assert.equal(scope.FindProxyForURL('', 'protected.example'), 'PROXY 127.0.0.1:0')
+  assert.equal(scope.FindProxyForURL('', 'other.example'), 'PROXY proxy.example:80;')
+})
+
 test('failed proxies stay selected but are bypassed until their cooldown expires', () => {
   let now = 1000
   const scope = { Date: { now: () => now } }

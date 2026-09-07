@@ -5,6 +5,7 @@ import {
   mustUseDirect, proxyAllowed, restoreServiceRoute,
   setServiceRoute, withProxyLock,
 } from './proxy-route'
+import { hasSiteRestriction } from './site-rules'
 
 const attempt = async (url, validate, viaProxy = false) => {
   const controller = new AbortController()
@@ -12,7 +13,7 @@ const attempt = async (url, validate, viaProxy = false) => {
   const onSettingsChanged = (changes) => {
     if (changes.enableExtension?.newValue === false ||
       changes.useProxy?.newValue === false ||
-      (viaProxy && changes.ignoredHosts)) {
+      (viaProxy && (changes.ignoredHosts || changes.siteCountryRules))) {
       controller.abort()
     }
   }
@@ -20,8 +21,13 @@ const attempt = async (url, validate, viaProxy = false) => {
   browser.storage.onChanged.addListener(onSettingsChanged)
 
   try {
+    const { siteCountryRules } = await browser.storage.local.get({
+      siteCountryRules: {},
+    })
+
     if (viaProxy && (!await proxyAllowed() ||
-      await mustUseDirect(new URL(url).hostname))) {
+      await mustUseDirect(new URL(url).hostname) ||
+      hasSiteRestriction(new URL(url).hostname, siteCountryRules))) {
       throw new Error('Proxy retry disabled before request')
     }
     const response = await fetch(url, {

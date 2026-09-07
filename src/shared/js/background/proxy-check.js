@@ -6,6 +6,7 @@ import { recordProxyHealth, recoverableProxies } from './proxy-health'
 import { readProxyState } from './proxy-list'
 import { hasProxyAuth, proxyAuthSupported } from './proxy-record'
 import { getProbeRoutes, mustUseDirect, proxyAllowed, setProbeRoute, withProxyLock } from './proxy-route'
+import { hasSiteRestriction } from './site-rules'
 
 let job
 const runState = (current) => ({
@@ -103,10 +104,9 @@ const checkOne = async (current, proxy, url) => {
       proxyChecks[proxy.id] = { ...result, fingerprint, checkedAt: Date.now() }
       await browser.storage.local.set({ proxyChecks })
       if (result.status === 'ok' || (result.status === 'failed' && !hasProxyAuth(proxy))) {
-        if (await recordProxyHealth(proxy, result.status !== 'ok')) {
-          await ProxyManager.setProxyInBackground({ ping: false })
-        }
+        await recordProxyHealth(proxy, result.status !== 'ok')
       }
+      await ProxyManager.setProxyInBackground({ ping: false })
     })
   }
 }
@@ -197,9 +197,15 @@ export const startProxyChecks = async ({ ids, automatic = false } = {}) => {
           selectedProxyIds.includes(id)), proxyFailures)).slice(0, 4) : []
     }
     const urls = []
+    const { siteCountryRules } = await browser.storage.local.get({
+      siteCountryRules: {},
+    })
 
     for (const url of CHECK_URLS) {
-      if (!await mustUseDirect(new URL(url).hostname)) {
+      const hostname = new URL(url).hostname
+
+      if (!hasSiteRestriction(hostname, siteCountryRules) &&
+        !await mustUseDirect(hostname)) {
         urls.push(url)
       }
     }
@@ -241,7 +247,8 @@ export const registerProxyChecks = async () => {
       job.controller.abort()
     }
     if (area === 'local' && ['enableExtension', 'useProxy', 'proxies',
-      'selectedProxyIds', 'ignoredHosts', 'localProxyURI'].some((key) => changes[key])) {
+      'selectedProxyIds', 'ignoredHosts', 'localProxyURI',
+      'siteCountryRules'].some((key) => changes[key])) {
       if (job) {
         job.controller.abort()
       }

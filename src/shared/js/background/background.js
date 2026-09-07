@@ -23,6 +23,7 @@ import { registerProxyRecovery } from './proxy-recovery'
 import { proxyAllowed, withProxyLock } from './proxy-route'
 import { synchronizeInBackground } from './server'
 import Settings from './settings'
+import { changeSiteRule } from './site-rules'
 
 registerProxyAuth()
 registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
@@ -44,6 +45,20 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  siteCountryRule: (args) => withProxyLock(async () => {
+    const { siteCountryRules } = await browser.storage.local.get({
+      siteCountryRules: {},
+    })
+    const rules = changeSiteRule(siteCountryRules, args)
+
+    await browser.storage.local.set({ siteCountryRules: rules })
+
+    if (!await ProxyManager.setProxyInBackground({ ping: false }) &&
+      await proxyAllowed()) {
+      throw new Error('Site rule saved, but routing could not be applied')
+    }
+    return rules
+  }),
   startProxyChecks: ({ ids } = {}) => startProxyChecks({ ids }),
   setProxyRecovery: async (enabled) => {
     if (typeof enabled !== 'boolean') {

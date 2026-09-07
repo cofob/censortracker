@@ -6,6 +6,8 @@ import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
 import Settings from 'Background/settings'
 
+import { mountSiteRules } from './site-rules'
+
 (async () => {
   const debugInfoJSON = document.getElementById('debugInfoJSON')
   const showDebugInfoBtn = document.getElementById('showDebugInfo')
@@ -35,6 +37,7 @@ import Settings from 'Background/settings'
     }
   })
   proxyAll.disabled = false
+  await mountSiteRules()
 
   const togglePopup = (id) => {
     const showPopupClass = 'popup-show'

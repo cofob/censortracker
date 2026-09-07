@@ -1,4 +1,22 @@
 {
+  "siteRulesTitle": {
+    "message": "Site exit-country rules"
+  },
+  "siteRulesHelp": {
+    "message": "Rules apply when a site uses a proxy, including its subdomains. The most specific rule wins. Enter two-letter exit-country codes to refuse (for example RU, CN). An empty list overrides the parent rule with no country restriction. Unknown exit countries and checks older than 24 hours are not permitted under a restriction. Run proxy checks again to update them. If no proxy is eligible, the site is blocked. Location data is an estimate and does not guarantee the route of an existing connection."
+  },
+  "siteRuleHost": {
+    "message": "Site hostname"
+  },
+  "siteRuleCountries": {
+    "message": "Forbidden exit countries (two-letter codes)"
+  },
+  "siteRuleUnrestricted": {
+    "message": "No country restriction"
+  },
+  "siteRuleError": {
+    "message": "Cannot save the rule. Check the hostname and country codes, then try again."
+  },
 "proxyFilters": {"message": "Filter, sort and delete"},
 "proxyFilterAny": {"message": "All countries"},
 "proxyFilterUnknown": {"message": "Unknown"},

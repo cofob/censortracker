@@ -2,11 +2,13 @@ import { normalizeHostname } from './hostname'
 import { parseProxyAddress, proxyProtocols } from './proxy-address'
 import { proxyStateFromSettings } from './proxy-record'
 import { validateSubscriptions } from './proxy-source'
+import { validateSiteRules } from './site-rules'
 
 export const settingsDefaults = {
   enableExtension: false,
   useProxy: true,
   proxyAll: false,
+  siteCountryRules: {},
   proxySubscriptions: [],
   proxySubscriptionsEnabled: false,
   proxyRecoveryEnabled: false,
@@ -41,7 +43,10 @@ export const validateSettings = (input) => {
   for (const [key, value] of Object.entries(settings)) {
     let valid = true
 
-    if (key === 'proxySubscriptions') {
+    if (key === 'siteCountryRules') {
+      result[key] = validateSiteRules(value)
+      continue
+    } else if (key === 'proxySubscriptions') {
       result[key] = validateSubscriptions(value)
       continue
     } else if (key === 'proxies' || key === 'selectedProxyIds') {

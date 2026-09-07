@@ -178,6 +178,19 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(await evaluate(`fetch('http://auth.example:${origin.address().port}/recovered').then(response => response.text())`), 'PROXY')
     results['check-0'] = await evaluate("chrome.storage.local.get('proxyChecks').then(data => data.proxyChecks['check-0'])")
     const checkedAt = results['check-0'].checkedAt
+    await evaluate("chrome.storage.local.set({customProxiedDomains: ['auth.example', 'country-auth.example']})")
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'siteCountryRule', args: {host: 'country-auth.example', countries: ['US']}})")
+    const beforeCountryBlock = directHits
+    assert.equal(await evaluate(`fetch('http://country-auth.example:${origin.address().port}/forbidden').then(response => response.text(), () => 'BLOCKED')`), 'BLOCKED')
+    assert.equal(directHits, beforeCountryBlock)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'siteCountryRule', args: {host: 'country-auth.example', countries: ['DE']}})")
+    assert.equal(await evaluate(`fetch('http://country-auth.example:${origin.address().port}/permitted').then(response => response.text())`), 'PROXY')
+    await evaluate("chrome.storage.local.get('proxyChecks').then(({proxyChecks}) => { proxyChecks['check-0'].checkedAt = 1; return chrome.storage.local.set({proxyChecks}) })")
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'})")
+    assert.equal(await evaluate(`fetch('http://country-auth.example:${origin.address().port}/expired-country').then(response => response.text(), () => 'BLOCKED')`), 'BLOCKED')
+    assert.equal(directHits, beforeCountryBlock)
+    await evaluate(`chrome.storage.local.get('proxyChecks').then(({proxyChecks}) => { proxyChecks['check-0'].checkedAt = ${checkedAt}; return chrome.storage.local.set({proxyChecks}) })`)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'siteCountryRule', args: {host: 'country-auth.example', countries: null}})")
     const beforeSlow = echoHits
     slowEcho = true
     await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'startProxyChecks', args: {ids: ['check-0']}})")
@@ -277,6 +290,18 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelector('#proxyAll').disabled === false")
     await evaluate("location.reload()")
     await until("document.querySelector('#proxyAll')?.checked === true")
+    await until("document.querySelector('#siteRuleSave')?.disabled === false")
+    assert.equal(await evaluate("document.querySelector('#siteRuleOptions').open"), false)
+    await evaluate("document.querySelector('#siteRuleHost').value = 'ПРИМЕР.РФ'; document.querySelector('#siteRuleCountries').value = 'ru, cn'; document.querySelector('#siteRuleForm').requestSubmit()")
+    await until("document.querySelector('#siteRuleRows').textContent.includes('xn--e1afmkfd.xn--p1ai')")
+    assert.deepEqual(await evaluate("chrome.storage.local.get('siteCountryRules').then(data => data.siteCountryRules['xn--e1afmkfd.xn--p1ai'])"), ['RU', 'CN'])
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
+    await until("document.querySelector('#siteRuleSave').disabled === false")
+    await evaluate("document.querySelector('#siteRuleRows button').click(); document.querySelector('#siteRuleCountries').value = ''; document.querySelector('#siteRuleForm').requestSubmit()")
+    await until("document.querySelector('#siteRuleRows').textContent.includes('No country restriction')")
+    await until("document.querySelector('#siteRuleSave').disabled === false")
+    await evaluate("document.querySelectorAll('#siteRuleRows button')[1].click()")
+    await until("document.querySelector('#siteRuleRows').children.length === 0")
   } finally {
     if (socket) socket.close()
     if (process.pid && process.exitCode === null && process.signalCode === null) {

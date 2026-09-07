@@ -2,6 +2,7 @@ import browser from './browser-api'
 import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
 import { isPrivateHost } from './private-host'
+import { hasSiteRestriction } from './site-rules'
 
 let queue = Promise.resolve()
 let revision = 0
@@ -14,6 +15,7 @@ const routeKeys = new Set([
   'customProxiedDomains', 'proxyServerURI', 'customProxyProtocol',
   'customProxyServerURI', 'localProxyURI',
   'proxies', 'selectedProxyIds', 'proxyAll', 'proxyFailures',
+  'siteCountryRules', 'proxyChecks',
 ])
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -140,8 +142,13 @@ export const restoreServiceRoute = async () => {
 
 // Caller holds the lock until the request and restoration have finished.
 export const setServiceRoute = async (hostname, route) => {
-  if (route !== 'DIRECT' && await mustUseDirect(hostname)) {
-    throw new Error('Local or excluded services cannot use proxy retry')
+  const { siteCountryRules } = await browser.storage.local.get({
+    siteCountryRules: {},
+  })
+
+  if (hasSiteRestriction(hostname, siteCountryRules) ||
+    (route !== 'DIRECT' && await mustUseDirect(hostname))) {
+    throw new Error('Restricted services cannot use a proxy override')
   }
   if (!await proxyAllowed()) {
     throw new Error('Service routing unavailable: proxy disabled or not controlled')

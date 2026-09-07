@@ -5,7 +5,7 @@ import browser from './browser-api'
 import { findHostMatch } from './host-match'
 import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
-import { currentProxyCheck } from './proxy-check-data'
+import { countryCode, currentProxyCheck } from './proxy-check-data'
 import { readProxyState } from './proxy-list'
 import { proxyAuthSupported } from './proxy-record'
 import { applyPac, getProbeRoutes, getRouteRevision, proxyAllowed } from './proxy-route'
@@ -35,27 +35,36 @@ class ProxyManager {
     const selected = selectedProxyIds.map((id) => catalog.get(id))
       .filter((proxy) => proxy?.host && proxy.port && !proxy.restricted &&
         proxyAuthSupported(proxy, browser.isFirefox))
-    const { proxyFailures } = await browser.storage.local.get({
-      proxyFailures: {},
+    const { proxyFailures, proxyChecks } = await browser.storage.local.get({
+      proxyFailures: {}, proxyChecks: {},
     })
 
     return Promise.all(selected.map(async (proxy) => {
       const failure = await currentProxyCheck(proxy, proxyFailures)
+      const check = await currentProxyCheck(proxy, proxyChecks)
 
-      return failure ? { ...proxy, retryAt: failure.retryAt } : proxy
+      return {
+        ...proxy,
+        retryAt: failure?.retryAt || 0,
+        exitCountry: check?.status === 'ok' ? countryCode(check.exitCountry) : '',
+        countryExpiresAt: Number.isFinite(check?.checkedAt)
+          ? check.checkedAt + 24 * 60 * 60 * 1000 : 0,
+      }
     }))
   }
 
   async getRoutingOptions () {
     const domains = await registry.getDomains()
-    const { ignoredHosts, proxyAll } = await browser.storage.local.get({
-      ignoredHosts: [], proxyAll: false,
-    })
+    const { ignoredHosts, proxyAll, siteCountryRules } =
+      await browser.storage.local.get({
+        ignoredHosts: [], proxyAll: false, siteCountryRules: {},
+      })
 
     return {
       domains,
       ignoredHosts,
       proxyAll,
+      siteCountryRules,
       probes: getProbeRoutes(),
       proxies: await this.getSelectedProxies(),
     }

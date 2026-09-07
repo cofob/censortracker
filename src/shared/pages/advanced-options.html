@@ -42,6 +42,20 @@
         <input id="importSettingsInput" class="hidden" accept="application/json" type="file">
       </div>
 
+      <details class="option" id="siteRuleOptions">
+        <summary data-i18n-key="siteRulesTitle"></summary>
+        <p class="main-page__about" data-i18n-key="siteRulesHelp"></p>
+        <form id="siteRuleForm">
+          <p><label for="siteRuleHost" data-i18n-key="siteRuleHost"></label></p>
+          <input id="siteRuleHost" class="input-proxy" required maxlength="4096" placeholder="example.com">
+          <p><label for="siteRuleCountries" data-i18n-key="siteRuleCountries"></label></p>
+          <input id="siteRuleCountries" class="input-proxy" maxlength="2028" placeholder="RU, CN">
+          <button type="submit" id="siteRuleSave" data-i18n-key="saveCustomProxyButton" disabled></button>
+        </form>
+        <p id="siteRuleError" role="alert" data-i18n-key="siteRuleError" hidden></p>
+        <ul id="siteRuleRows"></ul>
+      </details>
+
       <div class="option">
         <div data-i18n-key="exportSettingsTitle" id="exportSettings" class="option__link"></div>
         <div data-i18n-key="exportSettingsDesc" class="main-page__about"></div>

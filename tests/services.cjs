@@ -99,7 +99,7 @@ test('a service exclusion prevents remote retries', async () => {
   const state = fixture({ storage: { ignoredHosts: ['example.com'] },
     fetch: async () => { calls++; throw new Error('offline') } })
   await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray),
-    /excluded services/)
+    /Restricted services cannot use a proxy override/)
   assert.equal(calls, 1)
 })
 
@@ -123,7 +123,7 @@ for (const firefox of [false, true]) {
       let calls = 0
       const state = fixture({ firefox, fetch: async () => { calls++; throw new Error('offline') } })
       await assert.rejects(state.load('service-request').requestService(`http://${host}/registry.json`, Array.isArray),
-        /Local or excluded services cannot use proxy retry/)
+        /Restricted services cannot use a proxy override/)
       assert.equal(calls, 1)
       assert.equal(state.storage.serviceRouteSnapshot, undefined)
     })
@@ -131,6 +131,21 @@ for (const firefox of [false, true]) {
 }
 
 for (const firefox of [false, true]) {
+  test(`country-restricted services cannot use temporary proxy routes, Firefox=${firefox}`, async () => {
+    let calls = 0
+    const blocked = 'function FindProxyForURL() { return "PROXY 127.0.0.1:0"; }'
+    const value = firefox
+      ? { proxyType: 'autoConfig', autoConfigUrl: 'data:text/plain,' + encodeURIComponent(blocked) }
+      : { mode: 'pac_script', pacScript: { data: blocked, mandatory: true } }
+    const state = fixture({ firefox, value, storage: { siteCountryRules: { 'example.com': ['RU'] } },
+      fetch: async () => { calls++; throw new Error('offline') } })
+    await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray),
+      /Restricted services cannot use a proxy override/)
+    assert.equal(calls, 0)
+    assert.equal(state.route('api.example.com'), 'PROXY 127.0.0.1:0')
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+
   test(`direct-first exact-host routing and restoration (${firefox ? 'Firefox' : 'Chrome'})`, async () => {
     const state = fixture({ firefox, fetch: async (url, init, { route }) => {
       assert.equal(route('service.example'), 'DIRECT')
