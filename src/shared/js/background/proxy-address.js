@@ -1,5 +1,7 @@
 import { normalizeHostname } from './hostname'
 
+export const LOCAL_PROXY_URI = '127.0.0.1:10808'
+
 const protocols = {
   HTTP: 'PROXY',
   PROXY: 'PROXY',
@@ -8,6 +10,8 @@ const protocols = {
   SOCKS4: 'SOCKS4',
   SOCKS5: 'SOCKS5',
 }
+
+export const proxyProtocols = Object.keys(protocols)
 
 export const parseProxyAddress = (address) => {
   if (typeof address !== 'string' || address.length > 300) {

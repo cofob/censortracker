@@ -170,21 +170,20 @@ import Settings from 'Background/settings'
 
   importSettingsInput.addEventListener('change', async (event) => {
     const file = event.target.files[0]
-    const fileReader = new FileReader()
 
-    fileReader.addEventListener('load', async (e) => {
-      const contents = e.target.result
-      const data = JSON.parse(contents)
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+    if (file.size > 32 * 1024 * 1024) {
+      throw new Error('Settings file is too large')
+    }
+    const data = JSON.parse(await file.text())
 
-      await Settings.importSettings(data)
-
-      // Render new state
-      window.location.reload()
-
-      await server.synchronize({ syncRegistry: true })
-      await ProxyManager.setProxy()
-      await ProxyManager.ping()
-    })
-    fileReader.readAsText(file)
+    await Settings.importSettings(data)
+    await ProxyManager.setProxy()
+    await server.synchronize({ syncRegistry: true })
+    await ProxyManager.setProxy()
+    window.location.reload()
   })
 })()

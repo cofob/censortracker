@@ -1,4 +1,6 @@
 import browser from './browser-api'
+import { LOCAL_PROXY_URI } from './proxy-address'
+import { settingsDefaults, validateSettings } from './settings-data'
 
 class Settings {
   getName () {
@@ -77,16 +79,21 @@ class Settings {
   }
 
   async exportSettings () {
-    const settings = await browser.storage.local.get(null)
-
-    settings.domains = []
-    settings.disseminators = []
-    return settings
+    return {
+      formatVersion: 1,
+      settings: validateSettings({
+        ...settingsDefaults, ...await browser.storage.local.get(null),
+      }),
+    }
   }
 
   async importSettings (settings) {
-    await browser.storage.local.clear()
-    await browser.storage.local.set(settings)
+    const values = { ...settingsDefaults, ...validateSettings(settings) }
+
+    await browser.storage.local.set({
+      ...values,
+      localProxyURI: values.useLocalProxy ? LOCAL_PROXY_URI : null,
+    })
   }
 }
 

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import browser from 'Background/browser-api'
 
+import { LOCAL_PROXY_URI } from './proxy-address'
 import { requestText } from './request'
 
 /**
@@ -239,9 +240,7 @@ class ProxyClient {
   }
 
   async setLocalProxyURI () {
-    const localProxyURI = '127.0.0.1:10808'
-
-    await browser.storage.local.set({ localProxyURI })
+    await browser.storage.local.set({ localProxyURI: LOCAL_PROXY_URI })
   }
 }
 
