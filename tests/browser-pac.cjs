@@ -26,8 +26,17 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'ct-pac-test-'))
   let directHits = 0
   let registryHits = 0
+  let relatedHits = 0
   const origin = createServer((request, response) => {
     directHits++
+    response.setHeader('Access-Control-Allow-Origin', '*')
+    if (request.url === '/related-page') {
+      response.setHeader('Content-Type', 'text/html')
+      response.end(`<script>Promise.all(['cdn.related.example', 'api.related.example'].map(host =>
+        fetch('http://' + host + ':${origin.address().port}/related-asset'))).then(() => document.title = 'Related ready')</script>`)
+      return
+    }
+    if (request.url === '/related-asset') relatedHits++
     if (request.url.startsWith('/registry-list')) {
       registryHits++
       response.end('external.example\ncdn.example.co.uk')
@@ -350,6 +359,27 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("chrome.storage.local.get('useRegistry').then(data => data.useRegistry === false)")
     assert.deepEqual(await evaluate("chrome.storage.local.get('domains').then(data => data.domains)"), ['builtin-only.example'])
     assert.deepEqual(await evaluate("chrome.storage.local.get('externalRegistry').then(data => data.externalRegistry.domains)"), ['external.example', 'cdn.example.co.uk'])
+    const relatedTab = await evaluate(`chrome.tabs.create({url: 'http://page.related.example:${origin.address().port}/related-page', active: true}).then(tab => tab.id)`)
+    await until(`chrome.tabs.get(${relatedTab}).then(tab => tab.title === 'Related ready')`)
+    await evaluate("location.href = chrome.runtime.getURL('popup.html')")
+    await until("document.querySelector('#relatedDomainsScan')?.disabled === false")
+    assert.equal(await evaluate("document.querySelector('#relatedDomains').open"), false)
+    assert.equal(await evaluate("document.querySelector('#relatedDomainsList').children.length"), 0)
+    const beforeScan = relatedHits
+    await evaluate("document.querySelector('#toggleSiteActions').click(); document.querySelector('#relatedDomains').open = true; document.querySelector('#relatedDomainsScan').click()")
+    await until("document.querySelector('#relatedDomainsList').children.length === 2")
+    assert.equal(relatedHits, beforeScan)
+    assert.equal(await evaluate("document.querySelector('#relatedDomainsAdd').disabled"), true)
+    await evaluate("const input = document.querySelector('#relatedDomainsList input[value=\"cdn.related.example\"]'); input.click()")
+    await evaluate("document.querySelector('#relatedDomainsAdd').click()")
+    await until("document.querySelector('#relatedDomainsStatus').textContent.startsWith('Added: 1')")
+    assert.equal(await evaluate("chrome.storage.local.get('customProxiedDomains').then(data => data.customProxiedDomains.includes('cdn.related.example') && !data.customProxiedDomains.includes('api.related.example'))"), true)
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
+    await evaluate("document.querySelector('#siteActionProxy').click(); chrome.runtime.sendMessage({type: 'ct-background', action: 'addRelatedDomains', args: ['api.related.example']})")
+    await until("chrome.storage.local.get('customProxiedDomains').then(data => data.customProxiedDomains.includes('page.related.example') && data.customProxiedDomains.includes('api.related.example'))")
+    await evaluate(`chrome.tabs.remove(${relatedTab})`)
+    await evaluate("location.href = chrome.runtime.getURL('registry.html')")
+    await until("document.querySelector('#registrySourceSave')?.disabled === false")
     await evaluate(`chrome.storage.local.set({enableExtension: true, useProxy: true, proxyAll: true,
       proxies: [{id: 'provider', name: 'Antizapret test', protocol: 'HTTP', host: '127.0.0.1', port: ${proxy.address().port}, provider: 'antizapret', restricted: true}],
       selectedProxyIds: ['provider'], ignoredHosts: ['ignored.provider.example'],
@@ -378,6 +408,6 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
       }
     }
     for (const server of [origin, proxy, secureProxy, echo].filter(Boolean)) { server.closeAllConnections(); server.close() }
-    await fs.rm(profile, { recursive: true, force: true })
+    await fs.rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
 })

@@ -18,6 +18,7 @@
     "management",
     "notifications",
     "proxy",
+    "scripting",
     "storage",
     "unlimitedStorage",
     "webNavigation",

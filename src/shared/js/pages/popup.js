@@ -1,5 +1,6 @@
 import './page-errors'
 
+import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
 import Ignore from 'Background/ignore'
 import ProxyManager from 'Background/proxy'
@@ -8,6 +9,7 @@ import Settings from 'Background/settings'
 import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidURL } from 'Background/utilities'
 
 import { mountProxyInfo } from './proxy-info'
+import { mountRelatedDomains } from './related-domains'
 
 (async () => {
   const statusImage = document.getElementById('statusImage')
@@ -162,6 +164,7 @@ import { mountProxyInfo } from './proxy-info'
       })
 
       if (isValidURL(currentUrl)) {
+        mountRelatedDomains(tabId, currentUrl)
         currentDomainHeader.innerText = currentHostname
         toggleSiteActionsButton.classList.remove('hidden')
         siteActionDescription.textContent = i18nGetMessage(
@@ -197,27 +200,22 @@ import { mountProxyInfo } from './proxy-info'
 
         for (const radioButton of siteActionRadioButtons) {
           radioButton.addEventListener('change', async (event) => {
+            await callBackground('setSiteChoice', {
+              url: currentUrl, choice: event.target.value,
+            })
             if (event.target.value === 'always') {
               siteActionDescription.textContent = i18nGetMessage(
                 'siteActionAlwaysDesc',
               )
-              await Ignore.remove(currentUrl)
-              await Registry.add(currentUrl)
             } else if (event.target.value === 'never') {
-              await Ignore.add(currentUrl)
-              await Registry.remove(currentUrl)
               siteActionDescription.textContent = i18nGetMessage(
                 'siteActionNeverDesc',
               )
             } else {
-              await Ignore.remove(currentUrl)
-              await Registry.remove(currentUrl)
               siteActionDescription.textContent = i18nGetMessage(
                 'siteActionAutoDesc',
               )
             }
-
-            await ProxyManager.setProxy()
 
             event.target.checked = true
           })

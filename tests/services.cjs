@@ -473,6 +473,7 @@ test('proxy-all reports failed application but preserves a disabled user prefere
   const state = fixture({ mocks: {
     proxy: null, handlers: {}, server: {}, settings: { default: {} },
     'proxy-auth': { registerProxyAuth() {} },
+    ignore: { default: {} },
     registry: { default: { getDomains: async () => [] } },
     'background-rpc': { registerBackground: value => { actions = value } },
   } })

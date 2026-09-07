@@ -1,4 +1,31 @@
 {
+  "relatedDomainsSaveError": {
+    "message": "Could not save or apply the rules. Some domains may already be saved. Check proxy settings before retrying."
+  },
+  "relatedDomainsTitle": {
+    "message": "Related CDN/API domains"
+  },
+  "relatedDomainsHelp": {
+    "message": "Read up to 200 hosts from recent resources in this page's main frame. No new requests or history scan. The list can include ads and trackers and may be incomplete. Select only the hosts you need. Existing exclusions stay in effect."
+  },
+  "relatedDomainsScan": {
+    "message": "Find domains"
+  },
+  "relatedDomainsAdd": {
+    "message": "Proxy selected domains"
+  },
+  "relatedDomainsWorking": {
+    "message": "Working…"
+  },
+  "relatedDomainsFound": {
+    "message": "Found: $1. Select domains to add."
+  },
+  "relatedDomainsAdded": {
+    "message": "Added: $1. Existing and excluded domains were not changed."
+  },
+  "relatedDomainsError": {
+    "message": "Could not complete this action. The page may have changed or blocked access. Open the popup again and retry."
+  },
   "registrySourceKind": {
     "message": "Source"
   },

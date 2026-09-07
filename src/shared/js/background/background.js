@@ -15,6 +15,8 @@ import {
 import { importAntizapret } from './antizapret'
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
+import { normalizeHostname } from './hostname'
+import Ignore from './ignore'
 import ProxyManager from './proxy'
 import { registerProxyAuth } from './proxy-auth'
 import { getProxyCheckState, registerProxyChecks, startProxyChecks, stopProxyChecks } from './proxy-check'
@@ -23,7 +25,9 @@ import { describeProxyRoute } from './proxy-info'
 import { updateProxyList } from './proxy-list'
 import { registerProxyRecovery } from './proxy-recovery'
 import { proxyAllowed, withProxyLock } from './proxy-route'
+import Registry from './registry'
 import { getRegistrySourceState, refreshRegistrySource, registerRegistrySource, updateRegistrySource } from './registry-source'
+import { addRelatedDomains, findRelatedDomains } from './related-domains'
 import { synchronizeInBackground } from './server'
 import Settings from './settings'
 import { changeSiteRule } from './site-rules'
@@ -49,6 +53,29 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  findRelatedDomains,
+  addRelatedDomains,
+  setSiteChoice: ({ url, choice } = {}) => withProxyLock(async () => {
+    if (!['always', 'never', 'auto'].includes(choice) ||
+      typeof url !== 'string' || url.length > 8192 || !normalizeHostname(url)) {
+      throw new TypeError('Invalid site choice')
+    }
+    if (choice === 'never') {
+      await Ignore.add(url)
+      await Registry.remove(url)
+    } else {
+      await Ignore.remove(url)
+      if (choice === 'always') {
+        await Registry.add(url)
+      } else {
+        await Registry.remove(url)
+      }
+    }
+    if (!await ProxyManager.setProxyInBackground({ ping: false }) &&
+      await proxyAllowed()) {
+      throw new Error('Site choice saved, but routing could not be applied')
+    }
+  }),
   registrySourceState: getRegistrySourceState,
   updateRegistrySource,
   refreshRegistrySource: () => refreshRegistrySource(),

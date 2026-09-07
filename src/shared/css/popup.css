@@ -530,6 +530,17 @@ div#grantPrivateBrowsingPermissionsButton {
     color: #8A8580;
 }
 
+#relatedDomainsList {
+    max-height: 140px;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+#relatedDomainsList label {
+    display: block;
+    text-align: left;
+}
+
 .site-actions-group {
     display: inline-block;
     overflow: hidden;

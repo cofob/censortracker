@@ -8,7 +8,7 @@ const path = require('node:path')
 const os = require('node:os')
 const webpack = require('webpack')
 
-test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallback', { timeout: 40000 }, async () => {
+test('Firefox routes a large registry, authenticates proxies, and inspects page resources', { timeout: 60000 }, async () => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ct-firefox-auth-'))
   const profile = path.join(temporary, 'profile')
   const addon = path.join(temporary, 'addon')
@@ -18,6 +18,12 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
   const socksRequests = []
   const sockets = new Set()
   const origin = createServer((request, response) => {
+    response.setHeader('Access-Control-Allow-Origin', '*')
+    if (request.url === '/related-page') {
+      response.setHeader('Content-Type', 'text/html')
+      response.end(`<script>fetch('http://cdn.related.example:${origin.address().port}/related-asset').then(() => document.title = 'Related ready')</script>`)
+      return
+    }
     if (request.url.startsWith('/report?')) {
       report(JSON.parse(new URL(request.url, 'http://localhost').searchParams.get('data')))
     } else if (request.url === '/probe') {
@@ -90,6 +96,7 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
       import manager from ${JSON.stringify(path.join(root, 'proxy.js'))};
       import { registerProxyAuth } from ${JSON.stringify(path.join(root, 'proxy-auth.js'))};
       import { setProbeRoute } from ${JSON.stringify(path.join(root, 'proxy-route.js'))};
+      import { findRelatedDomains } from ${JSON.stringify(path.join(root, 'related-domains.js'))};
       registerProxyAuth();
       (async () => {
         const results = [];
@@ -125,6 +132,16 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
             finally { clearTimeout(timeout); setProbeRoute('protected.example', null); }
           }
           await manager.setProxyInBackground({ ping: false });
+          await browser.storage.local.set({useProxy: false});
+          await manager.removeProxyInBackground();
+          const url = 'http://page.related.example:${origin.address().port}/related-page';
+          const tab = await browser.tabs.create({url, active: false});
+          for (let i = 0; i < 100; i++) {
+            if ((await browser.tabs.get(tab.id)).title === 'Related ready') break;
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          results.push((await findRelatedDomains({tabId: tab.id, url})).join(','));
+          await browser.tabs.remove(tab.id);
         } catch (error) { results.push(error.message); }
         await fetch('http://127.0.0.1:${origin.address().port}/report?data=' + encodeURIComponent(JSON.stringify(results)));
       })();
@@ -137,13 +154,13 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
       name: 'Isolated authentication test', version: '1', browser_action: {},
       browser_specific_settings: { gecko: { id: 'auth-test@censortracker.invalid' } },
       background: { scripts: ['background.js'] },
-      permissions: ['<all_urls>', 'storage', 'proxy', 'webRequest', 'webRequestBlocking'],
+      permissions: ['<all_urls>', 'storage', 'proxy', 'webRequest', 'webRequestBlocking', 'tabs'],
     }))
     await fs.writeFile(path.join(profile, 'user.js'), Object.entries({
       'devtools.debugger.remote-enabled': true,
       'devtools.chrome.enabled': true,
       'devtools.debugger.prompt-connection': false,
-      'network.dns.localDomains': 'protected.example',
+      'network.dns.localDomains': 'protected.example,page.related.example,cdn.related.example',
       'network.trr.mode': 5,
       'datareporting.policy.dataSubmissionEnabled': false,
       'toolkit.telemetry.enabled': false,
@@ -160,14 +177,14 @@ test('Firefox authenticates HTTP and SOCKS5 proxies without direct or DNS fallba
     const failure = new Promise((resolve, reject) => {
       child.on('error', reject)
       child.on('exit', () => reject(new Error('Firefox exited early')))
-      timer = setTimeout(() => reject(new Error('Firefox auth test timed out')), 25000)
+      timer = setTimeout(() => reject(new Error('Firefox integration test timed out')), 45000)
     })
     const run = async () => {
       remote = await connectWithMaxRetries({ port, maxRetries: 50, retryInterval: 100 })
       await remote.installTemporaryAddon(addon)
       return results
     }
-    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'AUTH_HTTP', 'AUTH_SOCKS'])
+    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'AUTH_HTTP', 'AUTH_SOCKS', 'cdn.related.example'])
     assert.equal(directHits, 0)
     assert.ok(socksRequests.length > 0)
     assert.ok(socksRequests.every(request => request.addressType === 3 && request.hostname === 'protected.example'))
