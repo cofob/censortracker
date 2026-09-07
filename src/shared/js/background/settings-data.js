@@ -3,6 +3,7 @@ import { parseProxyAddress, proxyProtocols } from './proxy-address'
 import { proxyStateFromSettings } from './proxy-record'
 import { validateSubscriptions } from './proxy-source'
 import { registrySourceDefaults, validateRegistrySource } from './registry-source-data'
+import { settingsFromFork } from './settings-fork'
 import { validateSiteRules } from './site-rules'
 
 export const settingsDefaults = {
@@ -36,7 +37,8 @@ export const validateSettings = (input) => {
     input.formatVersion !== 1)) {
     throw new Error('Invalid settings format')
   }
-  const settings = input.formatVersion === 1 ? input.settings : input
+  const settings = input.formatVersion === 1
+    ? input.settings : settingsFromFork(input)
   const result = {}
 
   if (!isObject(settings)) {

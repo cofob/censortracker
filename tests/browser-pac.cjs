@@ -338,6 +338,22 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelector('#siteRuleSave').disabled === false")
     await evaluate("document.querySelectorAll('#siteRuleRows button')[1].click()")
     await until("document.querySelector('#siteRuleRows').children.length === 0")
+    await evaluate('chrome.storage.local.get(null).then(data => { window.beforeForkImport = data })')
+    const forkBackup = { useProxy: false, useOwnProxy: true, proxyAllTraffic: true,
+      customProxies: [{ id: 'old_id', protocol: 'HTTP', uri: `127.0.0.1:${proxy.address().port}`,
+        credentials: 'alice:se%63ret' }], proxyChain: ['old_id', 'builtin'],
+      proxySources: [`http://registry-source.example:${origin.address().port}/registry-list`],
+      proxySourcesEnabled: true, useCustomRegistry: true,
+      customRegistryUrl: `http://registry-source.example:${origin.address().port}/registry-list` }
+    assert.equal(await evaluate(`chrome.runtime.sendMessage({type: 'ct-background', action: 'importSettings', args: ${JSON.stringify(forkBackup)}}).then(result => result.error || 'OK')`), 'OK')
+    const imported = await evaluate("chrome.storage.local.get(['proxies', 'selectedProxyIds', 'proxyAll', 'useProxy', 'registrySource', 'proxySubscriptionsEnabled', 'proxyRecoveryEnabled'])")
+    assert.equal(imported.proxies[0].password, 'secret')
+    assert.deepEqual(imported.selectedProxyIds, ['fork-0', 'builtin'])
+    assert.equal(imported.proxyAll, true)
+    assert.equal(imported.useProxy, false)
+    assert.equal(imported.registrySource.enabled || imported.registrySource.autoUpdate || imported.proxySubscriptionsEnabled || imported.proxyRecoveryEnabled, false)
+    assert.equal(registryHits, 0, 'A backup cannot grant consent to download its URLs')
+    assert.equal(await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'importSettings', args: {formatVersion: 1, settings: window.beforeForkImport}}).then(result => result.error || 'OK')"), 'OK')
     await evaluate("chrome.storage.local.set({useRegistry: true, domains: ['builtin-only.example'], customProxiedDomains: ['manual.example']})")
     await evaluate("location.href = chrome.runtime.getURL('registry.html')")
     await until("document.querySelector('#registrySourceSave')?.disabled === false")

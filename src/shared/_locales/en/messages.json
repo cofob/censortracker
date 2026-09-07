@@ -494,7 +494,7 @@
     "message": "Ignored Websites"
   },
   "importSettingsDesc": {
-    "message": "You can import your settings from a JSON file."
+    "message": "Import a JSON backup from this version, an older version, or the avatarDD fork. Check your proxy selection and registry sources after import. Automatic downloads and checks stay off."
   },
   "importSettingsTitle": {
     "message": "Import Settings"
