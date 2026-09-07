@@ -2,8 +2,9 @@ import browser from './browser-api'
 import ProxyManager from './proxy'
 import { currentProxyCheck, proxyFingerprint } from './proxy-check-data'
 import { CHECK_URLS, locateProxy, probeProxy } from './proxy-check-network'
+import { recordProxyHealth, recoverableProxies } from './proxy-health'
 import { readProxyState } from './proxy-list'
-import { proxyAuthSupported } from './proxy-record'
+import { hasProxyAuth, proxyAuthSupported } from './proxy-record'
 import { getProbeRoutes, mustUseDirect, proxyAllowed, setProbeRoute, withProxyLock } from './proxy-route'
 
 let job
@@ -101,6 +102,11 @@ const checkOne = async (current, proxy, url) => {
 
       proxyChecks[proxy.id] = { ...result, fingerprint, checkedAt: Date.now() }
       await browser.storage.local.set({ proxyChecks })
+      if (result.status === 'ok' || (result.status === 'failed' && !hasProxyAuth(proxy))) {
+        if (await recordProxyHealth(proxy, result.status !== 'ok')) {
+          await ProxyManager.setProxyInBackground({ ping: false })
+        }
+      }
     })
   }
 }
@@ -146,20 +152,31 @@ const runChecks = async (current, urls) => {
   }
 }
 
-export const startProxyChecks = async ({ ids } = {}) => {
+export const startProxyChecks = async ({ ids, automatic = false } = {}) => {
   if (job) {
     throw new Error('A proxy check is already running')
   }
   const current = {
-    controller: new AbortController(), proxies: [], next: 0, completed: 0,
+    controller: new AbortController(),
+    proxies: [],
+    next: 0,
+    completed: 0,
+    automatic,
   }
 
   job = current
   try {
+    const { proxyRecoveryEnabled } = await browser.storage.local.get({
+      proxyRecoveryEnabled: false,
+    })
+
+    if (automatic && !proxyRecoveryEnabled) {
+      throw new Error('Automatic checks are disabled')
+    }
     if (!await proxyAllowed()) {
       throw new Error('Enable proxy use before checking')
     }
-    const { proxies, builtin } = await readProxyState()
+    const { proxies, builtin, selectedProxyIds } = await readProxyState()
     const catalog = [builtin, ...proxies]
     const available = new Set(catalog.map(({ id }) => id))
 
@@ -169,6 +186,16 @@ export const startProxyChecks = async ({ ids } = {}) => {
     }
     current.proxies = catalog.filter(({ id }) =>
       ids === undefined || ids.includes(id))
+    if (automatic) {
+      const { proxyFailures, localProxyURI, proxyRecoveryEnabled: enabled } =
+        await browser.storage.local.get({
+          proxyFailures: {}, localProxyURI: null, proxyRecoveryEnabled: false,
+        })
+
+      current.proxies = enabled && !localProxyURI
+        ? (await recoverableProxies(current.proxies.filter(({ id }) =>
+          selectedProxyIds.includes(id)), proxyFailures)).slice(0, 4) : []
+    }
     const urls = []
 
     for (const url of CHECK_URLS) {
@@ -209,6 +236,10 @@ export const stopProxyChecks = async () => {
 
 export const registerProxyChecks = async () => {
   browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && job?.automatic &&
+      changes.proxyRecoveryEnabled?.newValue === false) {
+      job.controller.abort()
+    }
     if (area === 'local' && ['enableExtension', 'useProxy', 'proxies',
       'selectedProxyIds', 'ignoredHosts', 'localProxyURI'].some((key) => changes[key])) {
       if (job) {

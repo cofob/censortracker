@@ -5,6 +5,7 @@ import browser from './browser-api'
 import { findHostMatch } from './host-match'
 import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
+import { currentProxyCheck } from './proxy-check-data'
 import { readProxyState } from './proxy-list'
 import { proxyAuthSupported } from './proxy-record'
 import { applyPac, getProbeRoutes, getRouteRevision, proxyAllowed } from './proxy-route'
@@ -31,9 +32,18 @@ class ProxyManager {
       [builtin, ...proxies].map((proxy) => [proxy.id, proxy]),
     )
 
-    return selectedProxyIds.map((id) => catalog.get(id))
+    const selected = selectedProxyIds.map((id) => catalog.get(id))
       .filter((proxy) => proxy?.host && proxy.port && !proxy.restricted &&
         proxyAuthSupported(proxy, browser.isFirefox))
+    const { proxyFailures } = await browser.storage.local.get({
+      proxyFailures: {},
+    })
+
+    return Promise.all(selected.map(async (proxy) => {
+      const failure = await currentProxyCheck(proxy, proxyFailures)
+
+      return failure ? { ...proxy, retryAt: failure.retryAt } : proxy
+    }))
   }
 
   async getRoutingOptions () {
@@ -84,7 +94,8 @@ class ProxyManager {
   }
 
   async getProxyingRules () {
-    const [selected] = await this.getSelectedProxies()
+    const selected = (await this.getSelectedProxies())
+      .find(({ retryAt = 0 }) => retryAt <= Date.now())
 
     return selected ? {
       id: selected.id,
@@ -185,6 +196,9 @@ class ProxyManager {
   }
 
   async ping (force = false) {
+    if (!await proxyAllowed()) {
+      return
+    }
     const {
       localProxyURI,
       proxyPingURI,

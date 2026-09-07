@@ -3,14 +3,12 @@ import { TaskType } from './constants'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
 import { refreshNextSubscription, SUBSCRIPTION_ALARM } from './proxy-importer'
-import { getProbeRoutes } from './proxy-route'
+import { recoverProxy, RECOVERY_ALARM, retryFailedProxies } from './proxy-recovery'
 import Registry from './registry'
 import * as server from './server'
 import Settings from './settings'
 import Task from './task'
 import * as utilities from './utilities'
-
-let proxyRecoveryInProgress = false
 
 export const showDisseminatorWarning = async (url) => {
   const hostname = utilities.extractDomainFromUrl(url)
@@ -42,7 +40,13 @@ export const showDisseminatorWarning = async (url) => {
 export const handleOnAlarm = async ({ name }) => {
   console.log(`Task received: ${name}`)
 
-  if (name === SUBSCRIPTION_ALARM) {
+  if (name === RECOVERY_ALARM) {
+    try {
+      await retryFailedProxies()
+    } catch (error) {
+      console.warn('Proxy recovery check failed')
+    }
+  } else if (name === SUBSCRIPTION_ALARM) {
     try {
       await refreshNextSubscription()
     } catch (error) {
@@ -55,7 +59,7 @@ export const handleOnAlarm = async ({ name }) => {
   } else if (name === TaskType.SET_PROXY) {
     const proxyingEnabled = await ProxyManager.isEnabled()
 
-    if (proxyingEnabled) {
+    if (proxyingEnabled && await Settings.extensionEnabled()) {
       await server.synchronize()
       await ProxyManager.setProxy()
     }
@@ -65,8 +69,10 @@ export const handleOnAlarm = async ({ name }) => {
 }
 
 export const handleBeforeRequest = async (_details) => {
-  await ProxyManager.ping()
-  await ProxyManager.requestIncognitoAccess()
+  if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+    await ProxyManager.ping()
+    await ProxyManager.requestIncognitoAccess()
+  }
 }
 
 export const handleStartup = async () => {
@@ -74,7 +80,7 @@ export const handleStartup = async () => {
 
   const proxyingEnabled = await ProxyManager.isEnabled()
 
-  if (proxyingEnabled) {
+  if (proxyingEnabled && await Settings.extensionEnabled()) {
     await ProxyManager.setProxy()
   }
 
@@ -188,11 +194,9 @@ export const handleInstalled = async ({ reason }) => {
   const UPDATED = reason === browser.runtime.OnInstalledReason.UPDATE
   const INSTALLED = reason === browser.runtime.OnInstalledReason.INSTALL
 
-  // if (INSTALLED) {
-  //   await Settings.showInstalledPage()
-  // }
-
-  if (UPDATED || INSTALLED) {
+  if (UPDATED) {
+    await handleStartup()
+  } else if (INSTALLED) {
     await Registry.enableRegistry()
     await Settings.enableExtension()
     await Settings.enableNotifications()
@@ -257,72 +261,9 @@ export const handleTabCreate = async (tab) => {
     })
 }
 
-export const handleProxyError = async ({ error, url, tabId }) => {
-  // Internal requests and probe routes must not replace the managed endpoint.
-  if (tabId === -1 || getProbeRoutes().some(({ hostname }) =>
-    hostname === utilities.extractHostnameFromUrl(url))) {
-    return
-  }
-  const usingCustomProxy = await ProxyManager.usingCustomProxy()
-
-  // Custom proxy is used, so we don't need to handle this error
-  if (usingCustomProxy) {
-    return
-  }
-
-  error = error.replace('net::', '')
-
-  const proxyErrors = [
-    // Firefox
-    'NS_ERROR_UNKNOWN_PROXY_HOST',
-    // Chrome
-    'ERR_PROXY_CONNECTION_FAILED',
-  ]
-
-  if (proxyErrors.includes(error)) {
-    const {
-      currentProxyServer,
-      fallbackProxyInUse,
-    } = await browser.storage.local.get({
-      fallbackProxyInUse: false,
-      currentProxyServer: null,
-    })
-
-    if (fallbackProxyInUse) {
-      await browser.storage.local.set({
-        proxyIsAlive: false,
-        fallbackProxyError: error,
-      })
-      console.warn('Fallback proxy is intermittent, interrupting auto fetch...')
-      return
-    }
-
-    if (!currentProxyServer || proxyRecoveryInProgress) {
-      return
-    }
-
-    proxyRecoveryInProgress = true
-
-    try {
-      console.warn(`Error on connection to ${currentProxyServer}: ${error}`)
-      const badProxies = await ProxyManager.getBadProxies()
-
-      if (!badProxies.includes(currentProxyServer)) {
-        badProxies.push(currentProxyServer)
-        await browser.storage.local.set({ badProxies })
-      }
-
-      console.info('Requesting new proxy server...')
-      await server.synchronize({
-        syncRegistry: false,
-        syncProxy: true,
-      })
-      await ProxyManager.setProxy()
-    } finally {
-      proxyRecoveryInProgress = false
-    }
-  }
-}
+export const handleProxyError = (details) => recoverProxy(details).catch(() => {
+  console.warn('Proxy recovery failed; selected proxies were kept')
+})
 
 export const handleOnUpdateAvailable = async ({ version }) => {
   await browser.storage.local.set({ updateAvailable: true })

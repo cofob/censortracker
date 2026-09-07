@@ -96,10 +96,11 @@ test('PAC restrictions survive storage and settings imports; backup consent is n
   const settings = load('background/settings', {
     'browser-api': { default: { storage: { local: { set: async values => Object.assign(state.storage, values) } } } },
   }).default
-  await settings.importSettingsInBackground({ ...state.storage, proxySubscriptionsEnabled: true,
+  await settings.importSettingsInBackground({ ...state.storage, proxySubscriptionsEnabled: true, proxyRecoveryEnabled: true,
     proxySubscriptions: [{ id: 'one', protocol: 'HTTPS', url: 'https://source.example/' }] })
   assert.equal(state.storage.proxies[0].restricted, true)
   assert.equal(state.storage.proxySubscriptionsEnabled, false)
+  assert.equal(state.storage.proxyRecoveryEnabled, false)
 })
 
 test('source validation rejects executable, credential-bearing and duplicate URLs', () => {

@@ -112,6 +112,42 @@ test('settings changes cancel checks and cleanup uses the latest selection', asy
   assert.equal(Object.keys(state.storage.proxyChecks).length, 0)
 })
 
+test('automatic checks require consent and stop when that consent is removed', async () => {
+  const state = fixture((proxy, signal) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true })
+  }))
+  await state.registerProxyChecks()
+  await assert.rejects(state.startProxyChecks({ ids: ['proxy-0'], automatic: true }))
+  await state.browser.storage.local.set({ proxyRecoveryEnabled: true,
+    selectedProxyIds: ['proxy-0'], proxyFailures: { 'proxy-0': {
+      retryAt: 1, fingerprint: await proxyFingerprint(state.storage.proxies[0]),
+    } } })
+  await state.startProxyChecks({ ids: ['proxy-0'], automatic: true })
+  await until(() => state.maxActive() === 1)
+  await state.browser.storage.local.set({ proxyRecoveryEnabled: false })
+  await state.stopProxyChecks()
+  assert.equal(state.storage.proxyCheckRun.cancelled, true)
+  assert.equal(Object.keys(state.storage.proxyChecks).length, 0)
+})
+
+test('automatic checks revalidate selection, credentials, and failure identity at job creation', async () => {
+  for (const change of ['deselected', 'credentials', 'recovered', 'endpoint', 'cooldown', 'local']) {
+    const state = fixture()
+    const proxy = state.storage.proxies[0]
+    state.storage.proxyRecoveryEnabled = true
+    state.storage.selectedProxyIds = [proxy.id]
+    state.storage.proxyFailures = { [proxy.id]: { retryAt: 1, fingerprint: await proxyFingerprint(proxy) } }
+    if (change === 'deselected') state.storage.selectedProxyIds = ['builtin']
+    if (change === 'credentials') Object.assign(proxy, { username: 'alice', password: 'secret' })
+    if (change === 'recovered') state.storage.proxyFailures = {}
+    if (change === 'endpoint') proxy.host = 'new.example'
+    if (change === 'cooldown') state.storage.proxyFailures[proxy.id].retryAt = Date.now() + 60000
+    if (change === 'local') state.storage.localProxyURI = '127.0.0.1:10808'
+    await assert.rejects(state.startProxyChecks({ ids: [proxy.id], automatic: true }), undefined, change)
+    assert.equal(state.maxActive(), 0)
+  }
+})
+
 test('checks require enabled routing and skip restricted, unsupported, or excluded targets', async () => {
   const state = fixture()
   state.storage.useProxy = false
@@ -155,8 +191,8 @@ test('Firefox probe errors cannot mark the selected managed endpoint bad or trig
   let normalRecoveries = 0
   const { handleProxyError } = load('background/handlers', {
     'browser-api': { default: {} },
-    'proxy-route': { getProbeRoutes: () => [{ hostname: 'echo.example' }] },
-    proxy: { default: { usingCustomProxy: async () => { normalRecoveries++; return true } } },
+    'proxy-route': { getProbeRoutes: () => [{ hostname: 'echo.example' }], proxyAllowed: async () => true },
+    proxy: { default: { getRouteForHost: async () => { normalRecoveries++; return { type: 'direct' } } } },
     server: {}, 'proxy-importer': {},
   })
   await handleProxyError({ error: 'NS_ERROR_UNKNOWN_PROXY_HOST', url: 'https://echo.example/', tabId: 1 })

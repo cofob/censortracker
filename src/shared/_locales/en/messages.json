@@ -1,4 +1,7 @@
 {
+  "proxyRecoveryEnabled": {
+    "message": "Allow background IP checks for failed selected proxies (every five minutes). Proxies with saved credentials are not retried automatically."
+  },
   "proxyCheckTitle": {
     "message": "Check proxies"
   },

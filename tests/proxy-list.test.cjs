@@ -32,7 +32,12 @@ test('add, edit, select multiple, and delete preserve unrelated proxies and empt
   assert.deepEqual(state.storage.selectedProxyIds, ['two', 'builtin', 'one'])
   await state.updateProxyList({ operation: 'save', proxy: { ...state.storage.proxies[0], name: '<b>name</b>' } })
   assert.equal(state.storage.proxies[0].name, '<b>name</b>')
+  state.storage.proxyChecks = { two: { status: 'failed' }, one: { status: 'ok' } }
+  state.storage.proxyFailures = { two: { retryAt: 1000 } }
   await state.updateProxyList({ operation: 'remove', ids: ['two'] })
+  assert.equal(state.storage.proxyChecks.two, undefined)
+  assert.equal(state.storage.proxyChecks.one.status, 'ok')
+  assert.equal(state.storage.proxyFailures.two, undefined)
   assert.deepEqual(state.storage.selectedProxyIds, ['builtin', 'one'])
   await state.updateProxyList({ operation: 'select', ids: [] })
   assert.deepEqual(Array.from((await state.readProxyState()).selectedProxyIds), [])

@@ -7,6 +7,23 @@ const { createRouter, routingConfig } = load('background/routing')
 const { findHostMatch } = load('background/host-match')
 const { isPrivateHost } = load('background/private-host')
 
+test('failed proxies stay selected but are bypassed until their cooldown expires', () => {
+  let now = 1000
+  const scope = { Date: { now: () => now } }
+  const proxies = [
+    { id: 'failed', protocol: 'HTTP', host: 'failed.example', port: 80, retryAt: 2000 },
+    { id: 'healthy', protocol: 'HTTPS', host: 'healthy.example', port: 443 },
+  ]
+  vm.runInNewContext(getPacScript({ domains: ['protected.example'], proxies }), scope)
+  assert.equal(scope.FindProxyForURL('', 'protected.example'), 'HTTPS healthy.example:443;')
+  now = 2000
+  assert.match(scope.FindProxyForURL('', 'protected.example'), /PROXY failed.example:80/)
+  vm.runInNewContext(getPacScript({ domains: ['protected.example'], proxies: [proxies[0]] }), scope)
+  now = 1000
+  assert.equal(scope.FindProxyForURL('', 'protected.example'), 'PROXY 127.0.0.1:0')
+  assert.equal(scope.FindProxyForURL('', 'public.example'), 'DIRECT')
+})
+
 test('probe routes are isolated, fail closed on expiry, and respect local and explicit exclusions', () => {
   const proxy = { id: 'probe', protocol: 'HTTP', host: 'check.example', port: 80, username: 'secret' }
   const options = { domains: ['protected.example'], ignoredHosts: ['ignored.example'],

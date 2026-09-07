@@ -7,8 +7,24 @@ export const mountProxyCheck = async (refreshProxies) => {
   const stop = document.getElementById('proxyCheckStop')
   const status = document.getElementById('proxyCheckStatus')
   const errorMessage = document.getElementById('proxyCheckError')
+  const recovery = document.getElementById('proxyRecoveryEnabled')
   const message = (key, values) => browser.i18n.getMessage(key, values)
   let timer
+  const syncRecovery = async () => {
+    recovery.checked = (await browser.storage.local.get({
+      proxyRecoveryEnabled: false,
+    })).proxyRecoveryEnabled
+  }
+
+  recovery.addEventListener('change', async () => {
+    recovery.disabled = true
+    try {
+      await callBackground('setProxyRecovery', recovery.checked)
+    } finally {
+      await syncRecovery()
+      recovery.disabled = false
+    }
+  })
   const render = (run) => {
     all.disabled = run.running
     selected.disabled = run.running
@@ -45,6 +61,11 @@ export const mountProxyCheck = async (refreshProxies) => {
     if (area !== 'local') {
       return
     }
+    if (changes.proxyRecoveryEnabled) {
+      syncRecovery().catch(() => {
+        errorMessage.hidden = false
+      })
+    }
     if (changes.proxyCheckRun) {
       render(changes.proxyCheckRun.newValue || { running: false })
     }
@@ -55,5 +76,6 @@ export const mountProxyCheck = async (refreshProxies) => {
       }, 300)
     }
   })
+  await syncRecovery()
   render((await callBackground('proxyCheckState')).run)
 }

@@ -19,12 +19,14 @@ import { registerProxyAuth } from './proxy-auth'
 import { getProxyCheckState, registerProxyChecks, startProxyChecks, stopProxyChecks } from './proxy-check'
 import { importProxies, refreshSubscription, scheduleSubscriptions, updateSubscriptions } from './proxy-importer'
 import { updateProxyList } from './proxy-list'
+import { registerProxyRecovery } from './proxy-recovery'
 import { proxyAllowed, withProxyLock } from './proxy-route'
 import { synchronizeInBackground } from './server'
 import Settings from './settings'
 
 registerProxyAuth()
 registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
+registerProxyRecovery().catch(() => console.warn('Could not schedule proxy recovery'))
 
 const rescheduleSubscriptions = () => scheduleSubscriptions().catch(() => {
   console.warn('Could not schedule proxy subscriptions')
@@ -42,7 +44,13 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
-  startProxyChecks,
+  startProxyChecks: ({ ids } = {}) => startProxyChecks({ ids }),
+  setProxyRecovery: async (enabled) => {
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('Invalid proxy recovery option')
+    }
+    await browser.storage.local.set({ proxyRecoveryEnabled: enabled })
+  },
   stopProxyChecks,
   proxyCheckState: getProxyCheckState,
   importProxies,

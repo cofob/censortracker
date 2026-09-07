@@ -7,8 +7,10 @@ export const routingConfig = ({
   proxyAll,
   domains: Array.from(new Set(domains.map(normalizeHostname).filter(Boolean))),
   ignoredHosts: ignoredHosts.map(normalizeHostname).filter(Boolean),
-  proxies: proxies.map(({ id, protocol, host, port }) => ({
-    id, route: proxyDirective(protocol, `${host}:${port}`),
+  proxies: proxies.map(({ id, protocol, host, port, retryAt }) => ({
+    id,
+    route: proxyDirective(protocol, `${host}:${port}`),
+    retryAt: Number.isFinite(retryAt) ? retryAt : 0,
   })),
   probes: probes.map(({ hostname, proxy, expiresAt }) => ({
     hostname: normalizeHostname(hostname),
@@ -40,7 +42,10 @@ export const createRouter = (config, matchHost, privateHost) => {
       matchHost(host, domains))) {
       return { type: 'direct', proxies: [], route: 'DIRECT' }
     }
-    if (config.proxies.length === 0) {
+    const available = config.proxies.filter((proxy) =>
+      proxy.retryAt <= Date.now())
+
+    if (available.length === 0) {
       return { type: 'blocked', proxies: [], route: 'PROXY 127.0.0.1:0' }
     }
     let hash = 0
@@ -48,9 +53,8 @@ export const createRouter = (config, matchHost, privateHost) => {
     for (let index = 0; index < host.length; index++) {
       hash = (hash * 31 + host.charCodeAt(index)) % 2147483647
     }
-    const offset = hash % config.proxies.length
-    const proxies = config.proxies.slice(offset)
-      .concat(config.proxies.slice(0, offset))
+    const offset = hash % available.length
+    const proxies = available.slice(offset).concat(available.slice(0, offset))
 
     return {
       type: 'proxy',

@@ -164,6 +164,19 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(results['check-0'].exitIP, '8.8.8.8')
     assert.equal(results['check-0'].exitCountry, 'US')
     assert.equal(await evaluate("chrome.proxy.settings.get({}).then(({value}) => value.pacScript.data.includes('api.ipify.org'))"), false)
+    await evaluate(`chrome.storage.local.set({proxyFailures: {'check-0': {fingerprint: ${JSON.stringify(results['check-0'].fingerprint)}, retryAt: Date.now() + 300000}}})`)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'})")
+    const beforeBlocked = directHits
+    assert.equal(await evaluate(`fetch('http://auth.example:${origin.address().port}/cooldown').then(response => response.text(), () => 'BLOCKED')`), 'BLOCKED')
+    assert.equal(directHits, beforeBlocked)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'startProxyChecks', args: {ids: ['check-0']}})")
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await evaluate("chrome.storage.local.get('proxyCheckRun').then(data => data.proxyCheckRun?.running === false)")) break
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    assert.equal(await evaluate("chrome.storage.local.get('proxyFailures').then(data => data.proxyFailures['check-0'])"), undefined)
+    assert.equal(await evaluate(`fetch('http://auth.example:${origin.address().port}/recovered').then(response => response.text())`), 'PROXY')
+    results['check-0'] = await evaluate("chrome.storage.local.get('proxyChecks').then(data => data.proxyChecks['check-0'])")
     const checkedAt = results['check-0'].checkedAt
     const beforeSlow = echoHits
     slowEcho = true
@@ -216,6 +229,13 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     assert.equal(await evaluate("document.querySelector('#proxyAll') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyImportOptions').open"), false)
     assert.equal(await evaluate("document.querySelector('#proxyCheckOptions').open"), false)
+    assert.equal(await evaluate("document.querySelector('#proxyRecoveryEnabled').checked"), false)
+    await evaluate("document.querySelector('#proxyRecoveryEnabled').click()")
+    await until("chrome.storage.local.get('proxyRecoveryEnabled').then(data => data.proxyRecoveryEnabled === true)")
+    assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
+    await until("document.querySelector('#proxyRecoveryEnabled').disabled === false")
+    await evaluate("document.querySelector('#proxyRecoveryEnabled').click()")
+    await until("chrome.storage.local.get('proxyRecoveryEnabled').then(data => data.proxyRecoveryEnabled === false)")
     await evaluate("document.querySelector('#proxyImportText').value = 'http://imported.example:8080'; document.querySelector('#proxyImportButton').click()")
     await until("document.querySelector('#proxyRows').textContent.includes('imported.example')")
     assert.deepEqual(await evaluate("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds)"), ['builtin'])

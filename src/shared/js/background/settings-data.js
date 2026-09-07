@@ -9,6 +9,7 @@ export const settingsDefaults = {
   proxyAll: false,
   proxySubscriptions: [],
   proxySubscriptionsEnabled: false,
+  proxyRecoveryEnabled: false,
   useRegistry: true,
   showNotifications: true,
   useOwnProxy: false,

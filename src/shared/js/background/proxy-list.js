@@ -81,7 +81,19 @@ export const updateProxyList = async ({
   } else {
     throw new Error('Unknown proxy operation')
   }
+  const runtime = {}
+
+  if (operation === 'remove') {
+    Object.assign(runtime, await browser.storage.local.get({
+      proxyChecks: {}, proxyFailures: {},
+    }))
+    for (const id of ids) {
+      delete runtime.proxyChecks[id]
+      delete runtime.proxyFailures[id]
+    }
+  }
   await browser.storage.local.set({
+    ...runtime,
     proxies: validateProxyList(state.proxies),
     selectedProxyIds: state.selectedProxyIds,
     useOwnProxy: state.selectedProxyIds.some((id) => id !== 'builtin'),
