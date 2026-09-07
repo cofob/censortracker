@@ -1,3 +1,5 @@
+import { normalizeHostname } from './hostname'
+
 const protocols = {
   HTTP: 'PROXY',
   PROXY: 'PROXY',
@@ -16,15 +18,13 @@ export const parseProxyAddress = (address) => {
   if (!match || Number(match[2]) < 1 || Number(match[2]) > 65535) {
     throw new Error('Invalid proxy address')
   }
-  const host = new URL(`http://${match[1]}`).hostname.toLowerCase()
+  const host = normalizeHostname(match[1])
   const port = Number(match[2])
 
-  if (!host.startsWith('[') && (host.length > 253 ||
-    !host.replace(/\.$/, '').split('.').every((label) =>
-      /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)))) {
+  if (!host) {
     throw new Error('Invalid proxy address')
   }
-  return { host: host.replace(/\.$/, ''), port }
+  return { host, port }
 }
 
 export const proxyDirective = (protocol, address) => {

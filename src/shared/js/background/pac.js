@@ -1,3 +1,4 @@
+import { normalizeHostname } from './hostname'
 import { proxyDirective } from './proxy-address'
 
 /**
@@ -16,6 +17,7 @@ export const getPacScript = (
 ) => {
   const route = JSON.stringify(`${proxyDirective(proxyServerProtocol, proxyServerURI)};`)
 
+  domains = domains.map(normalizeHostname).filter(Boolean)
   // Sort domains alphabetically to make binary search work.
   domains.sort()
   return `
@@ -40,6 +42,7 @@ export const getPacScript = (
           return false;
         }
 
+        host = host.toLowerCase();
         // Remove ending dot
         if (host.endsWith('.')) {
           host = host.substring(0, host.length - 1);

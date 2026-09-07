@@ -1,7 +1,8 @@
-import { getDomain, getHostname, getPublicSuffix } from 'tldts'
+import { getDomain, getPublicSuffix } from 'tldts'
 import isURL from 'validator/lib/isURL'
 
 import browser from './browser-api'
+import { normalizeHostname } from './hostname'
 
 function startsWithExtension (string) {
   return /^(chrome|moz)-extension:/.test(string)
@@ -13,7 +14,8 @@ function startsWithExtension (string) {
  * @returns {boolean} true if valid, false otherwise.
  */
 const isExtensionUrl = (url) => {
-  return url.startsWith('about:') || startsWithExtension(url)
+  return typeof url === 'string' &&
+    (url.startsWith('about:') || startsWithExtension(url))
 }
 
 export const isOnionUrl = (url) => {
@@ -61,14 +63,18 @@ export const extractDomainFromUrl = (url) => {
     const encodedUrl = searchParams.get('loadFor')
 
     if (encodedUrl) {
-      url = atob(encodedUrl)
+      try {
+        url = atob(encodedUrl)
+      } catch (error) {
+        return null
+      }
     }
   }
-  return getDomain(url)
+  return getDomain(normalizeHostname(url))
 }
 
 export const extractHostnameFromUrl = (url) => {
-  return getHostname(url)
+  return normalizeHostname(url)
 }
 
 export const i18nGetMessage = (key, props = {}) => {
@@ -107,7 +113,9 @@ export const removeDuplicates = (urls) => {
   const result = new Set()
 
   for (const url of urls) {
-    const domain = getDomain(url)
+    const domain = getDomain(normalizeHostname(
+      typeof url === 'string' ? url.trim() : url,
+    ))
 
     if (domain) {
       result.add(domain)
