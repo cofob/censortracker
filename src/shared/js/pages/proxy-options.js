@@ -1,3 +1,5 @@
+import './page-errors'
+
 import browser from 'Background/browser-api'
 import ProxyClient from 'Background/localproxy'
 import ProxyManager from 'Background/proxy'

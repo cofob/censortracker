@@ -1,4 +1,7 @@
 {
+  "operationFailed": {
+    "message": "Не вдалося виконати дію. Спробуйте ще раз."
+  },
   "addLocalProxyButton": {
     "message": "Додати"
   },

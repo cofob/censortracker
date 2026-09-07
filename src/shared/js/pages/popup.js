@@ -1,3 +1,5 @@
+import './page-errors'
+
 import browser from 'Background/browser-api'
 import Ignore from 'Background/ignore'
 import ProxyManager from 'Background/proxy'
@@ -169,10 +171,10 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
   })
 
   browser.tabs.query({ active: true, lastFocusedWindow: true })
-    .then(async ([{ url: currentUrl, id: tabId }]) => {
+    .then(async ([{ url: currentUrl = '', id: tabId } = {}]) => {
       const proxyingEnabled = await ProxyManager.isEnabled()
       const extensionEnabled = await Settings.extensionEnabled()
-      const currentHostname = extractHostnameFromUrl(currentUrl)
+      const currentHostname = extractHostnameFromUrl(currentUrl) || ''
 
       const { useLocalProxy } = await browser.storage.local.get(['useLocalProxy'])
 
@@ -428,10 +430,4 @@ import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidUR
       showWhatThisMeanButtons()
     })
   }
-
-  const show = () => {
-    document.documentElement.style.visibility = 'initial'
-  }
-
-  setTimeout(show, 150)
 })()

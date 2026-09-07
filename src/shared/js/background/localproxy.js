@@ -1,6 +1,8 @@
 import axios from 'axios'
 import browser from 'Background/browser-api'
 
+import { requestText } from './request'
+
 /**
  * ProxyClient handles API communication with the proxy server.
  */
@@ -221,9 +223,8 @@ class ProxyClient {
 
     if (url.startsWith('https://')) {
       try {
-        const response = await fetch(url)
-        const responseText = await response.text()
-        const textConfigs = window.atob(responseText)
+        const responseText = await requestText(url)
+        const textConfigs = atob(responseText)
 
         return textConfigs
           .split('\n')

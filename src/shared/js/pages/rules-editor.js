@@ -7,6 +7,7 @@ import 'codemirror/theme/ayu-mirage.css'
 
 import browser from 'Background/browser-api'
 import Ignore from 'Background/ignore'
+import { requestText } from 'Background/request'
 import { i18nGetMessage, isValidURL, removeDuplicates } from 'Background/utilities'
 import CodeMirror from 'codemirror'
 
@@ -127,8 +128,7 @@ import CodeMirror from 'codemirror'
       const sourceURL = document.getElementById('sourceURL').value
 
       if (isValidURL(sourceURL)) {
-        fetch(sourceURL)
-          .then((response) => response.text())
+        requestText(sourceURL, { maxBytes: maxSizeBytes })
           .then(async (text) => {
             const domains = readlines(text)
 

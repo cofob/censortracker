@@ -1,3 +1,5 @@
+import './page-errors'
+
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
@@ -139,7 +141,6 @@ import Settings from 'Background/settings'
     await server.synchronize()
     await Settings.enableExtension()
     await Settings.enableNotifications()
-    await Settings.disableParentalControl()
     await ProxyManager.removeBadProxies()
     await ProxyManager.enableProxy()
     await ProxyManager.setProxy()
