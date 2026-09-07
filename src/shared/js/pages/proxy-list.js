@@ -13,6 +13,8 @@ export const mountProxyList = async () => {
   const username = document.getElementById('proxyUsername')
   const password = document.getElementById('proxyPassword')
   const authOptions = document.getElementById('proxyAuthOptions')
+  const unrestricted = document.getElementById('proxyUnrestricted')
+  const restriction = document.getElementById('proxyRestriction')
 
   document.getElementById('proxySocksUnsupported').hidden = browser.isFirefox
   const cancel = document.getElementById('cancelProxyEdit')
@@ -31,6 +33,7 @@ export const mountProxyList = async () => {
     protocolInput.textContent = 'HTTPS'
     cancel.hidden = true
     authOptions.open = false
+    restriction.hidden = true
   }
   const editProxy = (proxy) => {
     editingId = proxy.id
@@ -40,6 +43,8 @@ export const mountProxyList = async () => {
     username.value = proxy.username || ''
     password.value = proxy.password || ''
     authOptions.open = hasProxyAuth(proxy)
+    restriction.hidden = !proxy.restricted
+    unrestricted.checked = !proxy.restricted
     cancel.hidden = false
     addressInput.focus()
   }
@@ -75,6 +80,9 @@ export const mountProxyList = async () => {
         : message('proxyUnavailable')
       if (!proxyAuthSupported(proxy, browser.isFirefox)) {
         cells[2].textContent += ` — ${message('proxySocksUnsupported')}`
+      }
+      if (proxy.restricted) {
+        cells[2].textContent += ` — ${message('proxyRestricted')}`
       }
       if (proxy.id !== 'builtin') {
         const edit = document.createElement('button')
@@ -130,6 +138,7 @@ export const mountProxyList = async () => {
           protocol: protocolInput.textContent.trim(),
           username: username.value,
           password: password.value,
+          restricted: !unrestricted.checked,
           ...endpoint,
         },
       })
@@ -145,6 +154,11 @@ export const mountProxyList = async () => {
   next.addEventListener('click', () => {
     page++; render()
   })
-  state = await callBackground('proxies', { operation: 'list' })
-  render()
+  const refresh = async () => {
+    state = await callBackground('proxies', { operation: 'list' })
+    render()
+  }
+
+  await refresh()
+  return refresh
 }

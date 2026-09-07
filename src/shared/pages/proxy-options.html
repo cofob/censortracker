@@ -98,11 +98,39 @@
                 <p class="main-page__about" data-i18n-key="proxyAuthPrivacy"></p>
                 <p id="proxySocksUnsupported" class="main-page__about" data-i18n-key="proxySocksUnsupported" hidden></p>
               </details>
+              <p id="proxyRestriction" hidden>
+                <input id="proxyUnrestricted" type="checkbox" checked>
+                <label for="proxyUnrestricted" data-i18n-key="proxyUnrestricted"></label>
+              </p>
               <button type="submit" class="btn btn-dark" id="saveCustomProxyButton">
                 <span class="btn__text" data-i18n-key="saveCustomProxyButton"></span>
               </button>
               <button type="button" id="cancelProxyEdit" data-i18n-key="cancel" hidden></button>
               </form>
+              <details id="proxyImportOptions">
+                <summary data-i18n-key="proxyImportTitle"></summary>
+                <p class="main-page__about" data-i18n-key="proxyImportPrivacy"></p>
+                <p class="main-page__about" data-i18n-key="proxyPacWarning"></p>
+                <label for="proxyImportProtocol" data-i18n-key="proxyImportProtocol"></label>
+                <select id="proxyImportProtocol">
+                  <option>HTTPS</option><option>HTTP</option><option>SOCKS5</option><option>SOCKS4</option>
+                </select>
+                <p><label for="proxyImportText" data-i18n-key="proxyImportText"></label></p>
+                <textarea id="proxyImportText" rows="5" cols="50" spellcheck="false" maxlength="33554432"></textarea>
+                <p><label for="proxyImportFile" data-i18n-key="proxyImportFile"></label></p>
+                <input id="proxyImportFile" type="file" accept=".txt,.list,.pac">
+                <button type="button" id="proxyImportButton" data-i18n-key="proxyImportButton"></button>
+                <p><label for="proxyImportUrl" data-i18n-key="proxyImportUrl"></label></p>
+                <input id="proxyImportUrl" type="url" class="input-proxy" placeholder="https://" maxlength="4096" autocomplete="off">
+                <button type="button" id="proxyImportUrlButton" data-i18n-key="proxyImportButton"></button>
+                <button type="button" id="proxySubscribeButton" data-i18n-key="proxySubscribe"></button>
+                <p>
+                  <input id="proxySubscriptionsEnabled" type="checkbox">
+                  <label for="proxySubscriptionsEnabled" data-i18n-key="proxySubscriptionsEnabled"></label>
+                </p>
+                <ul id="proxySubscriptions"></ul>
+                <p id="proxyImportStatus" role="status"></p>
+              </details>
             </details>
 
             <div class="radio-button">

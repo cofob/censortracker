@@ -98,6 +98,8 @@ class Settings {
 
     await browser.storage.local.set({
       ...values,
+      // A backup cannot grant consent for periodic network requests.
+      proxySubscriptionsEnabled: false,
       useOwnProxy: values.selectedProxyIds.some((id) => id !== 'builtin'),
       localProxyURI: values.useLocalProxy ? LOCAL_PROXY_URI : null,
     })

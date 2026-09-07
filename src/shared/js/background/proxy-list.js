@@ -1,7 +1,8 @@
 import browser from './browser-api'
 import { parseProxyAddress } from './proxy-address'
 import {
-  newProxyId, proxyStateFromSettings, validateProxy, validateProxyList,
+  MAX_PROXIES, newProxyId, proxyKey, proxyStateFromSettings,
+  validateProxy, validateProxyList,
 } from './proxy-record'
 
 export const readProxyState = async () => {
@@ -25,7 +26,7 @@ export const readProxyState = async () => {
 
 // The background caller holds the proxy lock across this write and PAC update.
 export const updateProxyList = async ({
-  operation, proxy, ids, id: proxyId, selected,
+  operation, proxy, proxies, ids, id: proxyId, selected,
 } = {}) => {
   const state = await readProxyState()
 
@@ -41,6 +42,20 @@ export const updateProxyList = async ({
     } else {
       state.proxies[index] = record
     }
+  } else if (operation === 'append') {
+    const seen = new Set(state.proxies.map(proxyKey))
+    let added = 0
+
+    for (const record of validateProxyList(proxies)) {
+      if (seen.has(proxyKey(record)) || state.proxies.length === MAX_PROXIES) {
+        continue
+      }
+      seen.add(proxyKey(record))
+      state.proxies.push({ ...record, id: newProxyId() })
+      added++
+    }
+    state.added = added
+    state.skipped = proxies.length - added
   } else if (operation === 'remove') {
     if (!Array.isArray(ids) || ids.includes('builtin')) {
       throw new Error('Cannot remove the managed proxy')

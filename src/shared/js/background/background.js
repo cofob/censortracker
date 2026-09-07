@@ -16,6 +16,7 @@ import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import ProxyManager from './proxy'
 import { registerProxyAuth } from './proxy-auth'
+import { importProxies, refreshSubscription, scheduleSubscriptions, updateSubscriptions } from './proxy-importer'
 import { updateProxyList } from './proxy-list'
 import { proxyAllowed, withProxyLock } from './proxy-route'
 import { synchronizeInBackground } from './server'
@@ -23,11 +24,25 @@ import Settings from './settings'
 
 registerProxyAuth()
 
+const rescheduleSubscriptions = () => scheduleSubscriptions().catch(() => {
+  console.warn('Could not schedule proxy subscriptions')
+})
+
+rescheduleSubscriptions()
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes.proxySubscriptions || changes.proxySubscriptionsEnabled || changes.enableExtension)) {
+    rescheduleSubscriptions()
+  }
+})
+
 withProxyLock(() => {}).catch((error) => {
   console.error('[Service] Route recovery failed', error)
 })
 
 registerBackground({
+  importProxies,
+  subscriptions: updateSubscriptions,
+  refreshSubscription: ({ id }) => refreshSubscription({ id }),
   setProxyAll: (enabled) => withProxyLock(async () => {
     if (typeof enabled !== 'boolean') {
       throw new TypeError('Invalid proxy-all option')

@@ -2,6 +2,7 @@ import browser from './browser-api'
 import { TaskType } from './constants'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
+import { refreshNextSubscription, SUBSCRIPTION_ALARM } from './proxy-importer'
 import Registry from './registry'
 import * as server from './server'
 import Settings from './settings'
@@ -40,7 +41,13 @@ export const showDisseminatorWarning = async (url) => {
 export const handleOnAlarm = async ({ name }) => {
   console.log(`Task received: ${name}`)
 
-  if (name === TaskType.PING) {
+  if (name === SUBSCRIPTION_ALARM) {
+    try {
+      await refreshNextSubscription()
+    } catch (error) {
+      console.warn('Proxy subscription download failed')
+    }
+  } else if (name === TaskType.PING) {
     await ProxyManager.ping()
   } else if (name === TaskType.REMOVE_BAD_PROXIES) {
     await ProxyManager.removeBadProxies()

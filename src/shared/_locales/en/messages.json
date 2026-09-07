@@ -1,4 +1,55 @@
 {
+  "proxyImportTitle": {
+    "message": "Import proxies and subscriptions"
+  },
+  "proxyImportPrivacy": {
+    "message": "Downloads use the current connection and reveal your IP to the source. Use sources you trust. HTTP downloads are not encrypted. New entries are not selected automatically. Removing a subscription keeps its imported proxies."
+  },
+  "proxyPacWarning": {
+    "message": "PAC files are not executed. Only proxy addresses are read; routing rules are not imported. These proxies stay blocked until you confirm in Edit that they can serve all sites."
+  },
+  "proxyRestricted": {
+    "message": "Restricted (confirmation required)"
+  },
+  "proxyUnrestricted": {
+    "message": "I confirm that this proxy can serve all sites."
+  },
+  "proxyImportProtocol": {
+    "message": "Protocol for addresses without a scheme"
+  },
+  "proxyImportText": {
+    "message": "Paste addresses (one per line)"
+  },
+  "proxyImportFile": {
+    "message": "Or select a text or PAC file (up to 32 MiB)"
+  },
+  "proxyImportUrl": {
+    "message": "Source URL"
+  },
+  "proxyImportButton": {
+    "message": "Import"
+  },
+  "proxySubscribe": {
+    "message": "Save subscription"
+  },
+  "proxySubscriptionsEnabled": {
+    "message": "Allow automatic downloads of saved subscriptions (each source once per hour)"
+  },
+  "proxyRefresh": {
+    "message": "Refresh"
+  },
+  "proxyImportWorking": {
+    "message": "Working…"
+  },
+  "proxyImportResult": {
+    "message": "Added: $1. Skipped: $2."
+  },
+  "proxyImportLimit": {
+    "message": "Import limit reached. Use smaller files (up to 5,000 proxies)."
+  },
+  "proxyImportFailed": {
+    "message": "Import failed. Check the source, file size, and address format."
+  },
   "proxyAuthTitle": { "message": "Authentication (optional)" },
   "proxyUsername": { "message": "Username" },
   "proxyPassword": { "message": "Password" },

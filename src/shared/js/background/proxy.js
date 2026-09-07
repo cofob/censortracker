@@ -32,7 +32,7 @@ class ProxyManager {
     )
 
     return selectedProxyIds.map((id) => catalog.get(id))
-      .filter((proxy) => proxy?.host && proxy.port &&
+      .filter((proxy) => proxy?.host && proxy.port && !proxy.restricted &&
         proxyAuthSupported(proxy, browser.isFirefox))
   }
 
