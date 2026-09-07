@@ -1,5 +1,7 @@
 import browser from './browser-api'
 
+const PROXY_LIST_URL = 'https://cozyquokka.net/api/proxy-list/'
+
 const getConfigAPIEndpoints = () => {
   return [
     {
@@ -95,44 +97,88 @@ const fetchConfig = async () => {
 }
 
 /**
- * Fetches available config to connect to the proxy server.
- * @param proxyUrl {string} API endpoint for fetching proxy config.
- * @returns {Promise<void>} Resolves when the config is fetched.
+ * Selects a proxy at random according to its weight.
+ * @param proxies {Array<Object>} Available proxy configurations.
+ * @returns {Object|null} Selected proxy configuration.
  */
-const fetchProxy = async ({ proxyUrl } = {}) => {
-  if (!proxyUrl) {
-    console.warn('[Proxy] «proxyUrl» is not present in config.')
-    return
+const selectProxy = (proxies) => {
+  const totalWeight = proxies.reduce((total, { weight }) => {
+    return total + Math.max(Number(weight) || 0, 0)
+  }, 0)
+
+  if (totalWeight === 0) {
+    return null
   }
 
+  let randomWeight = Math.random() * totalWeight
+
+  for (const proxy of proxies) {
+    randomWeight -= Math.max(Number(proxy.weight) || 0, 0)
+
+    if (randomWeight < 0) {
+      return proxy
+    }
+  }
+
+  return proxies[proxies.length - 1]
+}
+
+/**
+ * Fetches available configurations and selects a proxy server.
+ * @returns {Promise<void>} Resolves when the proxy is selected.
+ */
+const fetchProxy = async () => {
   const { badProxies } = await browser.storage.local.get({ badProxies: [] })
 
   console.group('[Proxy] Fetching proxy...')
 
   try {
     if (badProxies.length > 0) {
-      const params = new URLSearchParams()
-
-      for (const badProxy of badProxies) {
-        params.append('exclude', badProxy)
-      }
-
-      proxyUrl += `?${params.toString()}`
-
       console.log('Excluding bad proxies:')
       console.table(badProxies)
     }
 
-    const response = await fetch(proxyUrl)
+    const response = await fetch(PROXY_LIST_URL)
+
+    if (!response.ok) {
+      throw new Error(`Proxy list request failed with status ${response.status}`)
+    }
+
+    const proxyList = await response.json()
+
+    if (!Array.isArray(proxyList)) {
+      throw new TypeError('Proxy list response must be an array')
+    }
+
+    const availableProxies = proxyList.filter(({
+      active,
+      server,
+      port,
+      pingHost,
+      pingPort,
+      weight,
+    }) => {
+      return active &&
+        server &&
+        port &&
+        pingHost &&
+        pingPort &&
+        !badProxies.includes(server) &&
+        Number(weight) > 0
+    })
+
+    const proxy = selectProxy(availableProxies)
+
+    if (!proxy) {
+      throw new Error('No active proxy servers are available')
+    }
+
     const {
       server,
       port,
       pingHost,
       pingPort,
-      fallbackReason,
-    } = await response.json()
-
-    const fallbackProxyInUse = !!fallbackReason
+    } = proxy
 
     console.warn(`Status: ${response.status}`)
 
@@ -141,23 +187,17 @@ const fetchProxy = async ({ proxyUrl } = {}) => {
 
     console.log(`Proxy server fetched: ${proxyServerURI}!`)
 
-    if (fallbackProxyInUse) {
-      console.warn(`Using fallback «${proxyServerURI}» for the reason: ${fallbackReason}`)
-    } else {
-      await browser.storage.local.set({ proxyIsAlive: true })
-      await browser.storage.local.remove([
-        'fallbackReason',
-        'fallbackProxyInUse',
-        'fallbackProxyError',
-      ])
-    }
+    await browser.storage.local.set({ proxyIsAlive: true })
+    await browser.storage.local.remove([
+      'fallbackReason',
+      'fallbackProxyInUse',
+      'fallbackProxyError',
+    ])
 
     await browser.storage.local.set({
       proxyPingURI,
       proxyServerURI,
       currentProxyServer: server,
-      fallbackReason,
-      fallbackProxyInUse,
       proxyLastFetchTs: Date.now(),
     })
   } catch (error) {
@@ -249,14 +289,14 @@ export const synchronize = async ({
   const config = await fetchConfig()
 
   if (Object.keys(config).length > 0) {
-    const { proxyUrl, ignoreUrl, registryUrl, specifics } = config
+    const { ignoreUrl, registryUrl, specifics } = config
 
     if (syncIgnore) {
       await fetchIgnore({ ignoreUrl })
     }
 
     if (syncProxy) {
-      await fetchProxy({ proxyUrl })
+      await fetchProxy()
     }
 
     if (syncRegistry) {
