@@ -1,14 +1,12 @@
-require('dotenv').config()
+require('dotenv').config({ quiet: true })
 
-const fs = require('fs')
-const path = require('path')
+const path = require('node:path')
 const webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const HTMLWebpackPlugin = require('html-webpack-plugin')
-const MergeJsonWebpackPlugin = require('merge-jsons-webpack-plugin')
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
+const ESLintPlugin = require('eslint-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 
 const extensionName = 'Censor Tracker'
 
@@ -42,10 +40,10 @@ const webWorkerConfig = {
   },
 
   resolve: {
-    extensions: ['.js', '.ts', '.json'],
+    extensions: ['.js', '.json'],
     alias: {
       '@': resolve('src'),
-      'Background': resolve('src/shared/js/background'),
+      Background: resolve('src/shared/js/background'),
     },
   },
 
@@ -58,26 +56,12 @@ const webWorkerConfig = {
     rules: [
       {
         test: /\.js$/,
-        use: 'eslint-loader',
-        exclude: /node_modules/,
-        enforce: 'pre',
-      },
-      {
-        test: /\.js$/,
         use: 'babel-loader',
         exclude: /node_modules/,
-        include: [
-          resolve('src'),
-        ],
-      },
-      {
-        test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
+        include: [resolve('src')],
       },
     ],
   },
-
 }
 
 const webConfig = {
@@ -86,14 +70,14 @@ const webConfig = {
   target: 'web',
   devtool: 'inline-nosources-cheap-module-source-map',
   entry: {
-    'popup': './src/shared/js/pages/popup.js',
-    'options': './src/shared/js/pages/options.js',
+    popup: './src/shared/js/pages/popup.js',
+    options: './src/shared/js/pages/options.js',
     'advanced-options': './src/shared/js/pages/advanced-options.js',
     'proxy-options': './src/shared/js/pages/proxy-options.js',
     'registry-options': './src/shared/js/pages/registry-options.js',
     'rules-editor': './src/shared/js/pages/rules-editor.js',
-    'translator': './src/shared/js/pages/translator.js',
-    'controlled': './src/shared/js/pages/controlled.js',
+    translator: './src/shared/js/pages/translator.js',
+    controlled: './src/shared/js/pages/controlled.js',
   },
   output: {
     path: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}`),
@@ -101,72 +85,44 @@ const webConfig = {
     publicPath: PRODUCTION ? '' : '/',
   },
   resolve: {
-    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+    extensions: ['.js', '.json'],
     alias: {
       '@': resolve('src'),
-      'Background': resolve('src/shared/js/background'),
+      Background: resolve('src/shared/js/background'),
     },
   },
   module: {
     rules: [
-      { test: /\.css$/, use: ['style-loader', 'css-loader']},
-      {
-        test: /\.svg$/,
-        use: [
-          {
-            loader: 'svg-url-loader',
-            options: {
-              noquotes: true,
-            },
-          },
-        ],
-      },
       {
         test: /\.js$/,
-        use: 'eslint-loader',
+        use: 'babel-loader',
         exclude: /node_modules/,
-        enforce: 'pre',
+        include: [resolve('src')],
       },
       {
-        test: /\.(js|jsx)$/,
-        use: [
-          {
-            loader: 'babel-loader',
-          }
-        ],
-        exclude: /node_modules/,
-        include: [
-          resolve('src'),
-        ],
-      },
-      {
-        test: /\.(ts|tsx)$/,
-        loader: 'ts-loader',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.svg$/,
-        use: 'html-loader',
-      },
-      {
-        test: /\.(png|jpe?g|gif)$/,
-        use: [
-          {
-            loader: 'asset/resource',
-            options: {
-              name: '[name].[ext]',
-              outputPath: `dist/${BROWSER}/${OUTPUT_SUB_DIR}/images/`,
-            },
-          },
-        ],
+        test: /\.(png|jpe?g|gif|svg)$/,
+        type: 'asset/resource',
+        generator: { filename: 'images/[name][ext]' },
       },
     ],
   },
 
   plugins: [
-    new webpack.HotModuleReplacementPlugin(),
+    new ESLintPlugin({ context: resolve('src'), failOnWarning: true }),
+    ...(PRODUCTION ? [] : [new webpack.HotModuleReplacementPlugin()]),
     new CopyWebpackPlugin({
       patterns: [
+        {
+          from: resolve(`src/{${BROWSER},shared}/manifest/*.json`),
+          to: 'manifest.json',
+          transformAll: (assets) =>
+            JSON.stringify(
+              Object.assign(
+                {},
+                ...assets.map(({ data }) => JSON.parse(data.toString())),
+              ),
+            ),
+        },
         {
           from: resolve('src/shared/images'),
           to: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}/images`),
@@ -241,25 +197,10 @@ const webConfig = {
       chunks: ['controlled'],
       meta: contentSecurityPolicy,
     }),
-    new MergeJsonWebpackPlugin({
-      globOptions: {
-        nosort: false,
-      },
-      files: [
-        `./src/${BROWSER}/manifest/${BROWSER}.json`,
-        './src/shared/manifest/base.json',
-      ],
-      output: {
-        fileName: 'manifest.json',
-      },
-    }),
-    new MiniCssExtractPlugin(),
   ],
   optimization: {
     minimize: true,
-    minimizer: [
-      new CssMinimizerPlugin(),
-    ],
+    minimizer: [new CssMinimizerPlugin()],
     moduleIds: 'named',
   },
 }
@@ -268,41 +209,49 @@ if (isFirefox) {
   webConfig.entry.background = `./src/shared/js/background/background.js`
   webConfig.entry.incognito_required = `./src/firefox/js/pages/incognito-required.js`
   webConfig.entry.installed = './src/firefox/js/pages/installed.js'
-  webConfig.plugins.push(new HTMLWebpackPlugin({
-    title: extensionName,
-    filename: 'incognito-required-popup.html',
-    template: 'src/firefox/pages/incognito-required-popup.html',
-    inject: true,
-    chunks: ['translator','incognito_required'],
-    meta: contentSecurityPolicy,
-  }))
-  webConfig.plugins.push(new HTMLWebpackPlugin({
-    title: extensionName,
-    filename: 'installed.html',
-    template: 'src/firefox/pages/installed.html',
-    inject: true,
-    chunks: ['installed', 'translator'],
-    meta: contentSecurityPolicy,
-  }))
-  webConfig.plugins.push(new HTMLWebpackPlugin({
-    title: extensionName,
-    filename: 'incognito-required-tab.html',
-    template: 'src/firefox/pages/incognito-required-tab.html',
-    inject: true,
-    chunks: ['translator', 'incognito_required'],
-    meta: contentSecurityPolicy,
-  }))
+  webConfig.plugins.push(
+    new HTMLWebpackPlugin({
+      title: extensionName,
+      filename: 'incognito-required-popup.html',
+      template: 'src/firefox/pages/incognito-required-popup.html',
+      inject: true,
+      chunks: ['translator', 'incognito_required'],
+      meta: contentSecurityPolicy,
+    }),
+  )
+  webConfig.plugins.push(
+    new HTMLWebpackPlugin({
+      title: extensionName,
+      filename: 'installed.html',
+      template: 'src/firefox/pages/installed.html',
+      inject: true,
+      chunks: ['installed', 'translator'],
+      meta: contentSecurityPolicy,
+    }),
+  )
+  webConfig.plugins.push(
+    new HTMLWebpackPlugin({
+      title: extensionName,
+      filename: 'incognito-required-tab.html',
+      template: 'src/firefox/pages/incognito-required-tab.html',
+      inject: true,
+      chunks: ['translator', 'incognito_required'],
+      meta: contentSecurityPolicy,
+    }),
+  )
 }
 
 if (isChromium) {
-  webConfig.plugins.push(new HTMLWebpackPlugin({
-    title: extensionName,
-    filename: 'installed.html',
-    template: `src/${BROWSER}/pages/installed.html`,
-    inject: true,
-    chunks: ['translator'],
-    meta: contentSecurityPolicy,
-  }))
+  webConfig.plugins.push(
+    new HTMLWebpackPlugin({
+      title: extensionName,
+      filename: 'installed.html',
+      template: `src/${BROWSER}/pages/installed.html`,
+      inject: true,
+      chunks: ['translator'],
+      meta: contentSecurityPolicy,
+    }),
+  )
 }
 
 if (PRODUCTION) {

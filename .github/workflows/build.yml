@@ -4,22 +4,25 @@ on: [push]
 
 jobs:
   build:
-    name: Test on node ${{ matrix.node_version }} and ${{ matrix.os }}
+    name: Test on Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [24]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7.0.1
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@v7.0.0
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm install -g node-pre-gyp
-    - run: npm install
+        cache: npm
+    - run: npm ci
     - run: npm test
     - run: npm run lint
+    - run: npm run stylelint
+    - run: npm run build:chrome:prod
+    - run: npm run build:firefox:prod
     - run: npm run locales:check
       env:
         CI: true

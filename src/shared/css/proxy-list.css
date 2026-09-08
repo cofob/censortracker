@@ -23,7 +23,7 @@
 }
 
 .popup_upload_list {
-    background-color: hsla(0, 0%, 100%, .97);
+    background-color: hsla(0deg, 0%, 100%, .97);
     font-size: 15px;
     font-weight: 400;
     height: 100%;
@@ -170,7 +170,8 @@
         border: 1px solid #f4f1f1;
         color: #f4f1f1
     }
-    .CodeMirror-vscrollbar {
+
+    .cm-scroller {
         color-scheme: dark;
     }
 }

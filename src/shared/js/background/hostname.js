@@ -1,6 +1,6 @@
 export const normalizeHostname = (value) => {
   if (typeof value !== 'string' ||
-    Array.from(value).some((char) => char <= ' ' || char === '\u007F')) {
+    Array.from(value).some((char) => char <= ' ' || char === '\u{7F}')) {
     return null
   }
   try {

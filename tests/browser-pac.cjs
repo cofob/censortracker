@@ -155,7 +155,8 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
         if (await evaluate(expression)) return
         await new Promise(resolve => setTimeout(resolve, 50))
       }
-      assert.fail(`Page did not update: ${expression}`)
+      const editor = await evaluate("document.querySelector('.cm-editor')?.textContent")
+      assert.fail(`Page did not update: ${expression}${editor ? `\nEditor: ${editor}` : ''}`)
     }
     const checkSettingsLayout = async (name, expanded) => {
       const previous = await evaluate('Array.from(document.querySelectorAll("details"), node => [node.id, node.open])')
@@ -398,6 +399,70 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
     assert.deepEqual(await evaluate("chrome.storage.local.get('selectedProxyIds').then(data => data.selectedProxyIds)"), ['builtin'])
     assert.equal(await evaluate("chrome.storage.local.get('proxies').then(data => data.proxies.length)"), 0)
+    const beforeEditor = await evaluate("chrome.storage.local.get(['customProxiedDomains', 'ignoredHosts'])")
+    const editorText = "Array.from(document.querySelectorAll('.cm-line'), line => line.textContent).join('\\n')"
+    const pressKey = async (letter, modifiers = 2) => {
+      await command('Input.dispatchKeyEvent', { type: 'keyDown', key: letter, code: `Key${letter.toUpperCase()}`,
+        windowsVirtualKeyCode: letter.toUpperCase().charCodeAt(0), modifiers })
+      await command('Input.dispatchKeyEvent', { type: 'keyUp', key: letter, code: `Key${letter.toUpperCase()}`,
+        windowsVirtualKeyCode: letter.toUpperCase().charCodeAt(0), modifiers })
+    }
+    for (const [page, setting] of [['proxy-list.html', 'customProxiedDomains'], ['ignore-list.html', 'ignoredHosts']]) {
+      await evaluate(`chrome.storage.local.set({${setting}: ['first.example', 'second.example']})`)
+      await evaluate(`location.href = chrome.runtime.getURL('${page}')`)
+      await until(`${editorText} === 'first.example\\nsecond.example'`)
+      assert.equal(await evaluate("document.querySelector('#textarea').hidden"), true)
+      assert.equal(await evaluate("document.querySelector('.cm-content').spellcheck"), false)
+      assert.ok(await evaluate("document.querySelector('.cm-editor').getBoundingClientRect().height > 100"))
+      for (const theme of ['dark', 'light']) {
+        await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] })
+        await until(`getComputedStyle(document.querySelector('.cm-editor')).backgroundColor === '${theme === 'dark' ? 'rgb(36, 39, 40)' : 'rgb(255, 255, 255)'}'`)
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('.cm-editor')).backgroundColor"),
+          theme === 'dark' ? 'rgb(36, 39, 40)' : 'rgb(255, 255, 255)')
+      }
+      await evaluate("document.querySelector('.cm-content').focus()")
+      await pressKey('a')
+      await command('Input.insertText', { text: 'alpha.example\nbeta.example\nalpha.example' })
+      await until(`${editorText} === 'alpha.example\\nbeta.example\\nalpha.example'`)
+      await pressKey('z')
+      await until(`${editorText} === 'first.example\\nsecond.example'`)
+      await pressKey('Z', 10)
+      await until(`${editorText} === 'alpha.example\\nbeta.example\\nalpha.example'`)
+      await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, modifiers: 2 })
+      await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'End', code: 'End', windowsVirtualKeyCode: 35, modifiers: 2 })
+      await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 })
+      await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 })
+      assert.equal(await evaluate("document.activeElement.classList.contains('cm-content')"), true,
+        'Tab inserts indentation without leaving the editor')
+      await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 })
+      await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 })
+      await until(`${editorText} === 'alpha.example\\nbeta.example\\nalpha.example'`)
+      await evaluate("document.querySelector('#search').value = 'beta.example'; document.querySelector('#search').dispatchEvent(new Event('input'))")
+      assert.equal(await evaluate("document.querySelector('.cm-editor .highlight')?.textContent"), 'beta.example')
+      await evaluate("document.querySelector('#search').value = ''; document.querySelector('#search').dispatchEvent(new Event('input'))")
+      assert.equal(await evaluate("document.querySelectorAll('.cm-editor .highlight').length"), 0)
+      await evaluate("document.querySelector('.cm-content').focus()")
+      await pressKey('f')
+      await until("document.querySelector('.cm-search input') === document.activeElement")
+      await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+      await until("document.querySelector('.cm-search') === null")
+      await evaluate("document.querySelector('#saveChanges').click()")
+      await until(`chrome.storage.local.get('${setting}').then(data => JSON.stringify(data.${setting}) === '["alpha.example","beta.example"]')`)
+      await evaluate('window.editorReloadPending = true; location.reload()')
+      await until(`!window.editorReloadPending && ${editorText} === 'alpha.example\\nbeta.example'`)
+      if (page === 'proxy-list.html') {
+        await evaluate(`document.querySelector('#loadDomains').click();
+          const transfer = new DataTransfer();
+          transfer.items.add(new File(['cdn.example\\n\\nпример.рф'], 'domains.txt', {type: 'text/plain'}));
+          document.querySelector('#textFileInput').files = transfer.files;
+          document.querySelector('#textFileInput').dispatchEvent(new Event('change'))`)
+        await until(`${editorText}.includes('cdn.example\\nxn--e1afmkfd.xn--p1ai')`)
+        assert.equal(await evaluate("document.querySelector('#popup').classList.contains('hidden')"), true)
+        await evaluate("document.querySelector('#saveChanges').click()")
+        await until("chrome.storage.local.get('customProxiedDomains').then(data => data.customProxiedDomains.includes('xn--e1afmkfd.xn--p1ai'))")
+      }
+    }
+    await evaluate(`chrome.storage.local.set(${JSON.stringify(beforeEditor)})`)
     await evaluate("location.href = chrome.runtime.getURL('advanced-options.html')")
     await until("document.querySelector('#proxyAll')?.disabled === false")
     assert.equal(await evaluate("document.querySelector('#proxyAll').checked"), false)

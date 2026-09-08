@@ -56,7 +56,7 @@ export const settingsFromFork = (input) => {
   const ids = new Map([['builtin', 'builtin']])
   const converted = proxies.map((proxy, index) => {
     if (!proxy || typeof proxy.id !== 'string' ||
-      !/^[A-Za-z0-9_-]{1,64}$/.test(proxy.id) || ids.has(proxy.id)) {
+      !/^[\w-]{1,64}$/.test(proxy.id) || ids.has(proxy.id)) {
       throw new TypeError('Invalid fork proxy ID')
     }
     const id = `fork-${index}`

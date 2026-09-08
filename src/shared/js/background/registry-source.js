@@ -90,7 +90,7 @@ export const refreshRegistrySource = async ({ automatic = false } = {}) => {
       }
       return getRegistrySourceState()
     })
-  } catch (error) {
+  } catch {
     // Do not put source URL tokens or downloaded text in logs or diagnostics.
     throw new Error('External registry update failed')
   } finally {

@@ -42,7 +42,9 @@ export const externalRegistryDomains = ({ registrySource, externalRegistry }) =>
   externalRegistry?.source === registrySourceKey(registrySource)
     ? externalRegistry.domains : []
 
-export const normalizeRegistryDomains = async (input, signal, { skipInvalid = false } = {}) => {
+export const normalizeRegistryDomains = async (
+  input, signal, { skipInvalid = false } = {},
+) => {
   if (!Array.isArray(input) || input.length === 0 || input.length > 1000000) {
     throw new TypeError('Invalid registry list')
   }

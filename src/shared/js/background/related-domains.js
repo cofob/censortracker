@@ -48,15 +48,20 @@ export const findRelatedDomains = async ({ tabId, url } = {}) => {
     }
     const results = browser.isFirefox
       ? await browser.tabs.executeScript(tabId, {
-        code: `(${collectPageResources.toString()})();`, frameId: 0, runAt: 'document_start',
+        code: `(${collectPageResources.toString()})();`,
+        frameId: 0,
+        runAt: 'document_start',
       })
       : await browser.scripting.executeScript({
-        target: { tabId, frameIds: [0] }, func: collectPageResources, injectImmediately: true,
+        target: { tabId, frameIds: [0] },
+        func: collectPageResources,
+        injectImmediately: true,
       })
     const result = browser.isFirefox ? results[0] : results[0]?.result
 
     if (navigated || result?.url !== url || !Array.isArray(result.hosts) ||
-      result.hosts.length > 200 || (await browser.tabs.get(tabId)).url !== url) {
+      result.hosts.length > 200 ||
+      (await browser.tabs.get(tabId)).url !== url) {
       throw new Error('Page changed or invalid resource list')
     }
     const hosts = result.hosts.map((host) => typeof host === 'string'
@@ -75,7 +80,9 @@ export const findRelatedDomains = async ({ tabId, url } = {}) => {
   browser.tabs.onUpdated.addListener(onUpdated)
   try {
     return await Promise.race([inspect(), new Promise((resolve, reject) => {
-      timer = setTimeout(() => reject(new Error('Page inspection timed out')), 5000)
+      timer = setTimeout(
+        () => reject(new Error('Page inspection timed out')), 5000,
+      )
     })])
   } finally {
     clearTimeout(timer)
@@ -88,9 +95,10 @@ export const addRelatedDomains = (hosts) => withProxyLock(async () => {
     throw new TypeError('Invalid domain selection')
   }
   const selected = await normalizeRegistryDomains(hosts)
-  const { customProxiedDomains, ignoredHosts } = await browser.storage.local.get({
-    customProxiedDomains: [], ignoredHosts: [],
-  })
+  const { customProxiedDomains, ignoredHosts } =
+    await browser.storage.local.get({
+      customProxiedDomains: [], ignoredHosts: [],
+    })
   const ignored = new Set(ignoredHosts.map(normalizeHostname))
   const domains = new Set(customProxiedDomains)
 

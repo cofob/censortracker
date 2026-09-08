@@ -1,58 +1,19 @@
-import 'codemirror/addon/search/search'
-import 'codemirror/addon/search/matchesonscrollbar'
-import 'codemirror/addon/search/searchcursor'
-import 'codemirror/addon/display/autorefresh'
-import 'codemirror/lib/codemirror.css'
-import 'codemirror/theme/ayu-mirage.css'
-
 import browser from 'Background/browser-api'
 import Ignore from 'Background/ignore'
 import { requestText } from 'Background/request'
 import { i18nGetMessage, isValidURL, removeDuplicates } from 'Background/utilities'
-import CodeMirror from 'codemirror'
+
+import { createDomainEditor } from './domain-editor'
 
 (async () => {
   const search = document.getElementById('search')
   const textarea = document.getElementById('textarea')
   const saveChangesButton = document.getElementById('saveChanges')
-  const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)')
-
-  const editor = CodeMirror.fromTextArea(
-    textarea, {
-      autorefresh: true,
-      lineNumbers: true,
-      lineWrapping: true,
-      mode: 'text/x-mysql',
-      styleActiveLine: true,
-      styleActiveSelected: true,
-      disableSpellcheck: true,
-      theme: prefersDarkScheme.matches ? 'ayu-mirage' : 'default',
-    },
-  )
-
-  // Handle switching between dark and light mode.
-  prefersDarkScheme.addEventListener('change', (event) => {
-    editor.setOption('theme', event.matches ? 'ayu-mirage' : 'default')
-  })
+  const editor = createDomainEditor(textarea)
 
   // Handle search highlighting.
   search.addEventListener('input', () => {
-    for (const marker of editor.getAllMarks()) {
-      marker.clear()
-    }
-
-    const cursor = editor.getSearchCursor(search.value)
-
-    if (cursor.findNext()) {
-      editor.markText(
-        cursor.from(),
-        cursor.to(),
-        {
-          className: 'highlight',
-        },
-      )
-      editor.setCursor(cursor.from())
-    }
+    editor.highlight(search.value)
   })
 
   // Check whether the page is the ignored domains page.
@@ -116,8 +77,7 @@ import CodeMirror from 'codemirror'
       const editorContent = domainsArray.join('\n')
 
       editor.setValue(`${editorContent}\n`)
-      editor.focus()
-      editor.setCursor({ line: domainsArray.length + 1, ch: 1 })
+      editor.focusEnd()
 
       // Hide popup.
       popup.classList.add('hidden')
@@ -207,7 +167,7 @@ import CodeMirror from 'codemirror'
   const readlines = (contents) => {
     const domains = contents.split('\n')
       .map((line) => line.trim())
-      .filter((line) => line.length !== 0)
+      .filter((line) => line.length > 0)
 
     return removeDuplicates(domains)
   }

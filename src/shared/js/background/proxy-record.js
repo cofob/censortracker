@@ -46,7 +46,7 @@ export const validateProxy = (input) => {
 
   for (const value of Object.values(credentials)) {
     // eslint-disable-next-line no-control-regex
-    if (typeof value !== 'string' || /[\u0000-\u001f\u007f]/.test(value) ||
+    if (typeof value !== 'string' || /[\u{0}-\u{1F}\u{7F}]/u.test(value) ||
       new TextEncoder().encode(value).length > limit) {
       throw new Error('Invalid proxy credentials')
     }

@@ -36,9 +36,10 @@ class ProxyManager {
       .filter((proxy) => proxy?.host && proxy.port &&
         (!proxy.restricted || proxy.provider) &&
         proxyAuthSupported(proxy, browser.isFirefox))
-    const { proxyFailures, proxyChecks, antizapret } = await browser.storage.local.get({
-      proxyFailures: {}, proxyChecks: {}, antizapret: null,
-    })
+    const { proxyFailures, proxyChecks, antizapret } =
+      await browser.storage.local.get({
+        proxyFailures: {}, proxyChecks: {}, antizapret: null,
+      })
 
     return Promise.all(selected.map(async (proxy) => {
       const failure = await currentProxyCheck(proxy, proxyFailures)
@@ -46,7 +47,8 @@ class ProxyManager {
 
       return {
         ...proxy,
-        retryAt: proxy.provider && !antizapret?.proxyKeys.includes(proxyKey(proxy))
+        retryAt: proxy.provider &&
+          !antizapret?.proxyKeys.includes(proxyKey(proxy))
           ? Number.MAX_SAFE_INTEGER : failure?.retryAt || 0,
         exitCountry: check?.status === 'ok' ? countryCode(check.exitCountry) : '',
         countryExpiresAt: Number.isFinite(check?.checkedAt)
@@ -59,7 +61,10 @@ class ProxyManager {
     const domains = await registry.getDomains()
     const { ignoredHosts, proxyAll, siteCountryRules, antizapret } =
       await browser.storage.local.get({
-        ignoredHosts: [], proxyAll: false, siteCountryRules: {}, antizapret: null,
+        ignoredHosts: [],
+        proxyAll: false,
+        siteCountryRules: {},
+        antizapret: null,
       })
     const proxies = await this.getSelectedProxies()
     const providerDomains = proxies.some((proxy) => proxy.provider)

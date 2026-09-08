@@ -1,18 +1,8 @@
 {
-  "presets": [
-    [
-      "@babel/preset-env",
-      {
-        "targets": {
-          "chrome": "108",
-          "firefox": "91"
-        }
-      }
-    ],
-    "@babel/preset-react",
-    "@babel/preset-typescript"
-  ],
-  "plugins": [
-    "@babel/plugin-transform-runtime"
-  ]
+  "targets": {
+    "chrome": "108",
+    "firefox": "91"
+  },
+  "presets": ["@babel/preset-env"],
+  "plugins": ["@babel/plugin-transform-runtime"]
 }

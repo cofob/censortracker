@@ -47,7 +47,9 @@ export const updateProxyList = async ({
       state.proxies[index] = record
     }
   } else if (operation === 'append') {
-    const seen = new Map(state.proxies.map((record) => [proxyKey(record), record]))
+    const seen = new Map(
+      state.proxies.map((record) => [proxyKey(record), record]),
+    )
     let added = 0
 
     for (const record of validateProxyList(proxies)) {

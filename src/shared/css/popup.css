@@ -12,10 +12,9 @@ body {
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    text-shadow: rgba(0, 0, 0, 20%) 0 0 1px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    text-rendering: optimizelegibility;
+    text-shadow: rgba(0, 0, 0, 0.2) 0 0 1px;
+    overflow: hidden auto;
 }
 
 a {
@@ -51,39 +50,24 @@ a {
     height: 6px;
     content: '';
     background-color: #FF4848;
-    box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.5);
+    box-shadow: 0 1px 4px rgba(255, 72, 72, 0.5);
     border-radius: 6px;
-    -webkit-animation: pulsing 0.2s;
     animation: pulsing 0.2s;
 }
 
-@-webkit-keyframes pulsing {
-    0% {
-        box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.1);
-        opacity: 0
-    }
-    90% {
-        box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.1);
-        opacity: 0
-    }
-    100% {
-        box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.5);
-        opacity: 1
-    }
-}
-
-
 @keyframes pulsing {
     0% {
-        box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.1);
+        box-shadow: 0 1px 4px rgba(255, 72, 72, 0.1);
         opacity: 0
     }
+
     90% {
-        box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.1);
+        box-shadow: 0 1px 4px rgba(255, 72, 72, 0.1);
         opacity: 0
     }
+
     100% {
-        box-shadow: 0px 1px 4px rgba(255, 72, 72, 0.5);
+        box-shadow: 0 1px 4px rgba(255, 72, 72, 0.5);
         opacity: 1
     }
 }
@@ -247,10 +231,6 @@ a {
 }
 
 .unselectable {
-  -moz-user-select: -moz-none;
-  -khtml-user-select: none;
-  -webkit-user-select: none;
-  -o-user-select: none;
   user-select: none;
 }
 
@@ -287,7 +267,6 @@ a {
     display: none;
     margin-top: 10px;
     padding: 15px;
-    -webkit-transition: all 1s ease-out;
     transition: all 1s ease-out;
 }
 
@@ -398,7 +377,7 @@ a {
 
 .censor-tracker__btn:active {
     cursor: pointer;
-    box-shadow: 0 1px 4px rgba(15, 13, 11, 0.1), 0 0 2px rgba(0, 0, 0, 10%);
+    box-shadow: 0 1px 4px rgba(15, 13, 11, 0.1), 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 .btn-on {
@@ -463,11 +442,6 @@ div#grantPrivateBrowsingPermissionsButton {
     display: none;
 }
 
-.icon__settings:hover {
-    cursor: pointer;
-    filter: contrast(300%);
-}
-
 .main-page__info .icon__site_settings {
     width: 16px;
     height: 16px;
@@ -482,16 +456,16 @@ div#grantPrivateBrowsingPermissionsButton {
 }
 
 .main-page__info .icon__site_settings.icon-show {
-    mask: url(../images/popup/more.svg) no-repeat center / contain;
-    -webkit-mask: url(../images/popup/more.svg) no-repeat center / contain;
+    mask: url("../images/popup/more.svg") no-repeat center / contain;
+    -webkit-mask: url("../images/popup/more.svg") no-repeat center / contain;
     background-color: #3b332b;
     background-size: auto 100%;
     height: 15px;
 }
 
 .main-page__info .icon__site_settings.icon-hide {
-    mask: url(../images/popup/close.svg) no-repeat center / contain;
-    -webkit-mask: url(../images/popup/close.svg) no-repeat center / contain;
+    mask: url("../images/popup/close.svg") no-repeat center / contain;
+    -webkit-mask: url("../images/popup/close.svg") no-repeat center / contain;
     background-color: #3b332b;
 }
 
@@ -504,7 +478,7 @@ div#grantPrivateBrowsingPermissionsButton {
 .main-page-setting {
     background: #F4F7FA;
     border-radius: 5px;
-    margin: 0 0px 30px;
+    margin: 0 0 30px;
     padding: 14px;
     position: relative;
     font-size: 13px;
@@ -552,7 +526,7 @@ div#grantPrivateBrowsingPermissionsButton {
     float: left;
 }
 
-.site-actions-group input[type=radio] {
+.site-actions-group input[type="radio"] {
     display: none;
 }
 
@@ -576,7 +550,7 @@ div#grantPrivateBrowsingPermissionsButton {
     border-right: 1px solid #999;
 }
 
-.site-actions-group input[type=radio]:checked + label {
+.site-actions-group input[type="radio"]:checked + label {
     background: #3B332B;
     color: #fff;
 }
@@ -592,8 +566,6 @@ div#grantPrivateBrowsingPermissionsButton {
     vertical-align: top;
     outline: none;
     cursor: pointer;
-    -webkit-appearance: none;
-    -moz-appearance: none;
     appearance: none;
     width: 38px;
     height: 20px;
@@ -645,7 +617,7 @@ div#grantPrivateBrowsingPermissionsButton {
 }
 
 .network__title-tor {
-    background: url(../images/popup/tor.svg) no-repeat center / contain;
+    background: url("../images/popup/tor.svg") no-repeat center / contain;
     background-size: 18px 18px;
     display: inline-block;
     vertical-align: bottom;
@@ -654,7 +626,7 @@ div#grantPrivateBrowsingPermissionsButton {
 }
 
 .network__title-i2p {
-    background: url(../images/popup/i2p.svg) no-repeat center / contain;
+    background: url("../images/popup/i2p.svg") no-repeat center / contain;
     background-size: 25px 12px;
     display: inline-block;
     vertical-align: bottom;
@@ -703,7 +675,7 @@ div#grantPrivateBrowsingPermissionsButton {
     }
 
     .btn-what-this-mean:hover svg path {
-        stroke: hsla(0, 12%, 95%, .84)
+        stroke: hsla(0deg, 12%, 95%, .84)
     }
 
     .censor-tracker {
@@ -747,7 +719,7 @@ div#grantPrivateBrowsingPermissionsButton {
         background-color: #2b323b
     }
 
-    .main-page-setting:after {
+    .main-page-setting::after {
         border-bottom: 10px solid #2b323b
     }
 
@@ -760,7 +732,7 @@ div#grantPrivateBrowsingPermissionsButton {
         border: 1px solid #23272d;
     }
 
-    .site-actions-group input[type=radio]:checked + label {
+    .site-actions-group input[type="radio"]:checked + label {
         background-color: #23272d;
         color: #fff;
     }

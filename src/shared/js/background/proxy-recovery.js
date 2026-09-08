@@ -47,7 +47,8 @@ export const recoverProxy = async ({ error, url, tabId, proxyInfo } = {}) => {
       const protocols = {
         http: 'HTTP', https: 'HTTPS', socks4: 'SOCKS4', socks: 'SOCKS5',
       }
-      const matches = route.proxies.filter((proxy) => proxy.host === reportedHost &&
+      const matches = route.proxies.filter((proxy) =>
+        proxy.host === reportedHost &&
         proxy.port === proxyInfo.port &&
         (!proxyInfo.type || proxy.protocol === protocols[proxyInfo.type]))
 
