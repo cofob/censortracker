@@ -1,3 +1,16 @@
+# Unreleased
+
+- Added a shared list for built-in and custom proxies, site distribution, failover and proxy authentication.
+- Added proxy imports, optional subscriptions, parallel checks, filtering, sorting and bulk deletion.
+- Added optional proxy-all mode and site exit-country restrictions; local addresses and exclusions stay direct.
+- Added external registries, Anticensority hostname lists and Antizapret proxies limited to provider-listed domains.
+- Added planned route details, last checked exit information and related page domain selection to the popup.
+- Added validated settings imports and exports, including legacy and avatarDD fork backups.
+- Fixed hostname matching, proxy endpoint validation, stale routing updates and recovery of failed proxies.
+- Replaced remote service configuration with built-in endpoints and direct requests with proxy fallback.
+- Fixed port knocks to use a temporary direct route, including in proxy-all mode.
+- Updated dependencies and the domain editor; added tests, current lint tools and CI build artifacts.
+
 # 15.0.0
 
 - Added support for importing proxy lists from a file or URL
