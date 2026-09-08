@@ -27,3 +27,15 @@ jobs:
       env:
         CI: true
         PROJECT_NAME: censortracker
+    - name: Upload Chrome extension
+      uses: actions/upload-artifact@v7.0.1
+      with:
+        name: censortracker-chrome-${{ github.sha }}
+        path: dist/chrome/prod/
+        if-no-files-found: error
+    - name: Upload Firefox extension
+      uses: actions/upload-artifact@v7.0.1
+      with:
+        name: censortracker-firefox-${{ github.sha }}
+        path: dist/firefox/prod/
+        if-no-files-found: error
