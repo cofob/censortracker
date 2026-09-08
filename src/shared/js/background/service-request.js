@@ -108,7 +108,7 @@ export const requestService = (url, validate) => withProxyLock(async () => {
     }
     const route = proxyDirective(proxyServerProtocol, proxyServerURI)
 
-    await ProxyManager.ping()
+    await ProxyManager.pingInBackground()
 
     if (!await setServiceRoute(hostname, route)) {
       throw new Error('Proxy retry cannot preserve existing browser routes')

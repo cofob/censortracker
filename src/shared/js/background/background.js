@@ -129,6 +129,7 @@ registerBackground({
     return state
   }),
   synchronize: synchronizeInBackground,
+  ping: (force) => withProxyLock(() => ProxyManager.pingInBackground(force)),
   setProxy: () => withProxyLock(() => ProxyManager.setProxyInBackground()),
   removeProxy: () => withProxyLock(
     () => ProxyManager.removeProxyInBackground(),

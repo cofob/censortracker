@@ -8,7 +8,10 @@ import { parseProxyAddress } from './proxy-address'
 import { countryCode, currentProxyCheck } from './proxy-check-data'
 import { readProxyState } from './proxy-list'
 import { proxyAuthSupported, proxyKey } from './proxy-record'
-import { applyPac, getProbeRoutes, getRouteRevision, proxyAllowed } from './proxy-route'
+import {
+  applyPac, getProbeRoutes, getRouteRevision, proxyAllowed,
+  restoreServiceRoute, setServiceRoute,
+} from './proxy-route'
 import registry from './registry'
 import { createRouter, routingConfig } from './routing'
 
@@ -175,9 +178,7 @@ class ProxyManager {
       return this.setProxyInBackground({ ping })
     }
 
-    if (ping) {
-      await this.ping()
-    }
+    const retryPing = ping && await this.pingInBackground() === false
 
     if (!await proxyAllowed()) {
       return false
@@ -195,6 +196,11 @@ class ProxyManager {
         : getPacScript(options)
 
       await applyPac(pacData, true)
+      // An inherited system/manual proxy cannot accept an exact-host override.
+      // Retry the knock once CT owns the new PAC.
+      if (retryPing) {
+        await this.pingInBackground()
+      }
       if (!await proxyAllowed()) {
         await this.removeProxyInBackground()
         return false
@@ -231,8 +237,17 @@ class ProxyManager {
   }
 
   async ping (force = false) {
+    return callBackground('ping', force)
+  }
+
+  // The caller holds the route lock until the direct knock route is restored.
+  // Return false only when proxy setup must take control before the knock.
+  async pingInBackground (force = false) {
+    if (typeof force !== 'boolean') {
+      throw new TypeError('Invalid proxy ping option')
+    }
     if (!await proxyAllowed()) {
-      return
+      return undefined
     }
     const {
       localProxyURI,
@@ -250,16 +265,29 @@ class ProxyManager {
       ? selectedProxyIds.includes('builtin') : !useOwnProxy
 
     if ((!force && (!usesBuiltin || localProxyURI)) || !proxyPingURI) {
-      return
+      return undefined
     }
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 1000)
+    let timeout
 
     try {
-      await fetch(`https://${proxyPingURI}`, {
+      const { host, port } = parseProxyAddress(proxyPingURI)
+
+      // The knock must reach the server from the user's IP, even when the
+      // current PAC uses proxy-all or still points to an old managed endpoint.
+      if (!await setServiceRoute(host, 'DIRECT')) {
+        return false
+      }
+      if (!await proxyAllowed()) {
+        return undefined
+      }
+      timeout = setTimeout(() => controller.abort(), 1000)
+      await fetch(`https://${host}:${port}`, {
         method: 'POST',
         signal: controller.signal,
+        redirect: 'error',
+        credentials: 'omit',
         headers: {
           'Content-type': 'application/json; charset=UTF-8',
         },
@@ -271,9 +299,11 @@ class ProxyManager {
       // The knock port can reject the connection after it receives the packet.
     } finally {
       clearTimeout(timeout)
+      await restoreServiceRoute()
     }
 
     console.log(`Knocked ${proxyPingURI}!`)
+    return undefined
   }
 
   async usingCustomProxy () {

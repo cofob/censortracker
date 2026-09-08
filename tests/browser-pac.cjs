@@ -59,6 +59,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
   let secureProxy
   let echo
   let echoHits = 0
+  let knockTunnels = 0
   let slowEcho = false
   await Promise.all([origin, proxy].map(server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve))))
   const process = spawn(global.process.env.CHROMIUM || 'chromium', [
@@ -85,6 +86,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     })
     await new Promise(resolve => echo.listen(0, '127.0.0.1', resolve))
     const tunnel = (request, client, head) => {
+      if (request.url.includes('knock.example:')) knockTunnels++
       if (request.headers['proxy-authorization'] !== 'Basic ' + Buffer.from('alice:secret').toString('base64')) {
         client.end('HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="probe"\r\nContent-Length: 0\r\n\r\n')
         return
@@ -216,6 +218,21 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     const install = async data => evaluate(`chrome.proxy.settings.set(${JSON.stringify({
       value: { mode: 'pac_script', pacScript: { data, mandatory: true } }, scope: 'regular',
     })})`)
+    await evaluate(`chrome.storage.local.set({ enableExtension: true, useProxy: true,
+      proxyAll: true, selectedProxyIds: ['builtin'],
+      proxyServerURI: '127.0.0.1:${secureProxy.address().port}' })`)
+    await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'})")
+    for (const host of ['knock.example', 'new-knock.example']) {
+      await evaluate(`chrome.storage.local.set({proxyPingURI: '${host}:${echo.address().port}'})`)
+      const original = await evaluate('chrome.proxy.settings.get({}).then(setting => setting.value)')
+      const beforeKnock = echoHits
+      assert.equal(await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'ping'}).then(result => result.error || 'OK')"), 'OK')
+      assert.equal(echoHits, beforeKnock + 1, 'The knock must reach the server directly')
+      assert.equal(knockTunnels, 0, 'The knock must not pass through the managed proxy')
+      assert.deepEqual(await evaluate('chrome.proxy.settings.get({}).then(setting => setting.value)'), original)
+      assert.equal(await evaluate("chrome.storage.local.get('serviceRouteSnapshot').then(data => !!data.serviceRouteSnapshot)"), false)
+    }
+    await evaluate('chrome.storage.local.set({proxyAll: false, proxyPingURI: null})')
     await install(getPacScript({ domains: ['blocked.example'] }))
     const before = directHits
     assert.equal(await evaluate(`fetch('http://blocked.example:${origin.address().port}/').then(() => 'LEAK', () => 'BLOCKED')`), 'BLOCKED')

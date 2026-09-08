@@ -49,7 +49,7 @@ function fixture(options = {}) {
     'browser-api': { default: browser },
     proxy: { default: {
       setProxy: async () => events.push('refresh'),
-      ping: async () => events.push('knock'),
+      pingInBackground: async () => events.push('knock'),
       getProxyingRules: async () => options.noProxy ? {} : {
         proxyServerURI: 'retry.example:443', proxyServerProtocol: options.protocol || 'HTTPS',
       },
@@ -93,6 +93,134 @@ function fixture(options = {}) {
 }
 
 const response = data => ({ ok: true, json: async () => data })
+
+for (const firefox of [false, true]) {
+  for (const failure of [false, 'network', 'timeout']) {
+    test(`port knocks bypass proxy-all and restore routing: Firefox=${firefox}, failure=${failure}`, async () => {
+      const requests = []
+      const state = fixture({ firefox, fastTimeout: true,
+        storage: { proxyAll: true, proxyPingURI: 'new-knock.example:8443' },
+        mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+        fetch: async (url, init, { route }) => {
+          requests.push({ url, method: init.method,
+            knock: route('new-knock.example'), other: route('other.example'),
+            child: route('child.new-knock.example'),
+            firefoxRoute: firefox ? clone(await state.load('proxy-auth').handleFirefoxProxy({ url })) : null,
+          })
+          if (failure === 'network') throw new Error('Knock port closed')
+          if (failure === 'timeout') {
+            return new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('timeout'))))
+          }
+          return response({})
+        },
+      })
+      await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.pingInBackground())
+      assert.deepEqual(requests, [{ url: 'https://new-knock.example:8443', method: 'POST',
+        knock: 'DIRECT', other: 'HTTPS normal.example:443', child: 'HTTPS normal.example:443',
+        firefoxRoute: firefox ? { type: 'direct' } : null,
+      }])
+      assert.equal(state.route('new-knock.example'), 'HTTPS normal.example:443')
+      assert.equal(state.storage.serviceRouteSnapshot, undefined)
+      assert.equal(state.load('proxy-route').getServiceRoute(), null)
+    })
+  }
+}
+
+test('a new knock endpoint is direct before the replacement PAC is installed', async () => {
+  const requests = []
+  const state = fixture({ storage: { proxyAll: true, proxyPingURI: 'new-knock.example:8443' },
+    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+    fetch: async (url, init, { route }) => { requests.push(route(new URL(url).hostname)); return response({}) },
+  })
+  await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.setProxyInBackground())
+  assert.deepEqual(requests, ['DIRECT'])
+  assert.equal(state.route('new-knock.example'), 'HTTPS normal.example:443;')
+  assert.equal(state.route('other.example'), 'HTTPS normal.example:443;')
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
+for (const firefox of [false, true]) {
+  test(`initial proxy setup knocks after taking control from system settings: Firefox=${firefox}`, async () => {
+    const requests = []
+    const state = fixture({ firefox, control: 'controllable_by_this_extension',
+      value: firefox ? { proxyType: 'system' } : { mode: 'system' },
+      storage: { proxyAll: true, proxyPingURI: 'knock.example:8443' },
+      mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+      fetch: async (url, init, { route }) => { requests.push(route(new URL(url).hostname)); return response({}) },
+    })
+    state.browser.browserAction = { setBadgeText: async () => {} }
+    await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.setProxyInBackground())
+    assert.deepEqual(requests, ['DIRECT'])
+    assert.equal(state.storage.proxyIsAlive, true)
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+}
+
+test('disabling proxy use while the knock route is installed prevents the request', async () => {
+  let requests = 0
+  const state = fixture({ storage: { proxyPingURI: 'knock.example:8443' },
+    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+    fetch: async () => { requests++; return response({}) },
+  })
+  const originalSet = state.browser.proxy.settings.set
+  state.browser.proxy.settings.set = async args => {
+    await originalSet(args)
+    state.storage.useProxy = false
+  }
+  await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.pingInBackground())
+  assert.equal(requests, 0)
+  assert.equal(state.settings().value.mode, 'direct')
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
+test('a periodic knock waits for the active service request and preserves forced checks', async () => {
+  let release
+  const pending = new Promise(resolve => { release = resolve })
+  const requests = []
+  const state = fixture({ storage: { proxyPingURI: 'knock.example:8443', selectedProxyIds: [] },
+    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } },
+      'background-rpc': { callBackground: (action, force) => {
+        assert.equal(action, 'ping')
+        assert.equal(force, true)
+        return state.load('proxy-route').withProxyLock(() => state.load('proxy').default.pingInBackground(force))
+      } },
+    },
+    fetch: async url => {
+      requests.push(url)
+      if (url === 'https://service.example') await pending
+      return response([])
+    },
+  })
+  const service = state.load('service-request').requestService('https://service.example', Array.isArray)
+  const knock = state.load('proxy').default.ping(true)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(requests, ['https://service.example'])
+  release()
+  await Promise.all([service, knock])
+  assert.deepEqual(requests, ['https://service.example', 'https://knock.example:8443'])
+  assert.deepEqual(state.settings().value, state.original)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
+test('a service proxy retry knocks directly without taking the route lock twice', async () => {
+  const requests = []
+  const state = fixture({ storage: { proxyAll: true, proxyPingURI: 'knock.example:8443' },
+    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+    fetch: async (url, init, { route }) => {
+      requests.push([url, route(new URL(url).hostname)])
+      if (requests.length === 1) throw new Error('Service is blocked')
+      return response([])
+    },
+  })
+  await state.load('service-request').requestService('https://service.example', Array.isArray)
+  assert.deepEqual(requests, [
+    ['https://service.example', 'DIRECT'],
+    ['https://knock.example:8443', 'DIRECT'],
+    ['https://service.example', 'HTTPS normal.example:443'],
+  ])
+  assert.deepEqual(state.settings().value, state.original)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
 
 test('a service exclusion prevents remote retries', async () => {
   let calls = 0
@@ -434,7 +562,7 @@ test('a routing change during port knock cannot install the old proxy', async ()
   } })
   const proxy = state.load('proxy').default
   let knocks = 0
-  proxy.ping = async () => {
+  proxy.pingInBackground = async () => {
     if (++knocks === 1) {
       state.storage.customProxyServerURI = 'new.example:443'
       for (const fn of state.listeners) fn({ customProxyServerURI: { newValue: 'new.example:443' } }, 'local')

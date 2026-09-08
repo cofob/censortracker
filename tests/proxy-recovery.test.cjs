@@ -153,5 +153,5 @@ test('extension updates and navigation keep disabled settings disabled', async (
   const manager = load('background/proxy', {
     'browser-api': { default: {} }, 'proxy-route': { proxyAllowed: async () => false }, registry: { default: {} },
   }).default
-  await manager.ping()
+  await manager.pingInBackground()
 })

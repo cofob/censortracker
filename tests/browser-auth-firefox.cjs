@@ -15,6 +15,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
   await Promise.all([profile, addon].map(directory => fs.mkdir(directory)))
   let report
   let directHits = 0
+  let knockHits = 0
   const socksRequests = []
   const socks4Requests = []
   const sockets = new Set()
@@ -104,7 +105,9 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       }
     })
   })
-  const servers = [origin, httpProxy, socksProxy, socks4Proxy]
+  // A knock port can close the connection as soon as it receives a packet.
+  const knockServer = net.createServer(socket => { knockHits++; socket.destroy() })
+  const servers = [origin, httpProxy, socksProxy, socks4Proxy, knockServer]
   let child
   let remote
   let timer
@@ -122,7 +125,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       import browser from ${JSON.stringify(path.join(root, 'browser-api.js'))};
       import manager from ${JSON.stringify(path.join(root, 'proxy.js'))};
       import { registerProxyAuth } from ${JSON.stringify(path.join(root, 'proxy-auth.js'))};
-      import { setProbeRoute } from ${JSON.stringify(path.join(root, 'proxy-route.js'))};
+      import { setProbeRoute, withProxyLock } from ${JSON.stringify(path.join(root, 'proxy-route.js'))};
       import { findRelatedDomains } from ${JSON.stringify(path.join(root, 'related-domains.js'))};
       registerProxyAuth();
       (async () => {
@@ -130,6 +133,20 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
         const errors = [];
         console.error = (...args) => errors.push(args.join(' '));
         try {
+          await browser.storage.local.set({ enableExtension: true, useProxy: true, proxyAll: true,
+            selectedProxyIds: ['test'], proxies: [{ id: 'test', protocol: 'HTTP', host: '127.0.0.1',
+              port: ${httpProxy.address().port}, username: 'alice', password: 'secret' }] });
+          await manager.setProxyInBackground({ ping: false });
+          for (const host of ['knock.example', 'new-knock.example']) {
+            await browser.storage.local.set({proxyPingURI: host + ':${knockServer.address().port}'});
+            const original = (await browser.proxy.settings.get({})).value.autoConfigUrl;
+            await withProxyLock(() => manager.pingInBackground(true));
+            if ((await browser.storage.local.get('serviceRouteSnapshot')).serviceRouteSnapshot ||
+                (await browser.proxy.settings.get({})).value.autoConfigUrl !== original) {
+              throw new Error('The knock route was not restored');
+            }
+          }
+          await browser.storage.local.set({proxyAll: false, proxyPingURI: null});
           await browser.storage.local.set({domains: Array.from({length: 660000}, (_,i) => i === 659999 ? 'protected.example' : 'site' + i + '.large-registry.example')});
           for (const config of ${JSON.stringify(cases)}) {
             await browser.storage.local.set({ enableExtension: true, useProxy: true,
@@ -187,7 +204,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       'devtools.debugger.remote-enabled': true,
       'devtools.chrome.enabled': true,
       'devtools.debugger.prompt-connection': false,
-      'network.dns.localDomains': 'protected.example,page.related.example,cdn.related.example',
+      'network.dns.localDomains': 'protected.example,page.related.example,cdn.related.example,knock.example,new-knock.example',
       'network.trr.mode': 5,
       'datareporting.policy.dataSubmissionEnabled': false,
       'toolkit.telemetry.enabled': false,
@@ -213,6 +230,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
     }
     assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'SOCKS4', 'AUTH_HTTP', 'AUTH_SOCKS', 'cdn.related.example'])
     assert.equal(directHits, 0)
+    assert.ok(knockHits >= 2, 'Both knock endpoints must receive a direct connection')
     assert.ok(socksRequests.length > 0)
     assert.ok(socksRequests.every(request => request.addressType === 3 && request.hostname === 'protected.example'))
     assert.ok(socks4Requests.length > 0)
