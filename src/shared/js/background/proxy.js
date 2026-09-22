@@ -3,6 +3,7 @@ import { getPacScript } from 'Background/pac'
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
 import { findHostMatch } from './host-match'
+import ProxyClient from './localproxy'
 import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
 import { countryCode, currentProxyCheck } from './proxy-check-data'
@@ -14,15 +15,22 @@ import {
 } from './proxy-route'
 import registry from './registry'
 import { createRouter, routingConfig } from './routing'
+import Settings from './settings'
 
 let cachedRouter
 
 class ProxyManager {
   async getSelectedProxies () {
-    const { localProxyURI } = await browser.storage.local.get('localProxyURI')
+    const { useLocalProxy, localProxyURI, localProxyAlive } =
+      await browser.storage.local.get({
+        useLocalProxy: false, localProxyURI: null, localProxyAlive: false,
+      })
 
-    // When Censor Tracker Proxy Server is used
-    if (localProxyURI) {
+    // Amnezia reports its SOCKS5 port through the local API.
+    if (useLocalProxy) {
+      if (!localProxyAlive || !localProxyURI) {
+        return []
+      }
       return [{
         id: 'local',
         protocol: 'SOCKS5',
@@ -169,6 +177,14 @@ class ProxyManager {
   async setProxyInBackground ({ ping = true } = {}) {
     const revision = getRouteRevision()
 
+    const { useLocalProxy, localProxyAlive } = await browser.storage.local.get({
+      useLocalProxy: false, localProxyAlive: false,
+    })
+
+    if (useLocalProxy && !localProxyAlive) {
+      await this.removeProxyInBackground()
+      return false
+    }
     if (!await proxyAllowed()) {
       return false
     }
@@ -352,10 +368,84 @@ class ProxyManager {
     }
   }
 
-  async removeLocalProxy () {
+  async setLocalProxy (enabled) {
+    return callBackground('setLocalProxy', enabled)
+  }
+
+  async setLocalProxyInBackground (enabled) {
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('Invalid local proxy mode')
+    }
+    const { useLocalProxy } = await browser.storage.local.get('useLocalProxy')
+
     await browser.storage.local.set({
-      useLocalProxy: false, localProxyURI: null,
+      useLocalProxy: enabled, localProxyURI: null, localProxyAlive: false,
     })
+    if (enabled) {
+      await this.removeProxyInBackground()
+      await this.syncLocalProxyInBackground({ startIfMissing: true })
+    } else {
+      if (useLocalProxy) {
+        await ProxyClient.stop()
+      }
+      await this.setProxyInBackground()
+    }
+  }
+
+  async syncLocalProxy (options) {
+    return callBackground('syncLocalProxy', options)
+  }
+
+  async usingLocalProxy () {
+    const { useLocalProxy } = await browser.storage.local.get('useLocalProxy')
+
+    return Boolean(useLocalProxy) && await this.isEnabled() &&
+      await Settings.extensionEnabled()
+  }
+
+  async syncLocalProxyInBackground ({ startIfMissing = false } = {}) {
+    if (!await this.usingLocalProxy()) {
+      return { alive: false }
+    }
+    let port = await ProxyClient.ping(2500)
+
+    if (!await this.usingLocalProxy()) {
+      return { alive: false }
+    }
+    if (!port && startIfMissing) {
+      port = await ProxyClient.start(3000)
+    }
+    if (!await this.usingLocalProxy()) {
+      return { alive: false }
+    }
+    const { localProxyURI, localProxyAlive } = await browser.storage.local.get({
+      localProxyURI: null, localProxyAlive: false,
+    })
+    const nextURI = port ? `127.0.0.1:${port}` : null
+
+    if (nextURI !== localProxyURI || Boolean(port) !== localProxyAlive) {
+      await browser.storage.local.set({
+        localProxyURI: nextURI, localProxyAlive: Boolean(port),
+      })
+    }
+    if (!port) {
+      await this.removeProxyInBackground()
+      const { showNotifications } = await browser.storage.local.get({
+        showNotifications: true,
+      })
+
+      if (localProxyAlive && showNotifications) {
+        await browser.notifications.create('localProxyIsDown', {
+          type: 'basic',
+          title: Settings.getName(),
+          iconUrl: Settings.getDangerIcon(),
+          message: browser.i18n.getMessage('localProxyNotFoundDesc'),
+        })
+      }
+    } else if (nextURI !== localProxyURI || !localProxyAlive) {
+      await this.setProxyInBackground()
+    }
+    return { alive: Boolean(port) }
   }
 
   async removeBadProxies () {

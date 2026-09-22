@@ -129,13 +129,15 @@ import { mountRelatedDomains } from './related-domains'
       const extensionEnabled = await Settings.extensionEnabled()
       const currentHostname = extractHostnameFromUrl(currentUrl) || ''
 
-      const { useLocalProxy, activeProxyConfigName } =
+      const { useLocalProxy, localProxyAlive } =
         await browser.storage.local.get([
-          'useLocalProxy', 'activeProxyConfigName',
+          'useLocalProxy', 'localProxyAlive',
         ])
 
       if (useLocalProxy) {
-        popupLocalProxyName.textContent = activeProxyConfigName
+        popupLocalProxyName.textContent = browser.i18n.getMessage('useLocalProxy')
+        popupProxyStatusOk.hidden = !proxyingEnabled || !localProxyAlive
+        popupProxyStatusError.hidden = !proxyingEnabled || localProxyAlive
         popupLocalProxyName.hidden = false
       }
 

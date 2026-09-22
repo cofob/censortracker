@@ -1,6 +1,5 @@
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
-import { LOCAL_PROXY_URI } from './proxy-address'
 import { settingsDefaults, validateSettings } from './settings-data'
 
 class Settings {
@@ -105,7 +104,8 @@ class Settings {
         ...values.registrySource, enabled: false, autoUpdate: false,
       },
       useOwnProxy: values.selectedProxyIds.some((id) => id !== 'builtin'),
-      localProxyURI: values.useLocalProxy ? LOCAL_PROXY_URI : null,
+      localProxyURI: null,
+      localProxyAlive: false,
     })
   }
 }

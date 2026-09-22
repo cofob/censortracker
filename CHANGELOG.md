@@ -1,5 +1,7 @@
 # Unreleased
 
+- Ported Amnezia Premium local proxy support with dynamic ports, connection checks, recovery and updated settings.
+
 - Added a shared list for built-in and custom proxies, site distribution, failover and proxy authentication.
 - Added proxy imports, optional subscriptions, parallel checks, filtering, sorting and bulk deletion.
 - Added optional proxy-all mode and site exit-country restrictions; local addresses and exclusions stay direct.

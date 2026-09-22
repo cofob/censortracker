@@ -2,33 +2,91 @@ const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const load = require('./load.cjs')
 
-test('local proxy configuration IDs stay inside one API query parameter', async () => {
-  const client = load('background/localproxy', { 'browser-api': { default: {} } }).default
-  const id = 'config &uuid=other#fragment'
-  const requests = []
-  client.request = async (method, endpoint) => { requests.push(endpoint); return {} }
-  await client.getConfig(id)
-  await client.deleteConfig(id)
-  await client.activateConfig(id)
-  for (const endpoint of requests) {
-    const params = new URL(endpoint, 'http://localhost').searchParams
-    assert.deepEqual(Array.from(params), [['uuid', id]])
+test('local API accepts only successful replies with valid numeric ports', async () => {
+  const client = load('background/localproxy').default
+  for (const method of ['ping', 'start']) {
+    for (const proxyPort of [1, 10808, 23456, 65535]) {
+      client.request = async () => ({ status: 'ok', proxyPort })
+      assert.equal(await client[method](), proxyPort)
+    }
+    for (const proxyPort of [undefined, null, 0, -1, 65536, 1.5, '10808', '80; DIRECT']) {
+      client.request = async () => ({ status: 'ok', proxyPort })
+      assert.equal(await client[method](), null)
+    }
+    client.request = async () => null
+    assert.equal(await client[method](), null)
+    client.request = async () => ({ status: 'error', proxyPort: 10808 })
+    assert.equal(await client[method](), null)
+    client.request = async () => { throw new Error('offline') }
+    assert.equal(await client[method](), null)
   }
 })
 
-test('local proxy mode and endpoint change in one storage write', async () => {
-  const writes = []
+function fixture(values = {}) {
+  const storage = { useLocalProxy: true, useProxy: true, enableExtension: true, ...values }
+  const events = []
+  const client = { ping: async () => 23456, start: async () => 34567,
+    stop: async () => { events.push('stop') } }
   const browser = { storage: { local: {
-    set: async values => writes.push(JSON.parse(JSON.stringify(values))),
-    remove: async keys => writes.push({ removed: keys }),
-  } } }
-  const mocks = { 'browser-api': { default: browser }, 'proxy-route': {}, registry: { default: {} } }
-  const client = load('background/localproxy', mocks).default
-  const manager = load('background/proxy', mocks).default
-  await client.setLocalProxyURI()
-  await manager.removeLocalProxy()
-  assert.deepEqual(writes, [
-    { useLocalProxy: true, localProxyURI: '127.0.0.1:10808' },
-    { useLocalProxy: false, localProxyURI: null },
-  ])
+    get: async keys => typeof keys === 'string' ? { [keys]: storage[keys] }
+      : { ...keys, ...storage },
+    set: async values => Object.assign(storage, values),
+  } }, notifications: { create: async () => events.push('notify') },
+  i18n: { getMessage: () => 'Local proxy is down' } }
+  const manager = load('background/proxy', {
+    'browser-api': { default: browser },
+    localproxy: { default: client },
+    settings: { default: { extensionEnabled: async () => storage.enableExtension,
+      getName: () => 'CT', getDangerIcon: () => 'icon.png' } },
+    'proxy-route': {}, registry: { default: {} },
+  }).default
+  manager.setProxyInBackground = async () => events.push('apply')
+  manager.removeProxyInBackground = async () => events.push('remove')
+  return { storage, events, client, manager }
+}
+
+test('local proxy port changes and recovery update routing without repeat notifications', async () => {
+  const { storage, events, client, manager } = fixture()
+  await manager.syncLocalProxyInBackground()
+  assert.equal(storage.localProxyURI, '127.0.0.1:23456')
+  assert.equal(storage.localProxyAlive, true)
+  assert.equal((await manager.getSelectedProxies())[0].port, 23456)
+  await manager.syncLocalProxyInBackground()
+  assert.deepEqual(events, ['apply'])
+  client.ping = async () => 34567
+  await manager.syncLocalProxyInBackground()
+  assert.equal(storage.localProxyURI, '127.0.0.1:34567')
+  client.ping = async () => null
+  await manager.syncLocalProxyInBackground()
+  await manager.syncLocalProxyInBackground()
+  assert.equal(storage.localProxyURI, null)
+  assert.equal(storage.localProxyAlive, false)
+  assert.equal((await manager.getSelectedProxies()).length, 0)
+  assert.equal(events.filter(e => e === 'notify').length, 1)
+  client.ping = async () => 34567
+  await manager.syncLocalProxyInBackground()
+  assert.equal(events.at(-1), 'apply')
 })
+
+test('local mode starts on request and stops when returning to the proxy list', async () => {
+  const { storage, events, client, manager } = fixture({ useLocalProxy: false })
+  client.ping = async () => null
+  await manager.setLocalProxyInBackground(true)
+  assert.equal(storage.localProxyURI, '127.0.0.1:34567')
+  await manager.setLocalProxyInBackground(false)
+  assert.equal(storage.useLocalProxy, false)
+  assert.equal(storage.localProxyURI, null)
+  assert.equal(storage.localProxyAlive, false)
+  assert.deepEqual(events, ['remove', 'apply', 'stop', 'apply'])
+})
+
+for (const key of ['useLocalProxy', 'useProxy', 'enableExtension']) {
+  test(`local checks do not apply or start a proxy after ${key} is disabled`, async () => {
+    const { storage, events, client, manager } = fixture()
+    client.ping = async () => { storage[key] = false; return null }
+    client.start = async () => { throw new Error('Must not start') }
+    await manager.syncLocalProxyInBackground({ startIfMissing: true })
+    assert.deepEqual(events, [])
+    assert.equal(storage.localProxyURI, undefined)
+  })
+}

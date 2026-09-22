@@ -47,7 +47,8 @@ test('settings API keeps runtime state and exports a versioned user-only backup'
   assert.deepEqual(storage.ignoredHosts, [])
   assert.equal(storage.localProxyURI, null)
   await settings.importSettings({ useLocalProxy: true, localProxyURI: 'evil.example:80' })
-  assert.equal(storage.localProxyURI, '127.0.0.1:10808')
+  assert.equal(storage.localProxyURI, null)
+  assert.equal(storage.localProxyAlive, false)
   assert.deepEqual(storage.domains, ['cached.example'])
 })
 

@@ -19,6 +19,7 @@ function fixture(options = {}) {
   const routeListeners = new Set()
   const events = []
   const browser = {
+    alarms: { create() {} },
     isFirefox: !!options.firefox,
     storage: {
       local: {
@@ -47,6 +48,7 @@ function fixture(options = {}) {
   }
   const mocks = {
     'browser-api': { default: browser },
+    localproxy: { default: { ping: async () => null } },
     proxy: { default: {
       setProxy: async () => events.push('refresh'),
       pingInBackground: async () => events.push('knock'),

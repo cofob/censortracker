@@ -8,8 +8,7 @@
  <b>Censor Tracker</b> is a powerful <strong>censorship circumvention</strong> browser extension.<br>
 </p>
 
-<p align="center">In addition, it enables the use of custom proxies and supports <strong>Vless</strong>,
-<strong>Vmess</strong>, and <strong>Shadowsocks</strong> in the browser via an external client called <a href="https://github.com/censortracker/proxy">Censor Tracker Proxy</a>.</p>
+<p align="center">It supports custom proxies and the local SOCKS5 proxy in <a href="https://amnezia.org/premium">Amnezia Premium</a>.</p>
 
 <p align="center">
   <a href="https://chrome.google.com/webstore/detail/censor-tracker/gaidoampbkcknofoejhnhbhbhhifgdop" target="_blank">
@@ -36,8 +35,15 @@ Censor Tracker offers a range of useful features, including:
 - Popup details for the planned route and last checked exit; selection of related page domains to proxy
 - Validated settings backups, including imports from legacy Censor Tracker and avatarDD fork backups
 - Warnings for websites in the information-disseminator registry
-- Support  `Vless`, `Vmess` and `Shadowsocks` proxies ([Censor Tracker Proxy](https://github.com/censortracker/proxy) is
-  required)
+- Amnezia Premium local proxy with automatic port detection and connection checks
+
+To use the local proxy, open AmneziaVPN and enable **Local system proxy**.
+Select **Amnezia Premium local proxy** in the extension settings. The extension
+uses the control API at `localhost:49490` and gets the SOCKS5 port from the app.
+It checks the connection every minute, or every three seconds while the settings
+page is visible. If the app stops, proxy routing is suspended and sites use the
+normal browser connection. Routing resumes when the app returns. Selecting the
+proxy list stops the local proxy. Manage VPN configurations in AmneziaVPN.
 
 Permissions
 ===========

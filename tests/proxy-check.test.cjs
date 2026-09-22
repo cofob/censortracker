@@ -209,7 +209,7 @@ test('Firefox probe errors cannot mark the selected managed endpoint bad or trig
   const { handleProxyError } = load('background/handlers', {
     'browser-api': { default: {} },
     'proxy-route': { getProbeRoutes: () => [{ hostname: 'echo.example' }], proxyAllowed: async () => true },
-    proxy: { default: { getRouteForHost: async () => { normalRecoveries++; return { type: 'direct' } } } },
+    proxy: { default: { usingLocalProxy: async () => false, getRouteForHost: async () => { normalRecoveries++; return { type: 'direct' } } } },
     server: {}, 'proxy-importer': {},
   })
   await handleProxyError({ error: 'NS_ERROR_UNKNOWN_PROXY_HOST', url: 'https://echo.example/', tabId: 1 })

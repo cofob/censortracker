@@ -41,7 +41,9 @@ export const showDisseminatorWarning = async (url) => {
 export const handleOnAlarm = async ({ name }) => {
   console.log(`Task received: ${name}`)
 
-  if (name === RECOVERY_ALARM) {
+  if (name === 'checkLocalProxy') {
+    await ProxyManager.syncLocalProxy()
+  } else if (name === RECOVERY_ALARM) {
     try {
       await retryFailedProxies()
     } catch (error) {
@@ -229,9 +231,17 @@ export const handleTabCreate = async (tab) => {
     })
 }
 
-export const handleProxyError = (details) => recoverProxy(details).catch(() => {
-  console.warn('Proxy recovery failed; selected proxies were kept')
-})
+export const handleProxyError = async (details) => {
+  try {
+    if (await ProxyManager.usingLocalProxy()) {
+      await ProxyManager.syncLocalProxy()
+    } else {
+      await recoverProxy(details)
+    }
+  } catch {
+    console.warn('Proxy recovery failed; selected proxies were kept')
+  }
+}
 
 export const handleOnUpdateAvailable = async ({ version }) => {
   await browser.storage.local.set({ updateAvailable: true })

@@ -13,7 +13,7 @@ let watchingControl = false
 const routeKeys = new Set([
   'enableExtension', 'useProxy', 'domains', 'useRegistry', 'ignoredHosts',
   'customProxiedDomains', 'proxyServerURI', 'customProxyProtocol',
-  'customProxyServerURI', 'localProxyURI',
+  'customProxyServerURI', 'localProxyURI', 'useLocalProxy', 'localProxyAlive',
   'proxies', 'selectedProxyIds', 'proxyAll', 'proxyFailures',
   'siteCountryRules', 'proxyChecks',
   'registrySource', 'externalRegistry', 'antizapret',
@@ -64,12 +64,16 @@ export const withProxyLock = (operation) => {
 }
 
 export const proxyAllowed = async () => {
-  const { enableExtension, useProxy } = await browser.storage.local.get({
-    enableExtension: false, useProxy: true,
-  })
+  const { enableExtension, useProxy, useLocalProxy, localProxyAlive } =
+    await browser.storage.local.get({
+      enableExtension: false,
+      useProxy: true,
+      useLocalProxy: false,
+      localProxyAlive: false,
+    })
   const { levelOfControl } = await browser.proxy.settings.get({})
 
-  return enableExtension && useProxy &&
+  return enableExtension && useProxy && (!useLocalProxy || localProxyAlive) &&
     ['controllable_by_this_extension', 'controlled_by_this_extension']
       .includes(levelOfControl)
 }

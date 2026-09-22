@@ -1,7 +1,5 @@
 import { normalizeHostname } from './hostname'
 
-export const LOCAL_PROXY_URI = '127.0.0.1:10808'
-
 const protocols = {
   HTTP: 'PROXY',
   PROXY: 'PROXY',

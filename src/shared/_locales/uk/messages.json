@@ -549,7 +549,7 @@
     "message": "Додаток Censor Tracker Proxy не знайдено на пристрої. Скачайте та запустіть додаток Censor Tracker Proxy. Він працюватиме у фоновому режимі та підтримуватиме роботу локального проксі."
   },
   "localProxyNotFoundDesc": {
-    "message": "Завантажте або запустіть додаток Censor Tracker Proxy. Він працюватиме у фоновому режимі та підтримуватиме локальний проксі."
+    "message": "Не вдалося підключитися до локального проксі Amnezia Premium. Відкрийте AmneziaVPN і увімкніть «Локальний системний проксі»."
   },
   "localProxyNotFoundTitle": {
     "message": "Додаток Censor Tracker Proxy не знайдено"
@@ -845,7 +845,7 @@
     "message": "Проксі Censor Tracker"
   },
   "useLocalProxy": {
-    "message": "Використовувати локальний проксі"
+    "message": "Місцевий проксі-сервер Amnezia Premium."
   },
   "useOwnProxy": {
     "message": "Свій проксі"
@@ -867,5 +867,23 @@
   },
   "youCanCloseThisWindow": {
     "message": "Можна закрити це вікно"
+  },
+  "moreAboutLocalProxy": {
+    "message": "Детальніше про Amnezia Premium VPN"
+  },
+  "moreAboutAmneziaPremium": {
+    "message": "https://amnezia.org/premium"
+  },
+  "whereToFindAddressAndPort": {
+    "message": "Де знайти адресу і порт"
+  },
+  "whereToFindAddressLink": {
+    "message": "https://docs.amnezia.org/documentation/instructions/local-proxy/"
+  },
+  "successLocalProxySet": {
+    "message": "З'єднання встановлено! Використовується локальний проксі Amnezia Premium."
+  },
+  "successDefaultProxySet": {
+    "message": "Успішно перемкнено на стандартний проксі!"
   }
 }

@@ -669,8 +669,11 @@ a {
   margin-right: 0;
 }
 
-.block_custom-local-proxy {
-  display: none;
+.local-proxy-links-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 15px 0 30px 35px;
 }
 
 .block_custom-local-proxy .censortracker-not-found__wrapper {

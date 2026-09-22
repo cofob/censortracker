@@ -53,6 +53,12 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  setLocalProxy: (enabled) => withProxyLock(
+    () => ProxyManager.setLocalProxyInBackground(enabled),
+  ),
+  syncLocalProxy: (options) => withProxyLock(
+    () => ProxyManager.syncLocalProxyInBackground(options),
+  ),
   findRelatedDomains,
   addRelatedDomains,
   setSiteChoice: ({ url, choice } = {}) => withProxyLock(async () => {
@@ -118,6 +124,7 @@ registerBackground({
   }),
   importSettings: (args) => withProxyLock(async () => {
     await Settings.importSettingsInBackground(args)
+    await ProxyManager.syncLocalProxyInBackground()
     await ProxyManager.setProxyInBackground()
   }),
   proxies: (args) => withProxyLock(async () => {
@@ -219,3 +226,15 @@ if (browser.isFirefox) {
     handleProxyError,
   )
 }
+
+const checkLocalProxy = () => ProxyManager.syncLocalProxy().catch(() => {
+  console.warn('Local proxy check failed')
+})
+
+browser.alarms.create('checkLocalProxy', { periodInMinutes: 1 })
+checkLocalProxy()
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes.useLocalProxy || changes.useProxy || changes.enableExtension)) {
+    checkLocalProxy()
+  }
+})

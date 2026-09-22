@@ -549,7 +549,7 @@
     "message": "Приложение Censor Tracker Proxy не найдено на устройстве. Скачайте и запустите приложение Censor Tracker Proxy. Оно будет работать в фоновом режиме и поддерживать работу локального прокси."
   },
   "localProxyNotFoundDesc": {
-    "message": "Скачайте или запустите приложение Censor Tracker Proxy. Оно будет работать в фоне и поддерживать работу локального прокси."
+    "message": "Не удалось подключиться к локальному прокси Amnezia Premium. Откройте AmneziaVPN и включите «Локальный системный прокси»"
   },
   "localProxyNotFoundTitle": {
     "message": "Приложение Censor Tracker Proxy не найдено"
@@ -845,7 +845,7 @@
     "message": "Прокси Censor Tracker"
   },
   "useLocalProxy": {
-    "message": "Использовать локальный прокси"
+    "message": "Локальный прокси Amnezia Premium"
   },
   "useOwnProxy": {
     "message": "Свой прокси"
@@ -867,5 +867,23 @@
   },
   "youCanCloseThisWindow": {
     "message": "Можно закрыть это окно"
+  },
+  "moreAboutLocalProxy": {
+    "message": "Подробнее об Amnezia Premium VPN"
+  },
+  "moreAboutAmneziaPremium": {
+    "message": "https://storage.googleapis.com/amnezia/amnezia.org?m-path=premium"
+  },
+  "whereToFindAddressAndPort": {
+    "message": "Где найти адрес и порт"
+  },
+  "whereToFindAddressLink": {
+    "message": "https://storage.googleapis.com/amnezia/docs?m-path=/documentation/instructions/local-proxy"
+  },
+  "successLocalProxySet": {
+    "message": "Соединение установлено! Используется локальный прокси Amnezia Premium."
+  },
+  "successDefaultProxySet": {
+    "message": "Используется стандартный прокси CensorTracker!"
   }
 }
