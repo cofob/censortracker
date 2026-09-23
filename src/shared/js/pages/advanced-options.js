@@ -1,6 +1,5 @@
 import './page-errors'
 
-import { callBackground } from 'Background/background-rpc'
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
@@ -26,21 +25,6 @@ import { mountSiteRules } from './site-rules'
   document.getElementById('importSettings').addEventListener('click', () => {
     importSettingsInput.click()
   })
-  const proxyAll = document.getElementById('proxyAll')
-
-  proxyAll.checked = (await browser.storage.local.get({ proxyAll: false }))
-    .proxyAll
-  proxyAll.addEventListener('change', async () => {
-    proxyAll.disabled = true
-    try {
-      await callBackground('setProxyAll', proxyAll.checked)
-    } finally {
-      proxyAll.checked = (await browser.storage.local.get({ proxyAll: false }))
-        .proxyAll
-      proxyAll.disabled = false
-    }
-  })
-  proxyAll.disabled = false
   await mountSiteRules()
 
   const togglePopup = (id) => {
