@@ -97,12 +97,8 @@ class Settings {
 
     await browser.storage.local.set({
       ...values,
-      // A backup cannot grant consent for periodic network requests.
+      // Proxy subscription downloads still require a separate choice.
       proxySubscriptionsEnabled: false,
-      proxyRecoveryEnabled: false,
-      registrySource: {
-        ...values.registrySource, enabled: false, autoUpdate: false,
-      },
       useOwnProxy: values.selectedProxyIds.some((id) => id !== 'builtin'),
       localProxyURI: null,
       localProxyAlive: false,

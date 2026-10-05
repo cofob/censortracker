@@ -127,12 +127,12 @@ test('automatic registry downloads require both explicit options and an enabled 
   assert.equal(state.calls.length, 1)
 })
 
-test('registry backups retain the source configuration but cannot grant network consent or replace caches', async () => {
+test('registry backups restore source choices but cannot replace caches', async () => {
   const state = fixture()
   const settings = load('background/settings', { 'browser-api': { default: state.browser } }).default
   await settings.importSettingsInBackground({ registrySource: { ...source, enabled: true, autoUpdate: true },
     externalRegistry: { domains: ['untrusted.example'] } })
-  assert.deepEqual(state.storage.registrySource, source)
+  assert.deepEqual(state.storage.registrySource, { ...source, enabled: true, autoUpdate: true })
   assert.equal(state.storage.externalRegistry, null)
   for (const invalid of [null, [], { ...source, url: 'javascript:alert(1)' }, { ...source, enabled: 'true' },
     { ...source, url: '', enabled: true }, { ...source, url: 'https://alice:secret@example.com/list' }]) {

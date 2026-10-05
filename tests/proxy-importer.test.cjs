@@ -83,7 +83,7 @@ test('removing a subscription cancels its pending download without holding the r
   assert.equal(state.storage.proxies.length, 0)
 })
 
-test('PAC restrictions survive storage and settings imports; backup consent is not restored', async () => {
+test('PAC restrictions survive imports; recovery is restored but subscriptions stay off', async () => {
   const state = fixture()
   await state.importProxies({ text: 'function FindProxyForURL() { return "PROXY pac.example:80"; }' })
   assert.equal(state.storage.proxies[0].restricted, true)
@@ -100,7 +100,7 @@ test('PAC restrictions survive storage and settings imports; backup consent is n
     proxySubscriptions: [{ id: 'one', protocol: 'HTTPS', url: 'https://source.example/' }] })
   assert.equal(state.storage.proxies[0].restricted, true)
   assert.equal(state.storage.proxySubscriptionsEnabled, false)
-  assert.equal(state.storage.proxyRecoveryEnabled, false)
+  assert.equal(state.storage.proxyRecoveryEnabled, true)
 })
 
 test('source validation rejects executable, credential-bearing and duplicate URLs', () => {

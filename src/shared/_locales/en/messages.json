@@ -536,7 +536,7 @@
     "message": "Ignored Websites"
   },
   "importSettingsDesc": {
-    "message": "Import a JSON backup from this version, an older version, or the avatarDD fork. Check your proxy selection and registry sources after import. Automatic downloads and checks stay off."
+    "message": "Import a JSON backup from this version, an older version, or the avatarDD fork. Check your proxy selection and registry sources after import. Registry and recovery settings are restored. Automatic proxy subscription downloads stay off."
   },
   "importSettingsTitle": {
     "message": "Import Settings"

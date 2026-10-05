@@ -52,6 +52,23 @@ test('settings API keeps runtime state and exports a versioned user-only backup'
   assert.deepEqual(storage.domains, ['cached.example'])
 })
 
+for (const enabled of [false, true]) {
+  test(`backup round trip preserves registry and recovery choices: ${enabled}`, async () => {
+    const source = { kind: 'custom', url: 'https://registry.example/list', enabled, autoUpdate: enabled }
+    const storage = { registrySource: source, proxyRecoveryEnabled: enabled, domains: ['cached.example'] }
+    const settings = load('background/settings', { 'browser-api': { default: { storage: { local: {
+      get: async () => storage, set: async values => Object.assign(storage, plain(values)),
+    } } } } }).default
+    const backup = await settings.exportSettings()
+    storage.registrySource = { ...source, enabled: !enabled, autoUpdate: !enabled }
+    storage.proxyRecoveryEnabled = !enabled
+    await settings.importSettingsInBackground(backup)
+    assert.deepEqual(storage.registrySource, source)
+    assert.equal(storage.proxyRecoveryEnabled, enabled)
+    assert.deepEqual(storage.domains, ['cached.example'])
+  })
+}
+
 test('export migrates a legacy selection before it applies defaults', async () => {
   const settings = load('background/settings', {
     'browser-api': { default: { storage: { local: { get: async () => ({

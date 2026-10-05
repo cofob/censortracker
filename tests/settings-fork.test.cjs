@@ -50,7 +50,7 @@ test('fork selections preserve disabled custom mode, empty pools and legacy back
   assert.equal(restricted.proxies[0].restricted, true)
 })
 
-test('fork backups restore source URLs without importing source caches or consent', async () => {
+test('fork backups restore source URLs and recovery without importing source caches', async () => {
   const storage = { domains: ['trusted.example'], proxyChecks: { trusted: true } }
   let writes = 0
   const settings = load('background/settings', {
@@ -69,7 +69,7 @@ test('fork backups restore source URLs without importing source caches or consen
   assert.deepEqual(storage.registrySource, { kind: 'custom', url: 'https://registry.example/list', enabled: false, autoUpdate: false })
   assert.deepEqual(storage.proxySubscriptions, [{ id: 'fork-source-0', url: 'https://list.example/', protocol: 'HTTPS' }])
   assert.equal(storage.proxySubscriptionsEnabled, false)
-  assert.equal(storage.proxyRecoveryEnabled, false)
+  assert.equal(storage.proxyRecoveryEnabled, true)
   assert.equal(storage.localProxyURI, null)
   assert.equal(storage.localProxyAlive, false)
   assert.deepEqual(storage.domains, ['trusted.example'])
