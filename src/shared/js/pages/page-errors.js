@@ -1,7 +1,7 @@
 import browser from 'Background/browser-api'
 
 // A failed background task must not leave the page blank or its loader active.
-export const showPageError = () => {
+export const showPageError = (event) => {
   const loading = document.getElementById('loading')
   const success = document.getElementById('popupCompletedSuccessfully')
   let message = document.getElementById('pageError')
@@ -21,6 +21,11 @@ export const showPageError = () => {
     parent.prepend(message)
   }
   message.textContent = browser.i18n.getMessage('operationFailed')
+  const detail = event?.reason?.message || event?.message
+
+  if (detail) {
+    message.textContent += ` ${detail}`
+  }
 }
 
 window.addEventListener('unhandledrejection', showPageError)

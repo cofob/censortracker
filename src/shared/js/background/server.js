@@ -17,7 +17,9 @@ const fetchConfig = async () => {
 
   if (!countryCode) {
     try {
-      const { data, viaProxy } = await requestService(GEOIP_URL, validCountry)
+      const { data, viaProxy } = await requestService(GEOIP_URL, validCountry, {
+        allowProxyRetry: false,
+      })
 
       if (viaProxy) {
         throw new Error('GeoIP returned the proxy country, not the user country')
@@ -162,15 +164,16 @@ export const synchronizeInBackground = (options = {}) => {
   const operation = async () => {
     const { syncRegistry = true, syncProxy = true, region } = options
     const failures = []
-    const run = async (task) => {
+    const run = async (name, task) => {
       try {
         await task()
       } catch (error) {
-        failures.push(error.message)
-        console.error(`[Service] ${error.message}`)
+        failures.push(`${name}: ${error.message}`)
+        console.error(`[Service] ${name}: ${error.message}`)
       }
     }
 
+    await browser.storage.local.remove('serviceRouteError')
     if (region) {
       const { registryRegionCode, localConfig = {} } =
         await browser.storage.local.get(['registryRegionCode', 'localConfig'])
@@ -186,7 +189,7 @@ export const synchronizeInBackground = (options = {}) => {
       await ProxyManager.setProxy()
     }
     if (syncProxy) {
-      await run(fetchProxy)
+      await run('Proxy list', fetchProxy)
     }
     if (syncRegistry) {
       // Remember the previous region before replacing diagnostic configuration.
@@ -200,9 +203,9 @@ export const synchronizeInBackground = (options = {}) => {
       }
       const config = await fetchConfig()
 
-      await run(() => fetchRegistry(config))
-      await run(() => refreshRegistrySource({ automatic: true }))
-      await run(async () => {
+      await run('Registry', () => fetchRegistry(config))
+      await run('External registry', () => refreshRegistrySource({ automatic: true }))
+      await run('ORI', async () => {
         const { data } = await requestService(ORI_URL, validORI)
 
         await browser.storage.local.set({ disseminators: data })
@@ -210,6 +213,11 @@ export const synchronizeInBackground = (options = {}) => {
     }
     if (region) {
       await ProxyManager.setProxy()
+    }
+    const { serviceRouteError } = await browser.storage.local.get('serviceRouteError')
+
+    if (serviceRouteError) {
+      failures.push(serviceRouteError)
     }
     await browser.storage.local.set({
       serviceErrors: failures,

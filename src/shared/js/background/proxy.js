@@ -146,6 +146,26 @@ class ProxyManager {
     } : {}
   }
 
+  async getServiceProxyRoute (hostname) {
+    const { ignoredHosts, siteCountryRules, antizapret } =
+      await browser.storage.local.get({
+        ignoredHosts: [], siteCountryRules: {}, antizapret: null,
+      })
+    const options = {
+      domains: [hostname],
+      ignoredHosts,
+      siteCountryRules,
+      providerDomains: antizapret?.domains || [],
+      proxies: await this.getSelectedProxies(),
+    }
+
+    const resolve = createRouter(
+      routingConfig(options), findHostMatch, isPrivateHost,
+    )
+
+    return resolve(hostname)
+  }
+
   async requestIncognitoAccess () {
     if (browser.isFirefox) {
       const isAllowedIncognitoAccess =

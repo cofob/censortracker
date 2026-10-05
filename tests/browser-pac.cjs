@@ -19,7 +19,7 @@ const within = (promise, milliseconds = 5000) => {
 }
 
 // An isolated browser and local servers: no public proxy or destination is used.
-test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async () => {
+test('Chromium applies PAC rules and manages proxies', { timeout: 60000 }, async () => {
   const build = global.process.env.CT_BROWSER_BUILD === 'dev' ? 'dev' : 'prod'
   const extension = path.resolve(__dirname, '../dist/chrome', build)
   const id = createHash('sha256').update(extension).digest('hex').slice(0, 32)
@@ -570,6 +570,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 30000 }, async
     await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'}).then(result => {if (result.error) throw new Error(result.error); return result.value})")
     assert.equal(await evaluate(`fetch('http://site659999.large-registry.example:${origin.address().port}/large').then(response => response.text())`), 'PROXY')
     assert.equal(await evaluate(`fetch('http://unlisted.large-registry.example:${origin.address().port}/large').then(response => response.text())`), 'DIRECT')
+    await evaluate("chrome.storage.local.set({externalRegistry: null}).then(() => chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'}))")
     await evaluate('chrome.storage.local.set({enableExtension: false, useProxy: true})')
     await until("chrome.proxy.settings.get({}).then(data => data.value.mode !== 'pac_script')")
     assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), true,

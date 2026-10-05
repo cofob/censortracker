@@ -2,7 +2,6 @@ import browser from './browser-api'
 import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
 import { isPrivateHost } from './private-host'
-import { hasSiteRestriction } from './site-rules'
 
 let queue = Promise.resolve()
 let revision = 0
@@ -147,13 +146,8 @@ export const restoreServiceRoute = async () => {
 
 // Caller holds the lock until the request and restoration have finished.
 export const setServiceRoute = async (hostname, route) => {
-  const { siteCountryRules } = await browser.storage.local.get({
-    siteCountryRules: {},
-  })
-
-  if (hasSiteRestriction(hostname, siteCountryRules) ||
-    (route !== 'DIRECT' && await mustUseDirect(hostname))) {
-    throw new Error('Restricted services cannot use a proxy override')
+  if (route !== 'DIRECT' && await mustUseDirect(hostname)) {
+    throw new Error('Proxy request blocked by an exclusion or a private host')
   }
   if (!await proxyAllowed()) {
     throw new Error('Service routing unavailable: proxy disabled or not controlled')

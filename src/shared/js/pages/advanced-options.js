@@ -1,10 +1,9 @@
-import './page-errors'
-
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
 import Settings from 'Background/settings'
 
+import { showPageError } from './page-errors'
 import { mountSiteRules } from './site-rules'
 
 (async () => {
@@ -71,18 +70,27 @@ import { mountSiteRules } from './site-rules'
   })
 
   updateLocalRegistryBtn.addEventListener('click', async (event) => {
-    togglePopup('popupCompletedSuccessfully')
-    ProxyManager.isEnabled().then(async (proxyingEnabled) => {
+    updateLocalRegistryBtn.disabled = true
+    try {
       await server.synchronize()
+      const { serviceErrors = [] } = await browser.storage.local.get('serviceErrors')
 
-      if (proxyingEnabled) {
+      if (await ProxyManager.isEnabled()) {
         await ProxyManager.removeBadProxies()
-        await ProxyManager.setProxy()
+        if (!await ProxyManager.setProxy()) {
+          throw new Error(browser.i18n.getMessage('proxySetupFailed'))
+        }
         await ProxyManager.ping()
-      } else {
-        console.info('Registry updated, but proxying is disabled.')
       }
-    })
+      if (serviceErrors.length > 0) {
+        throw new Error(serviceErrors.join('; '))
+      }
+      togglePopup('popupCompletedSuccessfully')
+    } catch (error) {
+      showPageError(error)
+    } finally {
+      updateLocalRegistryBtn.disabled = false
+    }
   })
 
   document.addEventListener('keydown', async (event) => {
@@ -106,6 +114,7 @@ import { mountSiteRules } from './site-rules'
       proxyLastFetchTs,
       serviceErrors = [],
       geoIPStatus,
+      serviceRouteError,
     } = await browser.storage.local.get([
       'localConfig',
       'fallbackReason',
@@ -114,6 +123,7 @@ import { mountSiteRules } from './site-rules'
       'proxyLastFetchTs',
       'serviceErrors',
       'geoIPStatus',
+      'serviceRouteError',
     ])
 
     if (extensionsInfo.length > 0) {
@@ -135,6 +145,7 @@ import { mountSiteRules } from './site-rules'
     localConfig.proxyLastFetchTs = proxyLastFetchTs
     localConfig.serviceErrors = serviceErrors
     localConfig.geoIPStatus = geoIPStatus
+    localConfig.serviceRouteError = serviceRouteError
     localConfig.badProxies = await ProxyManager.getBadProxies()
     localConfig.currentProxyURI = await ProxyManager.getProxyingRules()
     localConfig.proxyControlled = await ProxyManager.controlledByThisExtension()

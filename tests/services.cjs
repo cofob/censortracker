@@ -55,6 +55,14 @@ function fixture(options = {}) {
       getProxyingRules: async () => options.noProxy ? {} : {
         proxyServerURI: 'retry.example:443', proxyServerProtocol: options.protocol || 'HTTPS',
       },
+      getServiceProxyRoute: async hostname => {
+        const { routingConfig, createRouter } = load('routing')
+        const config = routingConfig({ domains: [hostname],
+          ignoredHosts: storage.ignoredHosts || [], siteCountryRules: storage.siteCountryRules || {},
+          proxies: options.noProxy ? [] : options.proxies || [{ id: 'retry', protocol: options.protocol || 'HTTPS', host: 'retry.example', port: 443 }],
+        })
+        return createRouter(config, load('host-match').findHostMatch, load('private-host').isPrivateHost)(hostname)
+      },
     } },
     'background-rpc': { callBackground: () => { throw new Error('Unexpected RPC') } },
     ...options.mocks,
@@ -229,7 +237,7 @@ test('a service exclusion prevents remote retries', async () => {
   const state = fixture({ storage: { ignoredHosts: ['example.com'] },
     fetch: async () => { calls++; throw new Error('offline') } })
   await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray),
-    /Restricted services cannot use a proxy override/)
+    /exclusion or a private host/)
   assert.equal(calls, 1)
 })
 
@@ -253,7 +261,7 @@ for (const firefox of [false, true]) {
       let calls = 0
       const state = fixture({ firefox, fetch: async () => { calls++; throw new Error('offline') } })
       await assert.rejects(state.load('service-request').requestService(`http://${host}/registry.json`, Array.isArray),
-        /Restricted services cannot use a proxy override/)
+        /exclusion or a private host/)
       assert.equal(calls, 1)
       assert.equal(state.storage.serviceRouteSnapshot, undefined)
     })
@@ -261,7 +269,7 @@ for (const firefox of [false, true]) {
 }
 
 for (const firefox of [false, true]) {
-  test(`country-restricted services cannot use temporary proxy routes, Firefox=${firefox}`, async () => {
+  test(`country-restricted services permit direct access and reject ineligible proxies, Firefox=${firefox}`, async () => {
     let calls = 0
     const blocked = 'function FindProxyForURL() { return "PROXY 127.0.0.1:0"; }'
     const value = firefox
@@ -270,8 +278,8 @@ for (const firefox of [false, true]) {
     const state = fixture({ firefox, value, storage: { siteCountryRules: { 'example.com': ['RU'] } },
       fetch: async () => { calls++; throw new Error('offline') } })
     await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray),
-      /Restricted services cannot use a proxy override/)
-    assert.equal(calls, 0)
+      /country rules/)
+    assert.equal(calls, 1)
     assert.equal(state.route('api.example.com'), 'PROXY 127.0.0.1:0')
     assert.equal(state.storage.serviceRouteSnapshot, undefined)
   })
@@ -451,6 +459,115 @@ test('successful registry update replaces cached data', async () => {
   assert.deepEqual(state.storage.serviceErrors, [])
 })
 
+for (const firefox of [false, true]) {
+  test(`always-proxy service choice skips direct access: Firefox=${firefox}`, async () => {
+    let calls = 0
+    const state = fixture({ firefox, storage: { customProxiedDomains: ['example.com'] },
+      fetch: async (url, init, { route }) => {
+        calls++
+        assert.equal(route('api.example.com'), 'HTTPS retry.example:443')
+        return response([])
+      },
+    })
+    assert.equal((await state.load('service-request').requestService('https://api.example.com', Array.isArray)).viaProxy, true)
+    assert.equal(calls, 1)
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+
+  test(`service retry uses a proxy with an allowed country: Firefox=${firefox}`, async () => {
+    let calls = 0
+    const state = fixture({ firefox, storage: { siteCountryRules: { 'example.com': ['RU'] } },
+      proxies: [{ id: 'ru', protocol: 'HTTPS', host: 'forbidden.example', port: 443, exitCountry: 'RU', countryExpiresAt: Date.now() + 10000 },
+        { id: 'de', protocol: 'HTTPS', host: 'allowed.example', port: 443, exitCountry: 'DE', countryExpiresAt: Date.now() + 10000 }],
+      fetch: async (url, init, { route }) => {
+        if (++calls === 1) throw new Error('offline')
+        assert.equal(route('api.example.com'), 'HTTPS allowed.example:443')
+        return response([])
+      },
+    })
+    await state.load('service-request').requestService('https://api.example.com', Array.isArray)
+    assert.equal(calls, 2)
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+}
+
+test('country rules changed during proxy setup prevent a stale service retry', async () => {
+  let calls = 0
+  const state = fixture({ fetch: async () => { calls++; throw new Error('offline') } })
+  const set = state.browser.proxy.settings.set
+  state.browser.proxy.settings.set = async args => {
+    await set(args)
+    if (state.events.includes('knock')) state.storage.siteCountryRules = { 'example.com': ['RU'] }
+  }
+  await assert.rejects(state.load('service-request').requestService('https://api.example.com', Array.isArray), /country rules/)
+  assert.equal(calls, 1)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
+test('GeoIP does not retry through a proxy or an always-proxy rule', async () => {
+  for (const forced of [false, true]) {
+    let calls = 0
+    const state = fixture({ storage: { customProxiedDomains: forced ? ['geo.example'] : [] },
+      fetch: async () => { calls++; throw new Error('GeoIP offline') },
+    })
+    await assert.rejects(state.load('service-request').requestService('https://geo.example/iso', () => true, { allowProxyRetry: false }), /geo.example\/iso: DIRECT/)
+    assert.equal(calls, forced ? 0 : 1)
+    assert.ok(!state.events.includes('knock'))
+  }
+})
+
+for (const success of [false, true]) {
+  test(`route restoration errors do not replace service results: success=${success}`, async () => {
+    const state = fixture({ fetch: async () => {
+      if (!success) throw new Error('GeoIP offline')
+      return response({ countryCode: 'DE' })
+    } })
+    const set = state.browser.proxy.settings.set
+    state.browser.proxy.settings.set = async args => {
+      if (JSON.stringify(args.value) === JSON.stringify(state.original)) throw new Error('PAC restoration failed')
+      return set(args)
+    }
+    const pending = state.load('service-request').requestService('https://geo.example/iso', () => true, { allowProxyRetry: false })
+    if (success) assert.equal((await pending).data.countryCode, 'DE')
+    else await assert.rejects(pending, error => /GeoIP offline/.test(error.message) && !/PAC restoration/.test(error.message))
+    assert.match(state.storage.serviceRouteError, /geo.example\/iso: route restoration failed: PAC restoration failed/)
+    assert.ok(state.storage.serviceRouteSnapshot)
+  })
+}
+
+test('service deadline reports a timeout while reading JSON', async () => {
+  const state = fixture({ fastTimeout: true, fetch: async (url, init) => ({ ok: true,
+    json: () => new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('The operation was aborted')))),
+  }) })
+  await assert.rejects(state.load('service-request').requestService('https://registry.example/list', Array.isArray, { allowProxyRetry: false }), /registry.example\/list: DIRECT: JSON parsing: Timeout after 15 seconds/)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
+test('settings cancellation is distinct from a service timeout', async () => {
+  const state = fixture({ fetch: async (url, init) => new Promise((resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(new Error('The operation was aborted')))
+    state.storage.useProxy = false
+    for (const listener of state.listeners) listener({ useProxy: { newValue: false } })
+  }) })
+  await assert.rejects(state.load('service-request').requestService('https://registry.example/list', Array.isArray, { allowProxyRetry: false }), /Cancelled because routing settings changed/)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
+test('changing the proxy endpoint cancels an active service retry', async () => {
+  let calls = 0
+  const state = fixture({ fetch: async (url, init) => {
+    if (++calls === 1) throw new Error('offline')
+    return new Promise((resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(new Error('The operation was aborted')))
+      state.storage.proxyServerURI = 'changed.example:443'
+      for (const listener of state.listeners) listener({ proxyServerURI: { newValue: state.storage.proxyServerURI } })
+    })
+  } })
+  await assert.rejects(state.load('service-request').requestService('https://registry.example/list', Array.isArray), /PROXY: fetch: Cancelled because routing settings changed/)
+  assert.equal(calls, 2)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
+})
+
 test('direct GeoIP selects country, proxied GeoIP does not', async () => {
   const state = fixture({ mocks: { 'service-request': { requestService: async url => {
     if (url.includes('geo.')) return { data: { countryCode: 'PL' }, viaProxy: false }
@@ -459,6 +576,80 @@ test('direct GeoIP selects country, proxied GeoIP does not', async () => {
   await state.load('server').synchronizeInBackground({ syncProxy: false })
   assert.equal(state.storage.localConfig.countryCode, 'PL')
   assert.equal(state.storage.geoIPStatus, 'direct')
+})
+
+test('GeoIP fallback records its own failure and disables proxy retries', async () => {
+  const state = fixture({ mocks: { 'service-request': { requestService: async (url, validate, options) => {
+    if (url.includes('geo.')) {
+      assert.equal(options.allowProxyRetry, false)
+      throw new Error('GeoIP offline')
+    }
+    if (url.includes('proxy-list')) throw new Error('Proxy list offline')
+    return { data: [] }
+  } } } })
+  await state.load('server').synchronizeInBackground()
+  assert.equal(state.storage.geoIPStatus, 'RU fallback: GeoIP offline')
+  assert.ok(state.storage.serviceErrors.some(error => error.includes('Proxy list offline')))
+})
+
+test('database update waits for completion and does not report failed sync as success', async () => {
+  const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
+  const handler = source.slice(source.indexOf('updateLocalRegistryBtn.addEventListener'), source.indexOf("document.addEventListener('keydown'"))
+  for (const failed of [false, true]) {
+    let update
+    let finish
+    let completed = 0
+    let error
+    const button = { addEventListener: (name, fn) => { update = fn } }
+    vm.runInNewContext(handler, {
+      updateLocalRegistryBtn: button, togglePopup: () => { completed++ },
+      showPageError: value => { error = value.message },
+      server: { synchronize: () => new Promise(resolve => { finish = resolve }) },
+      browser: { storage: { local: { get: async () => ({ serviceErrors: failed ? ['Registry: HTTP 503'] : [] }) } } },
+      ProxyManager: { isEnabled: async () => false },
+    })
+    const pending = update()
+    assert.equal(completed, 0)
+    assert.equal(button.disabled, true)
+    finish()
+    await pending
+    assert.equal(completed, failed ? 0 : 1)
+    assert.equal(error, failed ? 'Registry: HTTP 503' : undefined)
+    assert.equal(button.disabled, false)
+  }
+})
+
+test('database update applies the new registry routes after an ORI failure', async () => {
+  const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
+  const handler = source.slice(source.indexOf('updateLocalRegistryBtn.addEventListener'), source.indexOf("document.addEventListener('keydown'"))
+  const state = fixture({ storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['old.example'] },
+    mocks: { proxy: null, registry: { default: { getDomains: async () => state.storage.domains } },
+      'service-request': { requestService: async url => {
+        if (url.includes('disseminators')) throw new Error('HTTP 503')
+        return { data: ['new.example'] }
+      } },
+    },
+  })
+  let update
+  let applied = 0
+  let completed = 0
+  let error
+  vm.runInNewContext(handler, {
+    updateLocalRegistryBtn: { addEventListener: (name, fn) => { update = fn } },
+    togglePopup: () => { completed++ }, showPageError: value => { error = value.message },
+    server: { synchronize: () => state.load('server').synchronizeInBackground({ syncProxy: false }) },
+    browser: state.browser,
+    ProxyManager: { isEnabled: async () => true, removeBadProxies: async () => {}, ping: async () => {},
+      setProxy: async () => { applied++; return state.load('proxy').default.setProxyInBackground({ ping: false }) },
+    },
+  })
+  await update()
+  assert.deepEqual(state.storage.domains, ['new.example'])
+  assert.equal(applied, 1)
+  assert.equal(state.route('new.example'), 'HTTPS normal.example:443;')
+  assert.equal(state.route('old.example'), 'DIRECT')
+  assert.equal(error, 'ORI: HTTP 503')
+  assert.equal(completed, 0)
 })
 
 for (const value of [{ mode: 'system' }, { mode: 'fixed_servers' }, { proxyType: 'system' }, { proxyType: 'manual' }]) {
