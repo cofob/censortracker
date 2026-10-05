@@ -124,13 +124,18 @@ export const mountProxyList = async () => {
       } else if (proxy.restricted) {
         cells[2].textContent += ` — ${message('proxyRestricted')}`
       }
+      if (proxy.id === 'builtin') {
+        cells[2].textContent = '—'
+      }
       const check = checks[proxy.id]
 
       cells[3].textContent = message(`proxyStatus_${check?.status || 'unchecked'}`)
-      if (check) {
+      if (check?.status === 'ok') {
+        cells[3].textContent += ` · ${check.latency} ms`
+      }
+      if (check && proxy.id !== 'builtin') {
         cells[3].title = new Date(check.checkedAt).toLocaleString()
         if (check.status === 'ok') {
-          cells[3].textContent += ` · ${check.latency} ms`
           const location = document.createElement('div')
 
           location.textContent = `${message('proxyServerCountry')}: ${check.serverCountry || '?'}; ` +

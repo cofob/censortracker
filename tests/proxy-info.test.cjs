@@ -50,6 +50,16 @@ test('direct, blocked, and inactive routes never show an unrelated proxy IP', as
   assert.deepEqual(plain(await state.describeProxyRoute({ url: 'about:blank' })), { type: 'unavailable' })
 })
 
+test('Censor Tracker route information omits endpoints and exit IPs', async () => {
+  const state = await fixture()
+  state.proxy.id = 'builtin'
+  state.storage.proxyChecks.builtin = state.storage.proxyChecks.one
+  const info = plain(await state.describeProxyRoute({ url: 'protected.example' }))
+  assert.deepEqual(info.proxy, { id: 'builtin', name: 'My proxy' })
+  assert.equal(info.check.exitIP, '')
+  assert.equal(info.check.exitCountry, 'US')
+})
+
 test('route descriptions discard a snapshot if routing changes while metadata is read', async () => {
   const state = await fixture()
   state.beforeRead(() => { state.beforeRead(() => {}); state.setRoute({ type: 'blocked', proxies: [] }) })
@@ -86,6 +96,13 @@ test('popup renders text safely and clears the old exit when another extension t
   assert.match(elements.proxyRouteExit.textContent, /8\.8\.8\.8.*United States/)
   assert.ok(elements.proxyingDetailsText.children.some(node => node.textContent.includes('<script>bad()</script>')))
   assert.ok(elements.proxyingDetailsText.children.some(node => node.textContent.includes('popupRouteCheckedAt')))
+  info.proxy.name = 'Censor Tracker'
+  controlChanged()
+  await scheduled()
+  assert.match(elements.proxyRouteSummary.textContent, /Censor Tracker/)
+  assert.match(elements.proxyRouteExit.textContent, /proxyExitCountry.*United States \(US\)/)
+  assert.doesNotMatch(elements.proxyRouteExit.textContent, /8\.8\.8\.8/)
+  assert.ok(elements.proxyingDetailsText.children.every(node => !/proxy\.example|HTTP|popupRouteCheckedAt|proxyStatus_|popupRouteFallbacks/.test(node.textContent)))
   info = { type: 'disabled' }
   controlChanged({ levelOfControl: 'controlled_by_other_extensions' })
   await scheduled()

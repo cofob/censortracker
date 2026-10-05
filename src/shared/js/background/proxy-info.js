@@ -31,16 +31,19 @@ export const describeProxyRoute = async ({ url } = {}) => {
   return {
     type: route.type,
     proxy: proxy ? {
+      id: proxy.id,
       name: proxy.name || activeProxyConfigName || 'Censor Tracker Proxy Server',
-      protocol: proxy.protocol,
-      host: proxy.host,
-      port: proxy.port,
+      ...(proxy.id === 'builtin' ? {} : {
+        protocol: proxy.protocol,
+        host: proxy.host,
+        port: proxy.port,
+      }),
     } : null,
     fallbackCount: Math.max(0, route.proxies.length - 1),
     check: check && Number.isFinite(check.checkedAt) ? {
       status: check.status,
       checkedAt: check.checkedAt,
-      exitIP: check.status === 'ok' ? publicIP(check.exitIP) : '',
+      exitIP: check.status === 'ok' && proxy.id !== 'builtin' ? publicIP(check.exitIP) : '',
       exitCountry: check.status === 'ok' ? countryCode(check.exitCountry) : '',
     } : null,
     region: currentRegionName,

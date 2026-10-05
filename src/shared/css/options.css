@@ -1684,6 +1684,10 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+.proxy-table th {
+  white-space: nowrap;
+}
+
 /* Shared controls for registry, proxy and advanced settings only. */
 .settings-page {
   --settings-border: #c4c2bf;

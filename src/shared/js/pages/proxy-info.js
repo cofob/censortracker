@@ -33,7 +33,14 @@ export const mountProxyInfo = async (url) => {
         details.append(element)
       }
 
-      if (info.proxy) {
+      const builtin = info.proxy?.id === 'builtin' || info.proxy?.name === 'Censor Tracker'
+
+      if (builtin && info.check?.exitCountry) {
+        const code = info.check.exitCountry
+
+        exit.textContent = `${message('proxyExitCountry')}: ${names.of(code)} (${code})`
+      }
+      if (info.proxy && !builtin) {
         line(`${info.proxy.protocol} ${info.proxy.host}:${info.proxy.port}`)
         line(message('popupRouteFallbacks', String(info.fallbackCount)))
         if (info.check) {
