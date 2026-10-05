@@ -8,7 +8,6 @@ export const mountPrivateBrowsing = async (
   if (!browser.isFirefox) {
     return
   }
-  button?.classList.remove('hidden')
   const message = (key) => browser.i18n.getMessage(key)
   const status = document.createElement('p')
   const parent = warning || button
@@ -35,6 +34,7 @@ export const mountPrivateBrowsing = async (
       })
     const allowed = await ProxyManager.requestIncognitoAccess()
 
+    button?.classList.toggle('hidden', allowed)
     if (warning) {
       warning.hidden = allowed
     }

@@ -35,9 +35,10 @@ async function fixture(options = {}) {
   const warning = findElement(markup, 'privateBrowsingPermissionsRequiredMessage')
   warning.after = node => nodes.push(node)
   const button = findElement(markup, 'grantPrivateBrowsingPermissionsButton')
-  button.classList = { remove: value => {
+  button.classList = { toggle: (value, enabled) => {
     const classes = button.attrs.find(attr => attr.name === 'class')
     classes.value = classes.value.split(/\s+/).filter(entry => entry !== value).join(' ')
+    if (enabled) classes.value += ` ${value}`
   } }
   button.addEventListener = (name, fn) => { events.click = fn }
   const page = load('pages/private-browsing', {
@@ -61,7 +62,7 @@ test('a stale permission warning is cleared without enabling disabled proxy use'
   assert.equal(state.badge(), '')
   assert.equal(state.storage.useProxy, false)
   assert.equal(state.applied(), 0)
-  assert.equal(state.buttonVisible(), true)
+  assert.equal(state.buttonVisible(), false)
 })
 
 test('Chrome keeps the Firefox confirmation button hidden', async () => {
@@ -72,10 +73,12 @@ test('Chrome keeps the Firefox confirmation button hidden', async () => {
 test('focus detects permission grant and restores enabled proxy use', async () => {
   const state = await fixture({ allowed: false, storage: { useProxy: true } })
   assert.equal(state.warning.hidden, false)
+  assert.equal(state.buttonVisible(), true)
   assert.equal(state.badge(), '✕')
   state.allow(true)
   await state.events.focus()
   assert.equal(state.warning.hidden, true)
+  assert.equal(state.buttonVisible(), false)
   assert.equal(state.badge(), '')
   assert.equal(state.applied(), 1)
   await state.events.focus()
@@ -91,7 +94,7 @@ test('permission grant clears the warning and badge even if proxy setup fails', 
   assert.equal(state.badge(), '')
   assert.equal(state.storage.privateBrowsingPermissionsRequired, false)
   assert.equal(state.status.textContent, 'proxySetupFailed PAC failed')
-  assert.equal(state.buttonVisible(), true)
+  assert.equal(state.buttonVisible(), false)
   options.success = true
   await state.events.click()
   assert.equal(state.applied(), 2)
@@ -100,6 +103,7 @@ test('permission grant clears the warning and badge even if proxy setup fails', 
 
 test('visibility detects permission removal', async () => {
   const state = await fixture()
+  assert.equal(state.buttonVisible(), false)
   state.allow(false)
   await state.events.visibilitychange()
   await new Promise(resolve => setImmediate(resolve))
@@ -118,6 +122,7 @@ test('confirmation enables proxy use and reports completion', async () => {
   assert.equal(state.status.textContent, 'proxySetupDone')
   assert.equal(state.status.role, 'status')
   assert.equal(state.button.disabled, false)
+  assert.equal(state.buttonVisible(), false)
 })
 
 for (const [options, expected] of [

@@ -298,6 +298,12 @@ a {
     padding: 15px 24px 15px 20px;
 }
 
+#privateBrowsingPermissionsRequiredButton + p {
+    margin: 20px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
 #privateBrowsingPermissionsRequiredButton > div:hover {
     cursor: pointer;
     color: #625c55;
@@ -430,7 +436,8 @@ div#grantPrivateBrowsingPermissionsButton {
     margin-top: 3px;
 }
 
-.censor-tracker__status.status-error {
+.censor-tracker__status.status-error,
+#privateBrowsingPermissionsRequiredButton + p[role="alert"] {
     color: #B66B14;
 }
 

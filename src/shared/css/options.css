@@ -553,6 +553,12 @@ a {
   cursor: pointer;
 }
 
+.options-body #grantPrivateBrowsingPermissionsButton {
+  border: 0;
+  font-family: inherit;
+  margin-bottom: 25px;
+}
+
 .mt-4 {
   margin-top: 41px;
 }
