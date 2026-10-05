@@ -118,6 +118,7 @@ import { mountSiteRules } from './site-rules'
       serviceErrors = [],
       geoIPStatus,
       serviceRouteError,
+      proxySetupError,
     } = await browser.storage.local.get([
       'localConfig',
       'fallbackReason',
@@ -127,6 +128,7 @@ import { mountSiteRules } from './site-rules'
       'serviceErrors',
       'geoIPStatus',
       'serviceRouteError',
+      'proxySetupError',
     ])
 
     if (extensionsInfo.length > 0) {
@@ -150,6 +152,7 @@ import { mountSiteRules } from './site-rules'
     localConfig.geoIPStatus = geoIPStatus
     localConfig.registryStatus = await Registry.getStatus()
     localConfig.serviceRouteError = serviceRouteError
+    localConfig.proxySetupError = proxySetupError
     localConfig.badProxies = await ProxyManager.getBadProxies()
     localConfig.currentProxyURI = await ProxyManager.getProxyingRules()
     localConfig.proxyControlled = await ProxyManager.controlledByThisExtension()

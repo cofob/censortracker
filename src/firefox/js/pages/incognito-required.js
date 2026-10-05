@@ -1,4 +1,4 @@
-import ProxyManager from 'Background/proxy'
+import { mountPrivateBrowsing } from '../../../shared/js/pages/private-browsing'
 
 (async () => {
   const closeTab = document.querySelector('#closeTab')
@@ -11,10 +11,14 @@ import ProxyManager from 'Background/proxy'
     lastFocusedWindow: true,
   })
   const popupUrl = browser.runtime.getURL('popup.html')
-  const allowedIncognitoAccess =
-    await browser.extension.isAllowedIncognitoAccess()
 
-  grantPrivateBrowsingPermissionsButton.hidden = !allowedIncognitoAccess
+  await mountPrivateBrowsing({
+    warning: document.getElementById('privateBrowsingPermissionsRequiredMessage'),
+    button: grantPrivateBrowsingPermissionsButton,
+    onSuccess: () => {
+      window.location.href = popupUrl
+    },
+  })
 
   if (backToPopup) {
     backToPopup.addEventListener('click', () => {
@@ -33,15 +37,4 @@ import ProxyManager from 'Background/proxy'
       url: browser.i18n.getMessage('howToGrantIncognitoAccessLink'),
     })
   })
-
-  if (grantPrivateBrowsingPermissionsButton) {
-    grantPrivateBrowsingPermissionsButton.addEventListener('click', async () => {
-      const proxySet = await ProxyManager.setProxy()
-
-      if (proxySet) {
-        await ProxyManager.grantIncognitoAccess()
-        window.location.href = popupUrl
-      }
-    })
-  }
 })()

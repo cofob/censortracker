@@ -168,26 +168,16 @@ class ProxyManager {
 
   async requestIncognitoAccess () {
     if (browser.isFirefox) {
-      const isAllowedIncognitoAccess =
+      const allowed =
         await browser.extension.isAllowedIncognitoAccess()
 
-      if (!isAllowedIncognitoAccess) {
-        await browser.browserAction.setBadgeText({ text: '✕' })
-        await browser.storage.local.set({
-          privateBrowsingPermissionsRequired: true,
-        })
-        console.info('Private browsing permissions requested.')
-      }
-    }
-  }
-
-  async grantIncognitoAccess () {
-    if (browser.isFirefox) {
-      await browser.browserAction.setBadgeText({ text: '' })
+      await browser.browserAction.setBadgeText({ text: allowed ? '' : '✕' })
       await browser.storage.local.set({
-        privateBrowsingPermissionsRequired: false,
+        privateBrowsingPermissionsRequired: !allowed,
       })
+      return allowed
     }
+    return true
   }
 
   async setProxy () {
@@ -202,10 +192,14 @@ class ProxyManager {
     })
 
     if (useLocalProxy && !localProxyAlive) {
+      await browser.storage.local.set({ proxySetupError: 'Local proxy is unavailable' })
       await this.removeProxyInBackground()
       return false
     }
     if (!await proxyAllowed()) {
+      await browser.storage.local.set({
+        proxySetupError: 'Proxy use is disabled or controlled by another extension',
+      })
       return false
     }
     const options = browser.isFirefox ? null : await this.getRoutingOptions()
@@ -245,12 +239,15 @@ class ProxyManager {
         return this.setProxyInBackground({ ping })
       }
       await browser.storage.local.set({ proxyIsAlive: true })
-      await this.grantIncognitoAccess()
+      await browser.storage.local.remove('proxySetupError')
+      await this.requestIncognitoAccess()
       console.info('PAC has been set successfully!')
       return true
     } catch (error) {
       console.error(`PAC could not be set: ${error}`)
-      await browser.storage.local.set({ proxyIsAlive: false })
+      await browser.storage.local.set({
+        proxyIsAlive: false, proxySetupError: error.message,
+      })
       await this.requestIncognitoAccess()
       return false
     }

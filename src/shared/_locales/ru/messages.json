@@ -283,6 +283,18 @@
   "proxyListInvalid": {
     "message": "Не удалось изменить список. Проверьте данные прокси и попробуйте снова."
   },
+  "privateBrowsingStillRequired": {
+    "message": "Разрешите работу в приватных окнах и попробуйте ещё раз."
+  },
+  "proxySetupExtensionDisabled": {
+    "message": "Расширение выключено. Включите его перед включением прокси."
+  },
+  "proxySetupRunning": {
+    "message": "Применяем настройки прокси…"
+  },
+  "proxySetupDone": {
+    "message": "Настройки прокси применены."
+  },
   "proxySetupFailed": {
     "message": "Не удалось применить настройки прокси."
   },

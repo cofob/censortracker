@@ -2,6 +2,7 @@ import browser from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
 
+import { mountPrivateBrowsing } from './private-browsing'
 import { mountRegistryStatus } from './registry-status'
 
 (async () => {
@@ -76,16 +77,13 @@ import { mountRegistryStatus } from './registry-status'
   }
 
   if (browser.isFirefox) {
-    const allowedIncognitoAccess =
-      await browser.extension.isAllowedIncognitoAccess()
-    const { privateBrowsingPermissionsRequired } =
-      await browser.storage.local.get({
-        privateBrowsingPermissionsRequired: false,
-      })
-
-    if (grantPrivateBrowsingPermissionsButton) {
-      grantPrivateBrowsingPermissionsButton.hidden = !allowedIncognitoAccess
-    }
+    await mountPrivateBrowsing({
+      warning: privateBrowsingPermissionsRequiredMessage,
+      button: grantPrivateBrowsingPermissionsButton,
+      onSuccess: () => {
+        proxyStatus.innerText = browser.i18n.getMessage('optionsProxyStatusTurnedOn')
+      },
+    })
 
     if (howToGrantIncognitoAccess) {
       howToGrantIncognitoAccess.addEventListener('click', async () => {
@@ -93,24 +91,6 @@ import { mountRegistryStatus } from './registry-status'
           url: browser.i18n.getMessage('howToGrantIncognitoAccessLink'),
         })
       })
-    }
-
-    if (privateBrowsingPermissionsRequired || !allowedIncognitoAccess) {
-      if (privateBrowsingPermissionsRequiredMessage) {
-        privateBrowsingPermissionsRequiredMessage.hidden = false
-      }
-
-      if (grantPrivateBrowsingPermissionsButton) {
-        grantPrivateBrowsingPermissionsButton.addEventListener('click', async () => {
-          const proxySet = await ProxyManager.setProxy()
-
-          if (proxySet === true) {
-            await ProxyManager.grantIncognitoAccess()
-            privateBrowsingPermissionsRequiredMessage.hidden = true
-          }
-        },
-        )
-      }
     }
   }
 

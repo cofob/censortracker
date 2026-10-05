@@ -8,6 +8,7 @@ import Registry from 'Background/registry'
 import Settings from 'Background/settings'
 import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidURL } from 'Background/utilities'
 
+import { mountPrivateBrowsing } from './private-browsing'
 import { mountProxyInfo } from './proxy-info'
 import { mountRelatedDomains } from './related-domains'
 
@@ -45,6 +46,10 @@ import { mountRelatedDomains } from './related-domains'
   const openOptionsPage = document.getElementById('openOptionsPage')
   const highlightOptionsIcon = document.getElementById('highlightOptionsIcon')
   const popupLocalProxyName = document.getElementById('popupLocalProxyName')
+
+  await mountPrivateBrowsing({
+    warning: privateBrowsingPermissionsRequiredButton,
+  })
 
   document.addEventListener('click', async (event) => {
     const targetId = event.target.id
@@ -239,22 +244,6 @@ import { mountRelatedDomains } from './related-domains'
           proxyingInfo.hidden = true
         }
         statusImage.setAttribute('src', 'images/icons/512x512/normal.png')
-
-        if (browser.isFirefox) {
-          browser.extension.isAllowedIncognitoAccess()
-            .then((allowedIncognitoAccess) => {
-              browser.storage.local
-                .get({ privateBrowsingPermissionsRequired: false })
-                .then(({ privateBrowsingPermissionsRequired }) => {
-                  if (
-                    !allowedIncognitoAccess ||
-                    privateBrowsingPermissionsRequired
-                  ) {
-                    privateBrowsingPermissionsRequiredButton.hidden = false
-                  }
-                })
-            })
-        }
 
         if (currentHostname.length >= 22 && currentHostname.length < 25) {
           currentDomainHeader.style.fontSize = '17px'

@@ -21,6 +21,8 @@ function fixture(options = {}) {
   const browser = {
     alarms: { create() {} },
     isFirefox: !!options.firefox,
+    extension: { isAllowedIncognitoAccess: async () => options.privateAllowed !== false },
+    browserAction: { setBadgeText: async () => {} },
     storage: {
       local: {
         get: async keys => {
@@ -158,13 +160,19 @@ for (const firefox of [false, true]) {
       mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
       fetch: async (url, init, { route }) => { requests.push(route(new URL(url).hostname)); return response({}) },
     })
-    state.browser.browserAction = { setBadgeText: async () => {} }
     await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.setProxyInBackground())
     assert.deepEqual(requests, ['DIRECT'])
     assert.equal(state.storage.proxyIsAlive, true)
     assert.equal(state.storage.serviceRouteSnapshot, undefined)
   })
 }
+
+test('successful Firefox proxy setup still reads the actual private permission', async () => {
+  const state = fixture({ firefox: true, privateAllowed: false,
+    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } } })
+  assert.equal(await state.load('proxy').default.setProxyInBackground({ ping: false }), true)
+  assert.equal(state.storage.privateBrowsingPermissionsRequired, true)
+})
 
 test('disabling proxy use while the knock route is installed prevents the request', async () => {
   let requests = 0

@@ -283,6 +283,18 @@
   "proxyListInvalid": {
     "message": "Could not change the list. Check the proxy data and try again."
   },
+  "privateBrowsingStillRequired": {
+    "message": "Allow access to Private Windows, then try again."
+  },
+  "proxySetupExtensionDisabled": {
+    "message": "The extension is disabled. Enable it before you enable the proxy."
+  },
+  "proxySetupRunning": {
+    "message": "Applying proxy settings…"
+  },
+  "proxySetupDone": {
+    "message": "Proxy settings applied."
+  },
   "proxySetupFailed": {
     "message": "Could not apply proxy settings."
   },
