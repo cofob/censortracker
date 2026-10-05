@@ -1,9 +1,11 @@
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
+import Registry from 'Background/registry'
 import * as server from 'Background/server'
 import Settings from 'Background/settings'
 
 import { showPageError } from './page-errors'
+import { mountRegistryStatus } from './registry-status'
 import { mountSiteRules } from './site-rules'
 
 (async () => {
@@ -25,6 +27,7 @@ import { mountSiteRules } from './site-rules'
     importSettingsInput.click()
   })
   await mountSiteRules()
+  await mountRegistryStatus()
 
   const togglePopup = (id) => {
     const showPopupClass = 'popup-show'
@@ -145,6 +148,7 @@ import { mountSiteRules } from './site-rules'
     localConfig.proxyLastFetchTs = proxyLastFetchTs
     localConfig.serviceErrors = serviceErrors
     localConfig.geoIPStatus = geoIPStatus
+    localConfig.registryStatus = await Registry.getStatus()
     localConfig.serviceRouteError = serviceRouteError
     localConfig.badProxies = await ProxyManager.getBadProxies()
     localConfig.currentProxyURI = await ProxyManager.getProxyingRules()

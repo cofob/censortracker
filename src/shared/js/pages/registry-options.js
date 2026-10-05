@@ -6,6 +6,7 @@ import Registry from 'Background/registry'
 import * as server from 'Background/server'
 
 import { mountRegistrySource } from './registry-source'
+import { mountRegistryStatus } from './registry-status'
 
 (async () => {
   const select = document.querySelector('.select')
@@ -76,5 +77,6 @@ import { mountRegistrySource } from './registry-source'
       console.debug(`Region changed to ${countryName}`)
     })
   }
+  await mountRegistryStatus()
   await mountRegistrySource()
 })()

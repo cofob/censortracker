@@ -1,7 +1,8 @@
 import browser from 'Background/browser-api'
 import ProxyManager from 'Background/proxy'
-import Registry from 'Background/registry'
 import * as server from 'Background/server'
+
+import { mountRegistryStatus } from './registry-status'
 
 (async () => {
   // For debugging purposes.
@@ -56,18 +57,13 @@ import * as server from 'Background/server'
       })
   })
 
-  Registry.isEmpty().then((isEmpty) => {
-    if (isEmpty) {
-      optionsRegistryUpdateDatabaseButton.addEventListener('click', (event) => {
-        window.location.href = 'advanced-options.html'
-      })
-
-      optionsRegistryProxyingListButton.addEventListener('click', (event) => {
-        window.location.href = 'proxy-list.html'
-      })
-      optionsRegistryIsEmptyWarning.classList.remove('hidden')
-    }
+  optionsRegistryUpdateDatabaseButton.addEventListener('click', () => {
+    window.location.href = 'advanced-options.html'
   })
+  optionsRegistryProxyingListButton.addEventListener('click', () => {
+    window.location.href = 'proxy-list.html'
+  })
+  await mountRegistryStatus(optionsRegistryIsEmptyWarning)
 
   if (proxyStatus) {
     let proxyStatusMessage = 'optionsProxyStatusTurnedOff'

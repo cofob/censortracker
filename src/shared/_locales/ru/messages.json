@@ -286,6 +286,27 @@
   "proxySetupFailed": {
     "message": "Не удалось применить настройки прокси."
   },
+  "registryStatus_not_loaded": {
+    "message": "Встроенный реестр ещё не загружен."
+  },
+  "registryStatus_loading": {
+    "message": "Загружаем встроенный реестр…"
+  },
+  "registryStatus_ready": {
+    "message": "Встроенный реестр загружен."
+  },
+  "registryStatus_empty": {
+    "message": "Встроенный реестр пуст."
+  },
+  "registryStatus_unavailable": {
+    "message": "Источник встроенного реестра недоступен. Последняя рабочая база сохранена."
+  },
+  "registryStatus_unsupported": {
+    "message": "Для этого региона нет встроенного реестра."
+  },
+  "registrySkipped": {
+    "message": "Пропущено ошибочных записей: $1."
+  },
   "operationFailed": {
     "message": "Не удалось выполнить действие. Попробуйте ещё раз."
   },

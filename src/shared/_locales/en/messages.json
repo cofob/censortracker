@@ -286,6 +286,27 @@
   "proxySetupFailed": {
     "message": "Could not apply proxy settings."
   },
+  "registryStatus_not_loaded": {
+    "message": "The built-in registry has not been downloaded."
+  },
+  "registryStatus_loading": {
+    "message": "Downloading the built-in registry…"
+  },
+  "registryStatus_ready": {
+    "message": "The built-in registry is loaded."
+  },
+  "registryStatus_empty": {
+    "message": "The built-in registry is empty."
+  },
+  "registryStatus_unavailable": {
+    "message": "The built-in registry source is unavailable. The last valid cache is kept."
+  },
+  "registryStatus_unsupported": {
+    "message": "No built-in registry is available for this region."
+  },
+  "registrySkipped": {
+    "message": "Invalid entries skipped: $1."
+  },
   "operationFailed": {
     "message": "The operation failed. Please try again."
   },

@@ -24,12 +24,11 @@ export const validCountry = (data) => {
     /^[a-z]{2}$/i.test(data.countryCode)
 }
 
-export const validDomains = (data) => {
-  return Array.isArray(data) && data.every((domain) => {
-    return typeof domain === 'string' && domain.length > 0 &&
-      !/[\s/:;]/.test(domain)
-  })
-}
+export const validDomain = (domain) => typeof domain === 'string' &&
+  domain.length > 0 && !/[\s/:;]/.test(domain)
+
+export const validDomains = (data) => Array.isArray(data) &&
+  (data.length === 0 || data.some(validDomain))
 
 export const validORI = (data) => {
   return Array.isArray(data) && data.every((entry) => {

@@ -286,6 +286,27 @@
   "proxySetupFailed": {
     "message": "Не вдалося застосувати налаштування проксі."
   },
+  "registryStatus_not_loaded": {
+    "message": "Вбудований реєстр ще не завантажено."
+  },
+  "registryStatus_loading": {
+    "message": "Завантажуємо вбудований реєстр…"
+  },
+  "registryStatus_ready": {
+    "message": "Вбудований реєстр завантажено."
+  },
+  "registryStatus_empty": {
+    "message": "Вбудований реєстр порожній."
+  },
+  "registryStatus_unavailable": {
+    "message": "Джерело вбудованого реєстру недоступне. Останню робочу базу збережено."
+  },
+  "registryStatus_unsupported": {
+    "message": "Для цього регіону немає вбудованого реєстру."
+  },
+  "registrySkipped": {
+    "message": "Пропущено помилкових записів: $1."
+  },
   "operationFailed": {
     "message": "Не вдалося виконати дію. Спробуйте ще раз."
   },

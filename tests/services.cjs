@@ -459,6 +459,28 @@ test('successful registry update replaces cached data', async () => {
   assert.deepEqual(state.storage.serviceErrors, [])
 })
 
+for (const [data, expected, status, skipped] of [
+  [['valid.example', 'olbplxx-specialistudospecialistudospeciali-specialistudo.xn--click   -66gc5anake5ijjnbcs0m', null], ['valid.example'], 'ready', 2],
+  [[], [], 'empty', 0],
+  [[null, 'invalid domain'], ['cached.example'], 'unavailable', 0],
+  [{ domains: ['valid.example'] }, ['cached.example'], 'unavailable', 0],
+]) {
+  test(`registry status ${status} filters invalid entries and keeps a failed cache`, async () => {
+    const state = fixture({ storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'] },
+      mocks: { 'service-request': { requestService: async (url, validate) => {
+        const response = url.includes('disseminators') ? [] : data
+        if (!validate(response)) throw new Error('Response validation failed')
+        return { data: response }
+      } } },
+    })
+    await state.load('server').synchronizeInBackground({ syncProxy: false })
+    assert.deepEqual(state.storage.domains, expected)
+    assert.equal(state.storage.registryStatus.state, status)
+    assert.equal(state.storage.registryStatus.skipped, skipped)
+    assert.equal(!!state.storage.registryStatus.error, status === 'unavailable')
+  })
+}
+
 for (const firefox of [false, true]) {
   test(`always-proxy service choice skips direct access: Firefox=${firefox}`, async () => {
     let calls = 0
@@ -847,6 +869,7 @@ for (const code of ['RU', 'BY']) {
       browser: state.browser, console: { debug() {} },
       server: { synchronize: options => state.load('server').synchronizeInBackground({ ...options, syncProxy: false }) },
       mountRegistrySource: async () => {},
+      mountRegistryStatus: async () => {},
     })
     await selectCountry({ target: { dataset: { value: code }, textContent: code } })
     assert.equal(state.storage.currentRegionCode, code)

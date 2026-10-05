@@ -4,7 +4,7 @@ import ProxyManager from './proxy'
 import { refreshRegistrySource } from './registry-source'
 import {
   GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
-  validCountry, validDomains, validORI, validProxies,
+  validCountry, validDomain, validDomains, validORI, validProxies,
 } from './service-config'
 import { requestService } from './service-request'
 
@@ -149,13 +149,31 @@ const fetchRegistry = async (config) => {
     })
     await ProxyManager.setProxy()
   }
-  const { data } = registryUrl
-    ? await requestService(registryUrl, validDomains)
-    : { data: [] }
-
   await browser.storage.local.set({
-    domains: data, registryRegionCode: countryCode,
+    registryStatus: { state: 'loading', skipped: 0, error: '' },
   })
+  try {
+    const { data } = registryUrl
+      ? await requestService(registryUrl, validDomains)
+      : { data: [] }
+    const domains = data.filter(validDomain)
+    const state = domains.length > 0 ? 'ready' : 'empty'
+
+    await browser.storage.local.set({
+      domains,
+      registryRegionCode: countryCode,
+      registryStatus: {
+        state: registryUrl ? state : 'unsupported',
+        skipped: data.length - domains.length,
+        error: '',
+      },
+    })
+  } catch (error) {
+    await browser.storage.local.set({
+      registryStatus: { state: 'unavailable', skipped: 0, error: error.message },
+    })
+    throw error
+  }
 }
 
 let syncQueue = Promise.resolve()

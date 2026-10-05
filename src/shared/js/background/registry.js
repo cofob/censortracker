@@ -83,6 +83,16 @@ class Registry {
     return domains.length === 0
   }
 
+  async getStatus () {
+    const { registryStatus, domains } = await browser.storage.local.get({
+      registryStatus: null, domains: [],
+    })
+
+    return registryStatus || {
+      state: domains.length > 0 ? 'ready' : 'not_loaded', skipped: 0, error: '',
+    }
+  }
+
   async add (url) {
     const domain = extractHostnameFromUrl(url)
     const { customProxiedDomains } =
