@@ -16,6 +16,7 @@ export const mountRegistryStatus = async (warning) => {
       text += ` ${status.error}`
     }
     summary.textContent = text
+    summary.hidden = status.state === 'ready' && !status.error
     if (warning) {
       const empty = await Registry.isEmpty()
 

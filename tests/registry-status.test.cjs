@@ -42,4 +42,9 @@ test('registry UI separates source failure from an empty list and updates skippe
   await new Promise(resolve => setImmediate(resolve))
   assert.match(summary.textContent, /registrySkipped: 1/)
   assert.equal(hidden, true)
+  assert.equal(summary.hidden, true)
+  status = { state: 'unavailable', skipped: 0, error: 'Registry: HTTP 503' }
+  changed({ registryStatus: {} }, 'local')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(summary.hidden, false)
 })
