@@ -78,6 +78,8 @@ const webConfig = {
     'rules-editor': './src/shared/js/pages/rules-editor.js',
     translator: './src/shared/js/pages/translator.js',
     controlled: './src/shared/js/pages/controlled.js',
+    'easter-egg': './src/shared/js/pages/easter-egg.js',
+    animation: './src/shared/js/pages/animation.js',
   },
   output: {
     path: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}`),
@@ -128,6 +130,10 @@ const webConfig = {
           to: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}/images`),
         },
         {
+          from: resolve('src/shared/animations'),
+          to: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}/animations`),
+        },
+        {
           from: resolve('src/shared/css'),
           to: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}/css`),
         },
@@ -136,6 +142,13 @@ const webConfig = {
           to: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}/_locales`),
         },
       ],
+    }),
+    new HTMLWebpackPlugin({
+      filename: 'animation.html',
+      template: 'src/shared/pages/animation.html',
+      inject: true,
+      chunks: ['animation'],
+      meta: contentSecurityPolicy,
     }),
     new HTMLWebpackPlugin({
       title: extensionName,
@@ -252,6 +265,13 @@ if (isChromium) {
       meta: contentSecurityPolicy,
     }),
   )
+}
+
+for (const plugin of webConfig.plugins) {
+  if (plugin instanceof HTMLWebpackPlugin &&
+    !['advanced-options.html', 'animation.html'].includes(plugin.userOptions.filename)) {
+    plugin.userOptions.chunks.push('easter-egg')
+  }
 }
 
 if (PRODUCTION) {

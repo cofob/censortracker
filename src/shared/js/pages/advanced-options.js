@@ -1,3 +1,4 @@
+import { callBackground } from 'Background/background-rpc'
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
@@ -5,6 +6,7 @@ import Registry from 'Background/registry'
 import * as server from 'Background/server'
 import Settings from 'Background/settings'
 
+import { mountKeySequence } from './key-sequence'
 import { showPageError } from './page-errors'
 import { mountRegistryStatus } from './registry-status'
 import { mountSiteRules } from './site-rules'
@@ -73,6 +75,32 @@ import { mountSiteRules } from './site-rules'
   })
   completedConfirmBtn.addEventListener('click', (event) => {
     togglePopup('popupCompletedSuccessfully')
+  })
+
+  const proxyAllCheckbox = document.getElementById('proxyAll')
+  const refreshProxyAll = async () => {
+    const { proxyAll } = await browser.storage.local.get({ proxyAll: false })
+
+    proxyAllCheckbox.checked = proxyAll
+  }
+
+  await refreshProxyAll()
+  mountKeySequence(() => {
+    document.getElementById('extendedSettings').hidden = false
+  })
+  proxyAllCheckbox.addEventListener('change', async () => {
+    proxyAllCheckbox.disabled = true
+    try {
+      await callBackground('setProxyAll', proxyAllCheckbox.checked)
+    } catch (error) {
+      showPageError(error)
+    } finally {
+      try {
+        await refreshProxyAll()
+      } finally {
+        proxyAllCheckbox.disabled = false
+      }
+    }
   })
 
   updateLocalRegistryBtn.addEventListener('click', async (event) => {
