@@ -148,6 +148,9 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
           }
           await browser.storage.local.set({proxyAll: false, proxyPingURI: null});
           await browser.storage.local.set({domains: Array.from({length: 660000}, (_,i) => i === 659999 ? 'protected.example' : 'site' + i + '.large-registry.example')});
+          await manager.setProxyInBackground({ ping: false });
+          results.push(await fetch('http://direct.example:${origin.address().port}/probe')
+            .then(response => response.text()));
           for (const config of ${JSON.stringify(cases)}) {
             await browser.storage.local.set({ enableExtension: true, useProxy: true,
               customProxiedDomains: [], selectedProxyIds: ['test'],
@@ -164,6 +167,8 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
             finally { clearTimeout(timeout); }
           }
           await browser.storage.local.set({ selectedProxyIds: [] });
+          results.push(await fetch('http://protected.example:${origin.address().port}/probe')
+            .then(response => response.text(), () => 'BLOCKED'));
           for (const config of ${JSON.stringify(cases.slice(0, 2))}) {
             setProbeRoute('protected.example', { id: 'probe', host: '127.0.0.1', username: 'alice', ...config });
             if (!await manager.setProxyInBackground({ ping: false })) throw new Error('Probe PAC was not applied');
@@ -204,7 +209,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       'devtools.debugger.remote-enabled': true,
       'devtools.chrome.enabled': true,
       'devtools.debugger.prompt-connection': false,
-      'network.dns.localDomains': 'protected.example,page.related.example,cdn.related.example,knock.example,new-knock.example',
+      'network.dns.localDomains': 'direct.example,protected.example,page.related.example,cdn.related.example,knock.example,new-knock.example',
       'network.trr.mode': 5,
       'datareporting.policy.dataSubmissionEnabled': false,
       'toolkit.telemetry.enabled': false,
@@ -228,8 +233,8 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
       await remote.installTemporaryAddon(addon)
       return results
     }
-    assert.deepEqual(await Promise.race([run(), failure]), ['AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'SOCKS4', 'AUTH_HTTP', 'AUTH_SOCKS', 'cdn.related.example'])
-    assert.equal(directHits, 0)
+    assert.deepEqual(await Promise.race([run(), failure]), ['DIRECT', 'AUTH_HTTP', 'AUTH_SOCKS', 'BLOCKED', 'SOCKS4', 'BLOCKED', 'AUTH_HTTP', 'AUTH_SOCKS', 'cdn.related.example'])
+    assert.equal(directHits, 1)
     assert.ok(knockHits >= 2, 'Both knock endpoints must receive a direct connection')
     assert.ok(socksRequests.length > 0)
     assert.ok(socksRequests.every(request => request.addressType === 3 && request.hostname === 'protected.example'))

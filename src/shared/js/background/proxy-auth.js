@@ -98,10 +98,10 @@ export const handleFirefoxProxy = async ({ url }) => {
     return undefined
   }
   if (type === 'direct') {
-    return { type: 'direct' }
+    return null
   }
-  // null prevents fallback to a browser-defined route after the last proxy.
-  return [...proxies.map(firefoxProxyInfo), null]
+  // Keep the blocking PAC as the fallback after the last proxy.
+  return proxies.map(firefoxProxyInfo)
 }
 
 export const registerProxyAuth = () => {
@@ -119,7 +119,7 @@ export const registerProxyAuth = () => {
   browser.webRequest.onErrorOccurred.addListener(clear, filter)
   if (browser.isFirefox) {
     browser.proxy.onRequest.addListener(
-      (details) => handleFirefoxProxy(details).catch(() => [null]), filter,
+      (details) => handleFirefoxProxy(details).catch(() => undefined), filter,
     )
   }
 }

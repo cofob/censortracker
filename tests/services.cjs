@@ -129,7 +129,7 @@ for (const firefox of [false, true]) {
       await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.pingInBackground())
       assert.deepEqual(requests, [{ url: 'https://new-knock.example:8443', method: 'POST',
         knock: 'DIRECT', other: 'HTTPS normal.example:443', child: 'HTTPS normal.example:443',
-        firefoxRoute: firefox ? { type: 'direct' } : null,
+        firefoxRoute: null,
       }])
       assert.equal(state.route('new-knock.example'), 'HTTPS normal.example:443')
       assert.equal(state.storage.serviceRouteSnapshot, undefined)
