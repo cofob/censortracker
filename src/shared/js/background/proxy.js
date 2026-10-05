@@ -3,6 +3,7 @@ import { getPacScript } from 'Background/pac'
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
 import { findHostMatch } from './host-match'
+import { getMessage, initializeLanguage } from './i18n'
 import ProxyClient from './localproxy'
 import { isPrivateHost } from './private-host'
 import { parseProxyAddress } from './proxy-address'
@@ -452,11 +453,12 @@ class ProxyManager {
       })
 
       if (localProxyAlive && showNotifications) {
+        await initializeLanguage()
         await browser.notifications.create('localProxyIsDown', {
           type: 'basic',
           title: Settings.getName(),
           iconUrl: Settings.getDangerIcon(),
-          message: browser.i18n.getMessage('localProxyNotFoundDesc'),
+          message: getMessage('localProxyNotFoundDesc'),
         }).catch(() => console.warn('Local proxy notification failed'))
       }
     } else if (nextURI !== localProxyURI || !localProxyAlive) {

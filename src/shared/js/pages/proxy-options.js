@@ -1,6 +1,7 @@
 import './page-errors'
 
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
 
 import { mountProxyCheck } from './proxy-check'
@@ -8,6 +9,8 @@ import { mountProxyImport } from './proxy-import'
 import { mountProxyList } from './proxy-list'
 
 (async () => {
+  await initializeLanguage()
+  document.documentElement.lang = getUILanguage()
   const useProxyCheckbox = document.getElementById('useProxyCheckbox')
   const radioGroup = document.getElementById('proxyCustomOptionsRadioGroup')
   let pendingRefresh = Promise.resolve()
@@ -34,7 +37,7 @@ import { mountProxyList } from './proxy-list'
     )
     document.getElementById('localProxyStatus').textContent =
       useProxy && useLocalProxy && localProxyAlive
-        ? browser.i18n.getMessage('successLocalProxySet') : ''
+        ? getMessage('successLocalProxySet') : ''
   }
   const refresh = () => {
     pendingRefresh = pendingRefresh.then(render).catch(console.error)
@@ -68,7 +71,7 @@ import { mountProxyList } from './proxy-list'
     ['moreAboutAmneziaPremiumLink', 'moreAboutAmneziaPremium'],
     ['whereToFindAddressLink', 'whereToFindAddressLink'],
   ]) {
-    document.getElementById(id).href = browser.i18n.getMessage(key)
+    document.getElementById(id).href = getMessage(key)
     document.getElementById(id).target = '_blank'
     document.getElementById(id).rel = 'noopener noreferrer'
   }

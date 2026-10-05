@@ -80,6 +80,7 @@ function fixture(options = {}) {
     return scope.FindProxyForURL('https://' + host, host)
   }
   function load(name) {
+    if (name.endsWith('.json')) return require(path.resolve(root, name))
     name = path.basename(name).replace(/\.js$/, '')
     if (mocks[name]) return { __esModule: true, ...mocks[name] }
     if (modules[name]) return modules[name].exports
@@ -847,6 +848,7 @@ test('reset explicitly enables proxy use before applying the PAC', async () => {
   let reset
   vm.runInNewContext(handler, {
     confirmResetBtn: { addEventListener: (name, fn) => { reset = fn } },
+    browser: { storage: { local: { set: async values => assert.equal(values.uiLanguage, 'auto') } } },
     togglePopup() {}, console: { info() {} },
     server: { synchronize: async () => {} },
     Settings: { enableExtension() {}, enableNotifications() {}, disableParentalControl() {} },

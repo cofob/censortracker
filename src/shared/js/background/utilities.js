@@ -1,8 +1,8 @@
 import { getDomain, getPublicSuffix } from 'tldts'
 import isURL from 'validator/lib/isURL'
 
-import browser from './browser-api'
 import { normalizeHostname } from './hostname'
+import { getMessage } from './i18n'
 
 function startsWithExtension (string) {
   return /^(chrome|moz)-extension:/.test(string)
@@ -78,7 +78,7 @@ export const extractHostnameFromUrl = (url) => {
 }
 
 export const i18nGetMessage = (key, props = {}) => {
-  return browser.i18n.getMessage(key)
+  return getMessage(key)
 }
 
 /**
@@ -92,10 +92,10 @@ export const translateDocument = (doc, props = {}) => {
     // Extract value with the given name from "props".
     const renderProp = element.getAttribute('data-i18n-render-prop')
 
-    let message = browser.i18n.getMessage(value)
+    let message = getMessage(value)
 
     if (renderProp && Object.hasOwnProperty.call(props, renderProp)) {
-      message = browser.i18n.getMessage(value, props[renderProp])
+      message = getMessage(value, props[renderProp])
     }
 
     if (message) {

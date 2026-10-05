@@ -1,4 +1,4 @@
-import browser from 'Background/browser-api'
+import { getMessage } from 'Background/i18n'
 
 // A failed background task must not leave the page blank or its loader active.
 export const showPageError = (event) => {
@@ -20,7 +20,7 @@ export const showPageError = (event) => {
 
     parent.prepend(message)
   }
-  message.textContent = browser.i18n.getMessage('operationFailed')
+  message.textContent = getMessage('operationFailed')
   const detail = event?.reason?.message || event?.message
 
   if (detail) {

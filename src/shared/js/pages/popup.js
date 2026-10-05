@@ -2,6 +2,7 @@ import './page-errors'
 
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import Ignore from 'Background/ignore'
 import ProxyManager from 'Background/proxy'
 import Registry from 'Background/registry'
@@ -13,6 +14,8 @@ import { mountProxyInfo } from './proxy-info'
 import { mountRelatedDomains } from './related-domains'
 
 (async () => {
+  await initializeLanguage()
+  document.documentElement.lang = getUILanguage()
   const statusImage = document.getElementById('statusImage')
   const disseminatorInfoBlock = document.getElementById('ori')
   const siteActions = document.getElementById('siteActions')
@@ -149,7 +152,7 @@ import { mountRelatedDomains } from './related-domains'
         ])
 
       if (useLocalProxy) {
-        popupLocalProxyName.textContent = browser.i18n.getMessage('useLocalProxy')
+        popupLocalProxyName.textContent = getMessage('useLocalProxy')
         popupProxyStatusOk.hidden = !proxyingEnabled || !localProxyAlive
         popupProxyStatusError.hidden = !proxyingEnabled || localProxyAlive
         popupLocalProxyName.hidden = false

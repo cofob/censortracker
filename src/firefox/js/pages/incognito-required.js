@@ -1,6 +1,10 @@
+import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
+
 import { mountPrivateBrowsing } from '../../../shared/js/pages/private-browsing'
 
 (async () => {
+  await initializeLanguage()
+  document.documentElement.lang = getUILanguage()
   const closeTab = document.querySelector('#closeTab')
   const backToPopup = document.querySelector('#backToPopup')
   const howToGrantIncognitoAccess = document.querySelector('#howToGrantIncognitoAccess')
@@ -34,7 +38,7 @@ import { mountPrivateBrowsing } from '../../../shared/js/pages/private-browsing'
 
   howToGrantIncognitoAccess.addEventListener('click', async () => {
     await browser.tabs.create({
-      url: browser.i18n.getMessage('howToGrantIncognitoAccessLink'),
+      url: getMessage('howToGrantIncognitoAccessLink'),
     })
   })
 })()

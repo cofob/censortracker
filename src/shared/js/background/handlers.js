@@ -1,5 +1,6 @@
 import browser from './browser-api'
 import { TaskType } from './constants'
+import { getMessage, initializeLanguage } from './i18n'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
 import { refreshNextSubscription, SUBSCRIPTION_ALARM } from './proxy-importer'
@@ -22,11 +23,12 @@ export const showDisseminatorWarning = async (url) => {
   })
 
   if (showNotifications && !notifiedHosts.includes(hostname)) {
+    await initializeLanguage()
     await browser.notifications.create(hostname, {
       type: 'basic',
       title: Settings.getName(),
       iconUrl: Settings.getDangerIcon(),
-      message: browser.i18n.getMessage('cooperationAcceptedMessage', hostname),
+      message: getMessage('cooperationAcceptedMessage', hostname),
     })
 
     try {

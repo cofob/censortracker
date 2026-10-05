@@ -1,4 +1,6 @@
 {
+  "uiLanguageTitle": {"message": "Язык"},
+  "uiLanguageAuto": {"message": "Язык браузера"},
   "proxyAdd": { "message": "Добавить прокси" },
   "proxyEditTitle": { "message": "Редактировать прокси" },
   "proxyNameOptional": { "message": "Название (необязательно)" },

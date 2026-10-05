@@ -1,4 +1,5 @@
 import browser from 'Background/browser-api'
+import { getUILanguage, initializeLanguage } from 'Background/i18n'
 import Ignore from 'Background/ignore'
 import { requestText } from 'Background/request'
 import { i18nGetMessage, isValidURL, removeDuplicates } from 'Background/utilities'
@@ -6,6 +7,8 @@ import { i18nGetMessage, isValidURL, removeDuplicates } from 'Background/utiliti
 import { createDomainEditor } from './domain-editor'
 
 (async () => {
+  await initializeLanguage()
+  document.documentElement.lang = getUILanguage()
   const search = document.getElementById('search')
   const textarea = document.getElementById('textarea')
   const saveChangesButton = document.getElementById('saveChanges')

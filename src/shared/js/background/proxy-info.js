@@ -18,9 +18,16 @@ export const describeProxyRoute = async ({ url } = {}) => {
   }
   const route = await ProxyManager.getRouteForHost(hostname)
   const proxy = route.proxies[0]
-  const { proxyChecks, currentRegionName, activeProxyConfigName } =
+  const {
+    proxyChecks, currentRegionName, currentRegionCode, registryRegionCode,
+    activeProxyConfigName,
+  } =
     await browser.storage.local.get({
-      proxyChecks: {}, currentRegionName: '', activeProxyConfigName: '',
+      proxyChecks: {},
+      currentRegionName: '',
+      activeProxyConfigName: '',
+      currentRegionCode: '',
+      registryRegionCode: '',
     })
   const check = proxy ? await currentProxyCheck(proxy, proxyChecks) : null
   const domains = await Registry.getDomains()
@@ -47,6 +54,7 @@ export const describeProxyRoute = async ({ url } = {}) => {
       exitCountry: check.status === 'ok' ? countryCode(check.exitCountry) : '',
     } : null,
     region: currentRegionName,
+    regionCode: countryCode(currentRegionCode || registryRegionCode),
     domainCount: domains.length,
   }
 }

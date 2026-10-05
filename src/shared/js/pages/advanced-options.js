@@ -1,4 +1,5 @@
 import browser, { getBrowserInfo } from 'Background/browser-api'
+import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
 import Registry from 'Background/registry'
 import * as server from 'Background/server'
@@ -9,6 +10,8 @@ import { mountRegistryStatus } from './registry-status'
 import { mountSiteRules } from './site-rules'
 
 (async () => {
+  await initializeLanguage()
+  document.documentElement.lang = getUILanguage()
   const debugInfoJSON = document.getElementById('debugInfoJSON')
   const showDebugInfoBtn = document.getElementById('showDebugInfo')
   const confirmResetBtn = document.getElementById('confirmReset')
@@ -81,7 +84,7 @@ import { mountSiteRules } from './site-rules'
       if (await ProxyManager.isEnabled()) {
         await ProxyManager.removeBadProxies()
         if (!await ProxyManager.setProxy()) {
-          throw new Error(browser.i18n.getMessage('proxySetupFailed'))
+          throw new Error(getMessage('proxySetupFailed'))
         }
         await ProxyManager.ping()
       }
@@ -161,6 +164,7 @@ import { mountSiteRules } from './site-rules'
   })
 
   confirmResetBtn.addEventListener('click', async (event) => {
+    await browser.storage.local.set({ uiLanguage: 'auto' })
     togglePopup('popupConfirmReset')
     togglePopup('popupCompletedSuccessfully')
     await server.synchronize()

@@ -1,5 +1,5 @@
 import { callBackground } from 'Background/background-rpc'
-import browser from 'Background/browser-api'
+import { getMessage } from 'Background/i18n'
 
 export const mountRelatedDomains = (tabId, url) => {
   const root = document.getElementById('relatedDomains')
@@ -22,12 +22,12 @@ export const mountRelatedDomains = (tabId, url) => {
       return
     }
     busy = true
-    status.textContent = browser.i18n.getMessage('relatedDomainsWorking')
+    status.textContent = getMessage('relatedDomainsWorking')
     update()
     try {
       await action()
     } catch (error) {
-      status.textContent = browser.i18n.getMessage(errorKey)
+      status.textContent = getMessage(errorKey)
     } finally {
       busy = false
       update()
@@ -47,13 +47,13 @@ export const mountRelatedDomains = (tabId, url) => {
       label.append(input, document.createTextNode(host))
       list.append(label)
     }
-    status.textContent = browser.i18n.getMessage('relatedDomainsFound', String(hosts.length))
+    status.textContent = getMessage('relatedDomainsFound', String(hosts.length))
   }))
   add.addEventListener('click', () => run(async () => {
     const count = await callBackground('addRelatedDomains', selected())
 
     list.replaceChildren()
-    status.textContent = browser.i18n.getMessage('relatedDomainsAdded', String(count))
+    status.textContent = getMessage('relatedDomainsAdded', String(count))
   }, 'relatedDomainsSaveError'))
   list.addEventListener('change', update)
   root.hidden = false

@@ -1,5 +1,5 @@
 import { callBackground } from 'Background/background-rpc'
-import browser from 'Background/browser-api'
+import { getMessage, getUILanguage } from 'Background/i18n'
 import { registrySourceUrls } from 'Background/registry-source-data'
 
 export const mountRegistrySource = async () => {
@@ -24,10 +24,10 @@ export const mountRegistrySource = async () => {
     showProvider()
     enabled.checked = state.source.enabled
     automatic.checked = state.source.autoUpdate
-    status.textContent = browser.i18n.getMessage('registrySourceStatus', [
+    status.textContent = getMessage('registrySourceStatus', [
       String(state.count), state.updatedAt
-        ? new Date(state.updatedAt).toLocaleString()
-        : browser.i18n.getMessage('registrySourceNotDownloaded'),
+        ? new Date(state.updatedAt).toLocaleString(getUILanguage())
+        : getMessage('registrySourceNotDownloaded'),
     ])
   }
   const save = async (download) => {
