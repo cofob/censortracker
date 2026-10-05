@@ -14,12 +14,18 @@ function fixture(values = {}) {
   const proxy = {
     isEnabled: async () => storage.useProxy ?? true,
     setProxy: async () => events.push('apply'),
+    syncLocalProxy: async () => events.push('check local'),
     setProxyInBackground: async () => events.push('apply'),
     removeProxy: async () => events.push('remove'),
     removeProxyInBackground: async () => events.push('remove'),
     disableProxy: async () => { storage.useProxy = false; events.push('preference changed') },
   }
-  const browser = { tabs: { query: async () => [{ id: 1 }] } }
+  const browser = { tabs: { query: async () => [{ id: 1 }] },
+    storage: { local: { get: async () => ({ ...storage }) } },
+    alarms: {
+      create: async (name, options) => events.push(['create', name, { ...options }]),
+      clear: async name => events.push(['clear', name]),
+    } }
   const handlers = load('background/handlers', {
     'browser-api': { default: browser },
     proxy: { default: proxy },
@@ -30,11 +36,29 @@ function fixture(values = {}) {
       setDisableIcon: () => events.push('disabled icon'),
     } },
     ignore: { default: {} }, registry: { default: {} },
-    server: {}, task: { default: {} }, utilities: {},
+    server: {}, task: { default: { schedule: async () => {} } }, utilities: {},
     'proxy-importer': {}, 'proxy-recovery': {},
   })
   return { storage, events, proxy, browser, handlers, withProxyLock }
 }
+
+test('startup checks the local proxy before it applies routing', async () => {
+  const state = fixture({ useLocalProxy: true })
+  await state.handlers.handleStartup()
+  assert.deepEqual(state.events, [
+    ['create', 'checkLocalProxy', { periodInMinutes: 1 }], 'check local', 'apply',
+  ])
+})
+
+test('local proxy alarms follow the latest selected mode', async () => {
+  const state = fixture({ useLocalProxy: true })
+  await state.handlers.scheduleLocalProxyCheck()
+  state.storage.useLocalProxy = false
+  await state.handlers.scheduleLocalProxyCheck()
+  assert.deepEqual(state.events, [
+    ['create', 'checkLocalProxy', { periodInMinutes: 1 }], ['clear', 'checkLocalProxy'],
+  ])
+})
 
 for (const [handler, key] of [
   ['handleIgnoredHostsChange', 'ignoredHosts'],

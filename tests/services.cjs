@@ -822,7 +822,8 @@ test('an empty proxy pool installs a blocking route without disabling the extens
 test('proxy-all reports failed application but preserves a disabled user preference', async () => {
   let actions
   const state = fixture({ mocks: {
-    proxy: null, handlers: {}, server: {}, settings: { default: {} },
+    proxy: null, handlers: { scheduleLocalProxyCheck: async () => {} },
+    server: {}, settings: { default: {} },
     'proxy-auth': { registerProxyAuth() {} },
     ignore: { default: {} },
     registry: { default: { getDomains: async () => [] } },

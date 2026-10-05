@@ -10,6 +10,7 @@ import {
   handleStorageChanged,
   handleTabCreate,
   handleTabState,
+  scheduleLocalProxyCheck,
 } from 'Background/handlers'
 
 import { importAntizapret } from './antizapret'
@@ -227,11 +228,11 @@ if (browser.isFirefox) {
   )
 }
 
-const checkLocalProxy = () => ProxyManager.syncLocalProxy().catch(() => {
-  console.warn('Local proxy check failed')
-})
+const checkLocalProxy = () => scheduleLocalProxyCheck()
+  .then(() => ProxyManager.syncLocalProxy()).catch(() => {
+    console.warn('Local proxy check failed')
+  })
 
-browser.alarms.create('checkLocalProxy', { periodInMinutes: 1 })
 checkLocalProxy()
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.useLocalProxy || changes.useProxy || changes.enableExtension)) {

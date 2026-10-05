@@ -140,12 +140,15 @@ test('automatic recovery is opt-in, checks at most four due selected proxies, an
 test('extension updates and navigation keep disabled settings disabled', async () => {
   const calls = []
   const handlers = load('background/handlers', {
-    'browser-api': { default: { runtime: { OnInstalledReason: { UPDATE: 'update', INSTALL: 'install' } } } },
+    'browser-api': { default: { runtime: { OnInstalledReason: { UPDATE: 'update', INSTALL: 'install' } },
+      storage: { local: { get: async () => ({ useLocalProxy: false }) } },
+      alarms: { clear: async () => {} } } },
     settings: { default: { extensionEnabled: async () => false, enableExtension: async () => calls.push('enable') } },
-    proxy: { default: { isEnabled: async () => true, setProxy: async () => calls.push('set'), ping: async () => calls.push('ping') } },
+    proxy: { default: { isEnabled: async () => true, syncLocalProxy: async () => {},
+      setProxy: async () => calls.push('set'), ping: async () => calls.push('ping') } },
     task: { default: { schedule: async () => calls.push('schedule') } },
     server: { synchronize: async () => calls.push('sync') },
-    'proxy-importer': {}, 'proxy-recovery': {}, 'proxy-route': {},
+    'proxy-importer': {}, 'proxy-recovery': {}, 'proxy-route': { withProxyLock: operation => operation() },
   })
   await handlers.handleInstalled({ reason: 'update' })
   await handlers.handleBeforeRequest({})

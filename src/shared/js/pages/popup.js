@@ -47,6 +47,15 @@ import { mountRelatedDomains } from './related-domains'
   const highlightOptionsIcon = document.getElementById('highlightOptionsIcon')
   const popupLocalProxyName = document.getElementById('popupLocalProxyName')
 
+  browser.storage.onChanged.addListener((changes, area) => {
+    const keys = ['useLocalProxy', 'localProxyAlive', 'useProxy']
+
+    if (area === 'local' && keys.some((key) => changes[key] &&
+      changes[key].newValue !== changes[key].oldValue)) {
+      window.location.reload()
+    }
+  })
+
   await mountPrivateBrowsing({
     warning: privateBrowsingPermissionsRequiredButton,
   })

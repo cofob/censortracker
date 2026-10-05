@@ -81,6 +81,8 @@ export const handleBeforeRequest = async (_details) => {
 export const handleStartup = async () => {
   console.groupCollapsed('onStartup')
 
+  await scheduleLocalProxyCheck()
+  await ProxyManager.syncLocalProxy()
   const proxyingEnabled = await ProxyManager.isEnabled()
 
   if (proxyingEnabled && await Settings.extensionEnabled()) {
@@ -94,6 +96,16 @@ export const handleStartup = async () => {
   ])
   console.groupEnd()
 }
+
+export const scheduleLocalProxyCheck = () => withProxyLock(async () => {
+  const { useLocalProxy } = await browser.storage.local.get('useLocalProxy')
+
+  if (useLocalProxy) {
+    await browser.alarms.create('checkLocalProxy', { periodInMinutes: 1 })
+  } else {
+    await browser.alarms.clear('checkLocalProxy')
+  }
+})
 
 export const handleIgnoredHostsChange = async (
   { ignoredHosts } = {},

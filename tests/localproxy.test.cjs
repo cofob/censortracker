@@ -42,8 +42,19 @@ function fixture(values = {}) {
   }).default
   manager.setProxyInBackground = async () => events.push('apply')
   manager.removeProxyInBackground = async () => events.push('remove')
-  return { storage, events, client, manager }
+  return { storage, events, client, manager, browser }
 }
+
+test('notification failure does not stop local proxy checks or recovery', async () => {
+  const { browser, client, manager, storage, events } = fixture({ localProxyAlive: true })
+  browser.notifications.create = async () => { throw new Error('Notifications unavailable') }
+  client.ping = async () => null
+  assert.equal((await manager.syncLocalProxyInBackground()).alive, false)
+  assert.equal(storage.localProxyAlive, false)
+  client.ping = async () => 23456
+  assert.equal((await manager.syncLocalProxyInBackground()).alive, true)
+  assert.deepEqual(events, ['remove', 'apply'])
+})
 
 test('local proxy port changes and recovery update routing without repeat notifications', async () => {
   const { storage, events, client, manager } = fixture()

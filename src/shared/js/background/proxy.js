@@ -457,7 +457,7 @@ class ProxyManager {
           title: Settings.getName(),
           iconUrl: Settings.getDangerIcon(),
           message: browser.i18n.getMessage('localProxyNotFoundDesc'),
-        })
+        }).catch(() => console.warn('Local proxy notification failed'))
       }
     } else if (nextURI !== localProxyURI || !localProxyAlive) {
       await this.setProxyInBackground()
