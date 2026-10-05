@@ -17,6 +17,7 @@ import { importAntizapret } from './antizapret'
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
 import { normalizeHostname } from './hostname'
+import { initializeLanguage } from './i18n'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
 import { registerProxyAuth } from './proxy-auth'
@@ -34,6 +35,7 @@ import Settings from './settings'
 import { changeSiteRule } from './site-rules'
 
 registerProxyAuth()
+initializeLanguage()
 registerRegistrySource()
 registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
 registerProxyRecovery().catch(() => console.warn('Could not schedule proxy recovery'))

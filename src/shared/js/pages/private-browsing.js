@@ -1,4 +1,5 @@
 import browser from 'Background/browser-api'
+import { getMessage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
 import Settings from 'Background/settings'
 
@@ -8,7 +9,7 @@ export const mountPrivateBrowsing = async (
   if (!browser.isFirefox) {
     return
   }
-  const message = (key) => browser.i18n.getMessage(key)
+  const message = (key) => getMessage(key)
   const status = document.createElement('p')
   const parent = warning || button
   let busy = false

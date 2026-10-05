@@ -1,4 +1,5 @@
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
 
@@ -6,8 +7,19 @@ import { mountPrivateBrowsing } from './private-browsing'
 import { mountRegistryStatus } from './registry-status'
 
 (async () => {
+  const uiLanguage = await initializeLanguage()
+
+  document.documentElement.lang = getUILanguage()
   // For debugging purposes.
   window.server = server
+
+  const languageSelect = document.getElementById('uiLanguage')
+
+  languageSelect.value = uiLanguage
+  languageSelect.addEventListener('change', async () => {
+    await browser.storage.local.set({ uiLanguage: languageSelect.value })
+    window.location.reload()
+  })
 
   const proxyingEnabled = await ProxyManager.isEnabled()
   const version = document.getElementById('version')
@@ -72,7 +84,7 @@ import { mountRegistryStatus } from './registry-status'
     if (proxyingEnabled) {
       proxyStatusMessage = 'optionsProxyStatusTurnedOn'
     }
-    proxyStatus.innerText = browser.i18n.getMessage(proxyStatusMessage)
+    proxyStatus.innerText = getMessage(proxyStatusMessage)
     proxyStatus.hidden = false
   }
 
@@ -81,14 +93,14 @@ import { mountRegistryStatus } from './registry-status'
       warning: privateBrowsingPermissionsRequiredMessage,
       button: grantPrivateBrowsingPermissionsButton,
       onSuccess: () => {
-        proxyStatus.innerText = browser.i18n.getMessage('optionsProxyStatusTurnedOn')
+        proxyStatus.innerText = getMessage('optionsProxyStatusTurnedOn')
       },
     })
 
     if (howToGrantIncognitoAccess) {
       howToGrantIncognitoAccess.addEventListener('click', async () => {
         await browser.tabs.create({
-          url: browser.i18n.getMessage('howToGrantIncognitoAccessLink'),
+          url: getMessage('howToGrantIncognitoAccessLink'),
         })
       })
     }
@@ -113,6 +125,6 @@ import { mountRegistryStatus } from './registry-status'
   const { version: currentVersion } = browser.runtime.getManifest()
 
   if (version) {
-    version.textContent = await browser.i18n.getMessage('optionsVersion', currentVersion)
+    version.textContent = await getMessage('optionsVersion', currentVersion)
   }
 })()

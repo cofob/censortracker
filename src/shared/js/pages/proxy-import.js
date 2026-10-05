@@ -1,5 +1,5 @@
 import { callBackground } from 'Background/background-rpc'
-import browser from 'Background/browser-api'
+import { getMessage } from 'Background/i18n'
 import { MAX_IMPORT_BYTES } from 'Background/proxy-import'
 
 export const mountProxyImport = async (refreshProxies) => {
@@ -11,7 +11,7 @@ export const mountProxyImport = async (refreshProxies) => {
   const enabled = document.getElementById('proxySubscriptionsEnabled')
   const sources = document.getElementById('proxySubscriptions')
   const status = document.getElementById('proxyImportStatus')
-  const message = (key, values) => browser.i18n.getMessage(key, values)
+  const message = (key, values) => getMessage(key, values)
   const render = async () => {
     const state = await callBackground('subscriptions', { operation: 'list' })
 

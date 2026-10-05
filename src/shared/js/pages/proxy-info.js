@@ -1,12 +1,13 @@
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage } from 'Background/i18n'
 
 export const mountProxyInfo = async (url) => {
   const summary = document.getElementById('proxyRouteSummary')
   const exit = document.getElementById('proxyRouteExit')
   const details = document.getElementById('proxyingDetailsText')
-  const message = (key, values) => browser.i18n.getMessage(key, values)
-  const names = new Intl.DisplayNames([browser.i18n.getUILanguage()], {
+  const message = (key, values) => getMessage(key, values)
+  const names = new Intl.DisplayNames([getUILanguage()], {
     type: 'region',
   })
   let pending = 0
@@ -45,7 +46,7 @@ export const mountProxyInfo = async (url) => {
         line(message('popupRouteFallbacks', String(info.fallbackCount)))
         if (info.check) {
           line(message('popupRouteCheckedAt',
-            new Date(info.check.checkedAt).toLocaleString()))
+            new Date(info.check.checkedAt).toLocaleString(getUILanguage())))
           line(message(`proxyStatus_${info.check.status}`))
           if (info.check.exitIP) {
             const code = info.check.exitCountry
@@ -60,7 +61,10 @@ export const mountProxyInfo = async (url) => {
         }
       }
       if (info.domainCount !== undefined) {
-        line(`${message('popupYourRegion')}: ${info.region || message('popupAutoMessage')}`)
+        const region = info.regionCode ? names.of(info.regionCode)
+          : info.region || message('popupAutoMessage')
+
+        line(`${message('popupYourRegion')}: ${region}`)
         line(`${message('popupTotalBlocked')}: ${info.domainCount}`)
       }
       line(message('popupRouteHelp'))
@@ -87,6 +91,7 @@ export const mountProxyInfo = async (url) => {
       'selectedProxyIds', 'proxyServerURI', 'proxyChecks', 'proxyFailures',
       'siteCountryRules', 'ignoredHosts', 'domains', 'useRegistry',
       'customProxiedDomains', 'localProxyURI', 'currentRegionName',
+      'currentRegionCode', 'registryRegionCode',
       'activeProxyConfigName', 'registrySource', 'externalRegistry', 'antizapret']
       .some((key) => changes[key])) {
       schedule()

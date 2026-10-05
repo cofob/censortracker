@@ -1,5 +1,6 @@
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage } from 'Background/i18n'
 import { parseProxyAddress } from 'Background/proxy-address'
 import { hasProxyAuth, proxyAuthSupported } from 'Background/proxy-record'
 
@@ -28,10 +29,10 @@ export const mountProxyList = async () => {
   const filters = document.getElementById('proxyFilters')
   const removeFiltered = document.getElementById('proxyRemoveFiltered')
   const count = document.getElementById('proxyFilteredCount')
-  const countryNames = new Intl.DisplayNames([browser.i18n.getUILanguage()], {
+  const countryNames = new Intl.DisplayNames([getUILanguage()], {
     type: 'region',
   })
-  const message = (key) => browser.i18n.getMessage(key)
+  const message = (key) => getMessage(key)
   let state
   let checks = {}
   let editingId
@@ -96,7 +97,7 @@ export const mountProxyList = async () => {
       input.value = value
     }
     visible = filterProxies(catalog, checks, viewOptions())
-    count.textContent = browser.i18n.getMessage('proxyFilteredCount',
+    count.textContent = getMessage('proxyFilteredCount',
       [String(visible.length), String(catalog.length)])
     page = Math.max(0, Math.min(page, Math.floor((visible.length - 1) / 100)))
     rows.replaceChildren()
@@ -134,7 +135,8 @@ export const mountProxyList = async () => {
         cells[3].textContent += ` · ${check.latency} ms`
       }
       if (check && proxy.id !== 'builtin') {
-        cells[3].title = new Date(check.checkedAt).toLocaleString()
+        cells[3].title = new Date(check.checkedAt)
+          .toLocaleString(getUILanguage())
         if (check.status === 'ok') {
           const location = document.createElement('div')
 
@@ -230,7 +232,7 @@ export const mountProxyList = async () => {
 
     // Bulk deletion needs explicit confirmation, including off-page records.
     // eslint-disable-next-line no-alert
-    if (ids.length > 0 && window.confirm(browser.i18n.getMessage(
+    if (ids.length > 0 && window.confirm(getMessage(
       'proxyRemoveConfirm', String(ids.length),
     ))) {
       run({ operation: 'remove', ids })

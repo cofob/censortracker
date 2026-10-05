@@ -7,6 +7,7 @@ import { settingsFromFork } from './settings-fork'
 import { validateSiteRules } from './site-rules'
 
 export const settingsDefaults = {
+  uiLanguage: 'auto',
   enableExtension: false,
   useProxy: true,
   proxyAll: false,
@@ -77,6 +78,8 @@ export const validateSettings = (input) => {
       }
       result[key] = Array.from(new Set(names))
       continue
+    } else if (key === 'uiLanguage') {
+      valid = ['auto', 'en', 'ru', 'uk'].includes(value)
     } else if (key === 'currentRegionCode') {
       valid = typeof value === 'string' && /^(?:[A-Z]{2})?$/.test(value)
     } else if (key === 'currentRegionName') {

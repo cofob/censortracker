@@ -1,6 +1,7 @@
 import './page-errors'
 
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
 import Registry from 'Background/registry'
 import * as server from 'Background/server'
@@ -9,6 +10,8 @@ import { mountRegistrySource } from './registry-source'
 import { mountRegistryStatus } from './registry-status'
 
 (async () => {
+  await initializeLanguage()
+  document.documentElement.lang = getUILanguage()
   const select = document.querySelector('.select')
   const options = document.querySelectorAll('.select-option')
   const selectRegion = document.querySelector('#selectRegion')
@@ -18,13 +21,17 @@ import { mountRegistryStatus } from './registry-status'
   browser.storage.local.get({
     useRegistry: false,
     currentRegionName: '',
-  }).then(({ useRegistry, currentRegionName }) => {
+    currentRegionCode: '',
+    registryRegionCode: '',
+  }).then(({
+    useRegistry, currentRegionName, currentRegionCode, registryRegionCode,
+  }) => {
     if (useRegistry) {
       selectRegion.classList.remove('hidden')
     }
     useRegistryCheckbox.checked = useRegistry
     if (currentRegionName) {
-      currentOption.textContent = currentRegionName
+      currentOption.textContent = getMessage(`country${currentRegionCode || registryRegionCode}`) || currentRegionName
     }
   })
 

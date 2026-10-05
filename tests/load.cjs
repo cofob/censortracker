@@ -20,6 +20,7 @@ module.exports = function loadModule(entry, mocks = {}, globals = {}) {
     vm.runInNewContext(source, {
       module, exports: module.exports,
       require: specifier => {
+        if (specifier.endsWith('.json')) return require(path.resolve(path.dirname(file), specifier))
         if (specifier.startsWith('Background/')) {
           return load(path.join(root, 'background', specifier.slice(11) + '.js'))
         }

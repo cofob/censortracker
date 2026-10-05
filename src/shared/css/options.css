@@ -1116,6 +1116,10 @@ kbd {
   font-family: inherit;
 }
 
+.options-body #uiLanguage {
+  display: block;
+}
+
 .select-toggle::after {
   content: '';
   width: 12px;

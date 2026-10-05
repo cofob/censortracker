@@ -1,5 +1,6 @@
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
+import { getMessage, getUILanguage } from 'Background/i18n'
 
 export const mountSiteRules = async () => {
   const root = document.getElementById('siteRuleOptions')
@@ -8,7 +9,7 @@ export const mountSiteRules = async () => {
   const countries = document.getElementById('siteRuleCountries')
   const rows = document.getElementById('siteRuleRows')
   const errorMessage = document.getElementById('siteRuleError')
-  const names = new Intl.DisplayNames([browser.i18n.getUILanguage()], {
+  const names = new Intl.DisplayNames([getUILanguage()], {
     type: 'region',
   })
   let rules = (await browser.storage.local.get({ siteCountryRules: {} }))
@@ -25,11 +26,11 @@ export const mountSiteRules = async () => {
 
       label.textContent = `${hostname}: ${codes.length > 0
         ? codes.map((code) => `${names.of(code)} (${code})`).join(', ')
-        : browser.i18n.getMessage('siteRuleUnrestricted')} `
+        : getMessage('siteRuleUnrestricted')} `
       edit.type = 'button'
-      edit.textContent = browser.i18n.getMessage('proxyEdit')
+      edit.textContent = getMessage('proxyEdit')
       remove.type = 'button'
-      remove.textContent = browser.i18n.getMessage('proxyDelete')
+      remove.textContent = getMessage('proxyDelete')
       edit.addEventListener('click', () => {
         host.value = hostname
         countries.value = codes.join(', ')

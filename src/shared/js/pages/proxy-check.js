@@ -1,5 +1,6 @@
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
+import { getMessage } from 'Background/i18n'
 
 export const mountProxyCheck = async (refreshProxies) => {
   const all = document.getElementById('proxyCheckAll')
@@ -8,7 +9,7 @@ export const mountProxyCheck = async (refreshProxies) => {
   const status = document.getElementById('proxyCheckStatus')
   const errorMessage = document.getElementById('proxyCheckError')
   const recovery = document.getElementById('proxyRecoveryEnabled')
-  const message = (key, values) => browser.i18n.getMessage(key, values)
+  const message = (key, values) => getMessage(key, values)
   let timer
   const syncRecovery = async () => {
     recovery.checked = (await browser.storage.local.get({

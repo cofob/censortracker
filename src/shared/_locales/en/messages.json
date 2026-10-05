@@ -1,4 +1,6 @@
 {
+  "uiLanguageTitle": {"message": "Language"},
+  "uiLanguageAuto": {"message": "Browser language"},
   "proxyAdd": { "message": "Add a proxy" },
   "proxyEditTitle": { "message": "Edit proxy" },
   "proxyNameOptional": { "message": "Name (optional)" },

@@ -1,4 +1,5 @@
 import browser from 'Background/browser-api'
+import { getMessage } from 'Background/i18n'
 import Registry from 'Background/registry'
 
 import { showPageError } from './page-errors'
@@ -7,10 +8,10 @@ export const mountRegistryStatus = async (warning) => {
   const summary = document.getElementById('builtinRegistryStatus')
   const refresh = async () => {
     const status = await Registry.getStatus()
-    let text = browser.i18n.getMessage(`registryStatus_${status.state}`)
+    let text = getMessage(`registryStatus_${status.state}`)
 
     if (status.skipped > 0) {
-      text += ` ${browser.i18n.getMessage('registrySkipped', String(status.skipped))}`
+      text += ` ${getMessage('registrySkipped', String(status.skipped))}`
     }
     if (status.error) {
       text += ` ${status.error}`
@@ -22,11 +23,11 @@ export const mountRegistryStatus = async (warning) => {
 
       warning.classList.toggle('hidden', !empty && status.state !== 'unavailable')
       warning.querySelector('.extension__title').textContent =
-        status.state === 'ready' ? browser.i18n.getMessage('optionsRegistryIsEmptyTitle')
-          : browser.i18n.getMessage(`registryStatus_${status.state}`)
+        status.state === 'ready' ? getMessage('optionsRegistryIsEmptyTitle')
+          : getMessage(`registryStatus_${status.state}`)
       warning.querySelector('.extension__text').textContent =
         status.error || (['ready', 'empty'].includes(status.state)
-          ? browser.i18n.getMessage('optionsRegistryIsEmptyDesc') : text)
+          ? getMessage('optionsRegistryIsEmptyDesc') : text)
     }
   }
 

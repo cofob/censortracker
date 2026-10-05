@@ -43,6 +43,7 @@ test('settings API keeps runtime state and exports a versioned user-only backup'
   storage.ignoredHosts = ['old.example']
   storage.localProxyURI = '127.0.0.1:10808'
   await settings.importSettings({ useOwnProxy: false, useLocalProxy: false })
+  assert.equal(storage.uiLanguage, 'auto')
   assert.equal(storage.customProxyServerURI, '')
   assert.deepEqual(storage.ignoredHosts, [])
   assert.equal(storage.localProxyURI, null)
@@ -81,8 +82,24 @@ test('export migrates a legacy selection before it applies defaults', async () =
 test('invalid known settings reject the full import before any write', () => {
   for (const input of [null, [], { formatVersion: 2 }, { formatVersion: 1, settings: [] },
     { useProxy: 'false' }, { proxyAll: 'true' }, { ignoredHosts: 'example.com' }, { customProxiedDomains: [null] },
+    { uiLanguage: 'fr' }, { uiLanguage: null }, { uiLanguage: 1 },
     { currentRegionCode: 'Russia' }, { customProxyProtocol: 'DIRECT' },
     { customProxyServerURI: "host:1'; alert(1);'" }]) {
     assert.throws(() => validateSettings(input))
+  }
+})
+
+test('language choices survive settings export and import', async () => {
+  for (const uiLanguage of ['auto', 'en', 'ru', 'uk']) {
+    const storage = { uiLanguage }
+    const settings = load('background/settings', {
+      'browser-api': { default: { storage: { local: {
+        get: async () => storage, set: async values => Object.assign(storage, plain(values)),
+      } } } },
+    }).default
+    const backup = await settings.exportSettings()
+    storage.uiLanguage = 'auto'
+    await settings.importSettingsInBackground(backup)
+    assert.equal(storage.uiLanguage, uiLanguage)
   }
 })
