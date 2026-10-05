@@ -349,6 +349,9 @@
   "closeTab": {
     "message": "Close tab"
   },
+  "communityChatLink": {
+    "message": "Have questions for the community? Ask in the community chat"
+  },
   "confirmPopupResetSettings": {
     "message": "Yes, I'm sure!"
   },
@@ -776,9 +779,6 @@
   "saveCustomProxyButton": {
     "message": "Save"
   },
-  "shareFeedback": {
-    "message": "Got issues or suggestions? Let us know!"
-  },
   "showDebugInfoDesc": {
     "message": "Show debug information of the extension."
   },
@@ -811,6 +811,12 @@
   },
   "siteActionTitle": {
     "message": "How should a proxy be used to for this website?"
+  },
+  "supportBotLink": {
+    "message": "Support bot in Telegram: @censortracker_support_bot"
+  },
+  "supportEmailLink": {
+    "message": "Or email us at: support@censortracker.org"
   },
   "thankYou": {
     "message": "Thank you!"

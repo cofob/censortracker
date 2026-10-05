@@ -349,6 +349,9 @@
   "closeTab": {
     "message": "Закрыть вкладку"
   },
+  "communityChatLink": {
+    "message": "Есть вопросы к сообществу? Напишите в community-чат"
+  },
   "confirmPopupResetSettings": {
     "message": "Да, сбросить"
   },
@@ -776,9 +779,6 @@
   "saveCustomProxyButton": {
     "message": "Сохранить"
   },
-  "shareFeedback": {
-    "message": "Есть вопросы или предложения? Дайте нам знать!"
-  },
   "showDebugInfoDesc": {
     "message": "Показать отладочную информацию расширения."
   },
@@ -811,6 +811,12 @@
   },
   "siteActionTitle": {
     "message": "Когда следует использовать прокси для открытия этого сайта?"
+  },
+  "supportBotLink": {
+    "message": "Бот поддержки в Telegram: @censortracker_support_bot"
+  },
+  "supportEmailLink": {
+    "message": "Или напишите нам на почту: support@censortracker.org"
   },
   "thankYou": {
     "message": "Спасибо!"

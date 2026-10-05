@@ -349,6 +349,9 @@
   "closeTab": {
     "message": "Закрити вкладку"
   },
+  "communityChatLink": {
+    "message": "Маєте запитання до спільноти? Напишіть у community-чат"
+  },
   "confirmPopupResetSettings": {
     "message": "Так, скинути"
   },
@@ -776,9 +779,6 @@
   "saveCustomProxyButton": {
     "message": "Зберегти"
   },
-  "shareFeedback": {
-    "message": "Маєте запитання чи пропозиції? Дайте нам знати!"
-  },
   "showDebugInfoDesc": {
     "message": "Показати налагоджувальну інформацію розширення."
   },
@@ -811,6 +811,12 @@
   },
   "siteActionTitle": {
     "message": "Коли слід використовувати проксі для відкриття цього сайту?"
+  },
+  "supportBotLink": {
+    "message": "Бот підтримки в Telegram: @censortracker_support_bot"
+  },
+  "supportEmailLink": {
+    "message": "Або напишіть нам на пошту: support@censortracker.org"
   },
   "thankYou": {
     "message": "Дякую!"
