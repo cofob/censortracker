@@ -1,4 +1,6 @@
 {
+  "animationDescription": {"message": "Bad Apple animation made from Censor Tracker logos"},
+  "proxyAll": {"message": "Proxy everything"},
   "uiLanguageTitle": {"message": "Language"},
   "uiLanguageAuto": {"message": "Browser language"},
   "proxyAdd": { "message": "Add a proxy" },

@@ -121,26 +121,26 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 60000 }, async
       const data = JSON.parse(event.data)
       if (data.id) { pending.get(data.id)(data); pending.delete(data.id) }
     }
-    const command = async (method, params) => {
+    const command = async (method, params, sessionId) => {
       const result = await within(new Promise(resolve => {
         const id = ++next
         pending.set(id, resolve)
-        socket.send(JSON.stringify({ id, method, params }))
+        socket.send(JSON.stringify({ id, method, params, sessionId }))
       }))
       assert.equal(result.error, undefined, JSON.stringify(result))
       return result.result
     }
-    const evaluate = async expression => {
-      const result = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+    const evaluate = async (expression, sessionId) => {
+      const result = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId)
       assert.equal(result.exceptionDetails, undefined, JSON.stringify(result))
       return result.result.value
     }
-    const until = async expression => {
+    const until = async (expression, sessionId) => {
       for (let attempt = 0; attempt < 50; attempt++) {
-        if (await evaluate(expression)) return
+        if (await evaluate(expression, sessionId)) return
         await new Promise(resolve => setTimeout(resolve, 50))
       }
-      const editor = await evaluate("document.querySelector('.cm-editor')?.textContent")
+      const editor = await evaluate("document.querySelector('.cm-editor')?.textContent", sessionId)
       assert.fail(`Page did not update: ${expression}${editor ? `\nEditor: ${editor}` : ''}`)
     }
     const checkSettingsLayout = async (name, expanded) => {
@@ -369,6 +369,94 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 60000 }, async
     assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
     assert.equal(await evaluate("document.querySelector('#pageError') === null"), true)
     assert.equal(await evaluate("document.querySelector('#proxyAll') === null"), true)
+    await evaluate(`for (const key of ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
+      'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'])
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))`)
+    const animationURL = await evaluate("chrome.runtime.getURL('animation.html')")
+    const animationTab = (await command('Target.getTargets', {})).targetInfos
+      .find(target => target.url === animationURL)
+    assert.ok(animationTab, 'The sequence must open the animation in a tab')
+    const { sessionId: animationSession } = await command('Target.attachToTarget', { targetId: animationTab.targetId, flatten: true })
+    await command('Page.enable', {}, animationSession)
+    await command('Page.addScriptToEvaluateOnNewDocument', { source: `
+      window.animationClock = 0;
+      performance.now = () => window.animationClock;
+      window.requestAnimationFrame = callback => setTimeout(() => callback(window.animationClock), 16);
+      window.cancelAnimationFrame = clearTimeout;
+      const fill = CanvasRenderingContext2D.prototype.fillRect;
+      CanvasRenderingContext2D.prototype.fillRect = function (...args) {
+        window.animationRenderedTime = window.animationClock;
+        return fill.apply(this, args);
+      };` }, animationSession)
+    await command('Page.reload', {}, animationSession)
+    await until('window.animationRenderedTime === 0', animationSession)
+    assert.equal(await evaluate("document.querySelector('button, input, audio, video') === null", animationSession), true)
+    let firstSample
+    for (const seconds of [2, 10, 29.9, 32, 62]) {
+      await evaluate(`window.animationClock = ${seconds * 1000}`, animationSession)
+      await until(`window.animationRenderedTime === ${seconds * 1000}`, animationSession)
+      assert.equal(await evaluate(`(() => { const canvas = document.querySelector('canvas');
+        const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let index = 0; index < pixels.length; index += 4)
+          if (pixels[index] > 120 && pixels[index + 2] < 80) return true;
+        return false })()`, animationSession), true, 'Dark areas must contain orange logos')
+      const sample = await evaluate("document.querySelector('canvas').toDataURL()", animationSession)
+      if (seconds === 2) firstSample = sample
+      if (seconds === 32 || seconds === 62) assert.equal(sample, firstSample, 'The 30-second clip must keep looping')
+      if (global.process.env.CT_ANIMATION_SCREENSHOTS) {
+        const shot = await command('Page.captureScreenshot', {}, animationSession)
+        await fs.writeFile(path.join(global.process.env.CT_ANIMATION_SCREENSHOTS, `bad-apple-${seconds}.png`), Buffer.from(shot.data, 'base64'))
+      }
+    }
+    await evaluate(`(() => {
+      const canvas = document.querySelector('canvas');
+      const context = canvas.getContext('2d');
+      const draw = context.drawImage;
+      const fill = context.fillRect;
+      context.fillRect = function (...args) {
+        window.firstLogoX = null;
+        return fill.apply(this, args);
+      };
+      const size = canvas.width / 80;
+      const gap = (size - Math.round(size * 0.9)) / 2;
+      window.logoSlid = false;
+      context.drawImage = function (sprite, x, y) {
+        if (window.firstLogoX === null) window.firstLogoX = x;
+        const column = (x - gap) / size, row = (y - gap) / size;
+        if (Math.abs(column - Math.round(column)) > 0.01 || Math.abs(row - Math.round(row)) > 0.01)
+          window.logoSlid = true;
+        return draw.call(this, sprite, x, y);
+      };
+      window.animationClock = 62033;
+    })()`, animationSession)
+    await until('window.logoSlid === true', animationSession)
+    await evaluate('window.animationClock = 90000', animationSession)
+    await until('window.animationRenderedTime === 90000', animationSession)
+    const normalLogoX = await evaluate('window.firstLogoX', animationSession)
+    await evaluate(`(() => {
+      const canvas = document.querySelector('canvas'), bounds = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(new PointerEvent('pointermove', {
+        clientX: bounds.left + bounds.width / 160, clientY: bounds.top + bounds.height / 120
+      }));
+    })()`, animationSession)
+    await evaluate(`(async () => {
+      for (let frame = 0; frame < 20; frame++) {
+        window.animationClock += 16;
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    })()`, animationSession)
+    assert.ok(await evaluate('window.firstLogoX', animationSession) > normalLogoX + 5)
+    await evaluate("document.querySelector('canvas').dispatchEvent(new PointerEvent('pointerleave')); window.animationClock += 16", animationSession)
+    await until('window.animationRenderedTime === 90336', animationSession)
+    const hoverLogoX = await evaluate('window.firstLogoX', animationSession)
+    assert.ok(hoverLogoX > normalLogoX + 5, 'Hover displacement must remain after the pointer leaves')
+    await evaluate("document.querySelector('canvas').dispatchEvent(new MouseEvent('click')); window.animationClock += 16", animationSession)
+    await until('window.animationRenderedTime === 90352', animationSession)
+    assert.ok(await evaluate('window.firstLogoX', animationSession) > hoverLogoX, 'A click must add outward velocity')
+    await command('Emulation.setDeviceMetricsOverride', { width: 360, height: 740, deviceScaleFactor: 1, mobile: false }, animationSession)
+    await until("document.querySelector('canvas').getBoundingClientRect().width <= 360", animationSession)
+    assert.equal(await evaluate("document.documentElement.scrollWidth <= 360", animationSession), true)
+    await command('Target.closeTarget', { targetId: animationTab.targetId })
     assert.equal(await evaluate("document.querySelector('#proxyImportOptions').open"), false)
     assert.equal(await evaluate("document.querySelector('#proxyAntizapretImport').textContent"), 'Import or refresh Antizapret')
     assert.equal(await evaluate("document.querySelector('#proxyCheckOptions').open"), false)
@@ -474,10 +562,17 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 60000 }, async
     await evaluate(`chrome.storage.local.set(${JSON.stringify(beforeEditor)})`)
     await evaluate("location.href = chrome.runtime.getURL('advanced-options.html')")
     await until("document.querySelector('#siteRuleSave')?.disabled === false")
-    assert.equal(await evaluate("document.querySelector('#proxyAll') === null"), true)
+    assert.equal(await evaluate("document.querySelector('#extendedSettings').hidden"), true)
+    await evaluate(`for (const key of ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
+      'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'])
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))`)
+    await until("document.querySelector('#extendedSettings').hidden === false")
+    assert.equal((await command('Target.getTargets', {})).targetInfos
+      .some(target => target.url === animationURL), false)
     assert.equal(await evaluate("chrome.storage.local.get('useProxy').then(data => data.useProxy)"), false)
     await evaluate("location.reload()")
     await until("document.querySelector('#siteRuleSave')?.disabled === false")
+    assert.equal(await evaluate("document.querySelector('#extendedSettings').hidden"), true)
     assert.equal(await evaluate("document.querySelector('#siteRuleOptions').open"), false)
     await checkSettingsLayout('advanced', ['siteRuleOptions'])
     await command('Page.bringToFront', {})

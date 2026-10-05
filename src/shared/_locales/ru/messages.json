@@ -1,4 +1,6 @@
 {
+  "animationDescription": {"message": "Анимация Bad Apple из логотипов Censor Tracker"},
+  "proxyAll": {"message": "Проксировать всё"},
   "uiLanguageTitle": {"message": "Язык"},
   "uiLanguageAuto": {"message": "Язык браузера"},
   "proxyAdd": { "message": "Добавить прокси" },
