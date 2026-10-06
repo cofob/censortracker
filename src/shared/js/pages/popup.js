@@ -158,7 +158,7 @@ import { mountRelatedDomains } from './related-domains'
         popupLocalProxyName.hidden = false
       }
 
-      ProxyManager.alive().then((alive) => {
+      ProxyManager.alive().then(async (alive) => {
         if (useLocalProxy) {
           return
         }
@@ -170,7 +170,8 @@ import { mountRelatedDomains } from './related-domains'
           } else {
             popupProxyStatusOk.hidden = true
             popupProxyStatusError.hidden = false
-            proxyConnectionIssuesButton.hidden = false
+            proxyConnectionIssuesButton.hidden = browser.isFirefox &&
+              !await browser.extension.isAllowedIncognitoAccess()
             proxyConnectionIssuesButton.addEventListener('click', async () => {
               await browser.tabs.create({
                 url: 'https://t.me/censortracker_feedback',
