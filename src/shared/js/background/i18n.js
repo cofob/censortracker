@@ -17,7 +17,9 @@ export const initializeLanguage = () => {
       browser.storage.onChanged.addListener((changes, area) => {
         if (area === 'local' && changes.uiLanguage) {
           revision++
-          language = Object.hasOwn(catalogs, changes.uiLanguage.newValue)
+          language = Object.prototype.hasOwnProperty.call(
+            catalogs, changes.uiLanguage.newValue,
+          )
             ? changes.uiLanguage.newValue : 'auto'
         }
       })
@@ -25,7 +27,7 @@ export const initializeLanguage = () => {
       const { uiLanguage } = await browser.storage.local.get({ uiLanguage: 'auto' })
 
       if (revision === initialRevision) {
-        language = Object.hasOwn(catalogs, uiLanguage) ? uiLanguage : 'auto'
+        language = Object.prototype.hasOwnProperty.call(catalogs, uiLanguage) ? uiLanguage : 'auto'
       }
       return language
     })().catch(() => 'auto')
