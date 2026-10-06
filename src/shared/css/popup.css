@@ -159,6 +159,13 @@ a {
     margin-bottom: 50px;
 }
 
+#grantPrivateBrowsingPermissionsButton {
+    box-sizing: border-box;
+    width: 100%;
+    border: 0;
+    font-family: inherit;
+}
+
 .default-btn:hover {
     cursor: pointer;
     background-color: #625c55;
