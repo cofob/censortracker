@@ -26,8 +26,8 @@ export const stepPhysics = (state, elapsed, targets) => {
         const velocity = position + 2
 
         const target = targets?.[offset / 2 + axis] ?? 0
-        const acceleration = 144 * (target - state[position]) -
-          18 * state[velocity]
+        const acceleration = 64 * (target - state[position]) -
+          12 * state[velocity]
 
         state[velocity] += acceleration * delta
         state[position] += state[velocity] * delta
