@@ -12,6 +12,8 @@ import Settings from './settings'
 import Task from './task'
 import * as utilities from './utilities'
 
+let lastNavigationPing = -Infinity
+
 export const showDisseminatorWarning = async (url) => {
   const hostname = utilities.extractDomainFromUrl(url)
   const {
@@ -75,7 +77,12 @@ export const handleOnAlarm = async ({ name }) => {
 
 export const handleBeforeRequest = async (_details) => {
   if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
-    await ProxyManager.ping()
+    const now = performance.now()
+
+    if (now - lastNavigationPing >= 30000) {
+      lastNavigationPing = now
+      await ProxyManager.ping()
+    }
     await ProxyManager.requestIncognitoAccess()
   }
 }

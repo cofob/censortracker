@@ -8,11 +8,16 @@ const fixture = (request = async url => url.endsWith('.pac')
   : 'blocked.example\ncdn.example.co.uk') => {
   const storage = { proxies: [], selectedProxyIds: ['builtin'], useProxy: false }
   const calls = []
+  const listeners = []
   const mocks = {
     'browser-api': { default: { storage: { local: {
       get: async defaults => ({ ...defaults, ...storage }),
-      set: async values => Object.assign(storage, plain(values)),
-    } } } },
+      set: async values => {
+        Object.assign(storage, plain(values))
+        const changes = Object.fromEntries(Object.keys(values).map(key => [key, {}]))
+        for (const listener of listeners) listener(changes, 'local')
+      },
+    }, onChanged: { addListener: listener => listeners.push(listener) } } } },
     proxy: { default: { setProxyInBackground: async () => false } },
     'proxy-route': { withProxyLock: work => work(), proxyAllowed: async () => false, getProbeRoutes: () => [] },
     request: { requestText: async (url, options) => { calls.push({ url, options }); return request(url) } },
@@ -79,16 +84,19 @@ test('provider routes enforce domain limits in PAC and runtime, including proxy-
   await state.importAntizapret()
   state.storage.selectedProxyIds = [state.storage.proxies[0].id]
   const { proxy, ...mocks } = state.mocks
-  const manager = load('background/proxy', { ...mocks, registry: { default: { getDomains: async () => ['manual.example'] } } }).default
+  const manager = load('background/proxy', { ...mocks, registry: { default: { getRoutingDomains: async () => ['manual.example'] } } }).default
   const { getPacScript } = load('background/pac')
   const { createRouter, routingConfig } = load('background/routing')
   const { findHostMatch } = load('background/host-match')
   const { isPrivateHost } = load('background/private-host')
   assert.deepEqual(plain(await manager.getProxyingRules()), {}, 'Provider proxies cannot serve arbitrary control requests')
+  let cachedDomains
   for (const proxyAll of [false, true]) {
     state.storage.proxyAll = proxyAll
     state.storage.ignoredHosts = ['ignored.blocked.example']
     const options = await manager.getRoutingOptions()
+    if (cachedDomains) assert.equal(options.providerDomains, cachedDomains)
+    cachedDomains = options.providerDomains
     const context = {}
     vm.runInNewContext(getPacScript(options), context)
     const router = createRouter(routingConfig(options), findHostMatch, isPrivateHost)
@@ -101,7 +109,7 @@ test('provider routes enforce domain limits in PAC and runtime, including proxy-
     assert.equal(router('ignored.blocked.example').type, 'direct')
     assert.equal(router('10.0.0.1').type, 'direct')
   }
-  state.storage.antizapret.proxyKeys = []
+  await mocks['browser-api'].default.storage.local.set({ antizapret: { ...state.storage.antizapret, proxyKeys: [] } })
   const context = {}
   vm.runInNewContext(getPacScript(await manager.getRoutingOptions()), context)
   assert.equal(context.FindProxyForURL('', 'blocked.example'), 'PROXY 127.0.0.1:0')

@@ -30,7 +30,7 @@ export const describeProxyRoute = async ({ url } = {}) => {
       registryRegionCode: '',
     })
   const check = proxy ? await currentProxyCheck(proxy, proxyChecks) : null
-  const domains = await Registry.getDomains()
+  const domainCount = await Registry.getDomainCount()
 
   if (revision !== getRouteRevision()) {
     return describeProxyRoute({ url })
@@ -55,6 +55,6 @@ export const describeProxyRoute = async ({ url } = {}) => {
     } : null,
     region: currentRegionName,
     regionCode: countryCode(currentRegionCode || registryRegionCode),
-    domainCount: domains.length,
+    domainCount,
   }
 }

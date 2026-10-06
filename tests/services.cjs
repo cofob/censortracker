@@ -113,7 +113,7 @@ for (const firefox of [false, true]) {
       const requests = []
       const state = fixture({ firefox, fastTimeout: true,
         storage: { proxyAll: true, proxyPingURI: 'new-knock.example:8443' },
-        mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+        mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } },
         fetch: async (url, init, { route }) => {
           requests.push({ url, method: init.method,
             knock: route('new-knock.example'), other: route('other.example'),
@@ -142,7 +142,7 @@ for (const firefox of [false, true]) {
 test('a new knock endpoint is direct before the replacement PAC is installed', async () => {
   const requests = []
   const state = fixture({ storage: { proxyAll: true, proxyPingURI: 'new-knock.example:8443' },
-    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+    mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } },
     fetch: async (url, init, { route }) => { requests.push(route(new URL(url).hostname)); return response({}) },
   })
   await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.setProxyInBackground())
@@ -158,7 +158,7 @@ for (const firefox of [false, true]) {
     const state = fixture({ firefox, control: 'controllable_by_this_extension',
       value: firefox ? { proxyType: 'system' } : { mode: 'system' },
       storage: { proxyAll: true, proxyPingURI: 'knock.example:8443' },
-      mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+      mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } },
       fetch: async (url, init, { route }) => { requests.push(route(new URL(url).hostname)); return response({}) },
     })
     await state.load('proxy-route').withProxyLock(() => state.load('proxy').default.setProxyInBackground())
@@ -170,7 +170,7 @@ for (const firefox of [false, true]) {
 
 test('successful Firefox proxy setup still reads the actual private permission', async () => {
   const state = fixture({ firefox: true, privateAllowed: false,
-    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } } })
+    mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } } })
   assert.equal(await state.load('proxy').default.setProxyInBackground({ ping: false }), true)
   assert.equal(state.storage.privateBrowsingPermissionsRequired, true)
 })
@@ -178,7 +178,7 @@ test('successful Firefox proxy setup still reads the actual private permission',
 test('disabling proxy use while the knock route is installed prevents the request', async () => {
   let requests = 0
   const state = fixture({ storage: { proxyPingURI: 'knock.example:8443' },
-    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+    mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } },
     fetch: async () => { requests++; return response({}) },
   })
   const originalSet = state.browser.proxy.settings.set
@@ -197,7 +197,7 @@ test('a periodic knock waits for the active service request and preserves forced
   const pending = new Promise(resolve => { release = resolve })
   const requests = []
   const state = fixture({ storage: { proxyPingURI: 'knock.example:8443', selectedProxyIds: [] },
-    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } },
+    mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } },
       'background-rpc': { callBackground: (action, force) => {
         assert.equal(action, 'ping')
         assert.equal(force, true)
@@ -224,7 +224,7 @@ test('a periodic knock waits for the active service request and preserves forced
 test('a service proxy retry knocks directly without taking the route lock twice', async () => {
   const requests = []
   const state = fixture({ storage: { proxyAll: true, proxyPingURI: 'knock.example:8443' },
-    mocks: { proxy: null, registry: { default: { getDomains: async () => [] } } },
+    mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } },
     fetch: async (url, init, { route }) => {
       requests.push([url, route(new URL(url).hostname)])
       if (requests.length === 1) throw new Error('Service is blocked')
@@ -654,7 +654,7 @@ test('database update applies the new registry routes after an ORI failure', asy
   const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
   const handler = source.slice(source.indexOf('updateLocalRegistryBtn.addEventListener'), source.indexOf("document.addEventListener('keydown'"))
   const state = fixture({ storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['old.example'] },
-    mocks: { proxy: null, registry: { default: { getDomains: async () => state.storage.domains } },
+    mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => state.storage.domains } },
       'service-request': { requestService: async url => {
         if (url.includes('disseminators')) throw new Error('HTTP 503')
         return { data: ['new.example'] }
@@ -734,7 +734,7 @@ test('failed startup recovery is retried before the next proxy operation', async
 
 test('normal PAC update cannot re-enable proxy use during a disable action', async () => {
   const state = fixture({ mocks: {
-    proxy: null, registry: { default: { getDomains: async () => ['example.com'] } },
+    proxy: null, registry: { default: { getRoutingDomains: async () => ['example.com'] } },
   } })
   const setting = state.browser.proxy.settings
   const originalSet = setting.set
@@ -782,7 +782,7 @@ test('a routing change during port knock cannot install the old proxy', async ()
   const state = fixture({ storage: {
     customProxyProtocol: 'HTTPS', customProxyServerURI: 'old.example:443',
   }, mocks: {
-    proxy: null, registry: { default: { getDomains: async () => ['example.com'] } },
+    proxy: null, registry: { default: { getRoutingDomains: async () => ['example.com'] } },
   } })
   const proxy = state.load('proxy').default
   let knocks = 0
@@ -801,7 +801,7 @@ test('a routing change during port knock cannot install the old proxy', async ()
 
 test('failed PAC application does not turn the user proxy setting off', async () => {
   const state = fixture({ mocks: {
-    proxy: null, registry: { default: { getDomains: async () => ['example.com'] } },
+    proxy: null, registry: { default: { getRoutingDomains: async () => ['example.com'] } },
   } })
   state.browser.proxy.settings.set = async () => { throw new Error('cannot apply') }
   assert.equal(await state.load('proxy').default.setProxyInBackground(), false)
@@ -811,7 +811,7 @@ test('failed PAC application does not turn the user proxy setting off', async ()
 
 test('an empty proxy pool installs a blocking route without disabling the extension', async () => {
   const state = fixture({ storage: { proxies: [], selectedProxyIds: [] }, mocks: {
-    proxy: null, registry: { default: { getDomains: async () => [] } },
+    proxy: null, registry: { default: { getRoutingDomains: async () => [] } },
   } })
   assert.equal(await state.load('proxy').default.setProxyInBackground(), true)
   assert.equal(state.route('test.onion'), 'PROXY 127.0.0.1:0')
@@ -827,7 +827,7 @@ test('proxy-all reports failed application but preserves a disabled user prefere
     server: {}, settings: { default: {} },
     'proxy-auth': { registerProxyAuth() {} },
     ignore: { default: {} },
-    registry: { default: { getDomains: async () => [] } },
+    registry: { default: { getRoutingDomains: async () => [] } },
     'background-rpc': { registerBackground: value => { actions = value } },
   } })
   state.browser.proxy.settings.set = async () => { throw new Error('cannot apply') }

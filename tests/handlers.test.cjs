@@ -2,7 +2,7 @@ const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const load = require('./load.cjs')
 
-function fixture(values = {}) {
+function fixture(values = {}, globals = {}) {
   const storage = { enableExtension: true, useProxy: true, ...values }
   const events = []
   let queue = Promise.resolve()
@@ -13,6 +13,8 @@ function fixture(values = {}) {
   }
   const proxy = {
     isEnabled: async () => storage.useProxy ?? true,
+    ping: async () => events.push('knock'),
+    requestIncognitoAccess: async () => events.push('permissions'),
     setProxy: async () => events.push('apply'),
     syncLocalProxy: async () => events.push('check local'),
     setProxyInBackground: async () => events.push('apply'),
@@ -38,9 +40,23 @@ function fixture(values = {}) {
     ignore: { default: {} }, registry: { default: {} },
     server: {}, task: { default: { schedule: async () => {} } }, utilities: {},
     'proxy-importer': {}, 'proxy-recovery': {},
-  })
+  }, globals)
   return { storage, events, proxy, browser, handlers, withProxyLock }
 }
+
+test('navigation bursts knock once per 30 seconds and still check permissions', async () => {
+  let now = 0
+  const state = fixture({}, { performance: { now: () => now } })
+  await Promise.all(Array.from({ length: 20 }, () => state.handlers.handleBeforeRequest()))
+  assert.equal(state.events.filter(event => event === 'knock').length, 1)
+  assert.equal(state.events.filter(event => event === 'permissions').length, 20)
+  now = 29999
+  await state.handlers.handleBeforeRequest()
+  assert.equal(state.events.filter(event => event === 'knock').length, 1)
+  now = 30000
+  await state.handlers.handleBeforeRequest()
+  assert.equal(state.events.filter(event => event === 'knock').length, 2)
+})
 
 test('startup checks the local proxy before it applies routing', async () => {
   const state = fixture({ useLocalProxy: true })

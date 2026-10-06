@@ -95,7 +95,7 @@ import { mountRelatedDomains } from './related-domains'
     })
 
   // Highlight settings button when there are nothing to proxy.
-  Registry.isEmpty().then((isEmpty) => {
+  callBackground('registryEmpty').then((isEmpty) => {
     if (isEmpty) {
       highlightOptionsIcon.classList.remove('hidden')
     } else {
@@ -197,7 +197,7 @@ import { mountRelatedDomains } from './related-domains'
               'siteActionNeverDesc',
             )
           } else {
-            Registry.getDomainStatus(currentUrl).then(({ custom }) => {
+            callBackground('domainStatus', currentUrl).then(({ custom }) => {
               if (custom) {
                 document.querySelector('input[value="always"]').checked = true
                 siteActionDescription.textContent = i18nGetMessage(
@@ -270,7 +270,7 @@ import { mountRelatedDomains } from './related-domains'
         footerExtensionIsOn.removeAttribute('hidden')
 
         const { blocked: restrictionsFound, custom } =
-          await Registry.getDomainStatus(currentHostname)
+          await callBackground('domainStatus', currentHostname)
 
         if (restrictionsFound || custom) {
           const restrictionsIcon = document.querySelector('#restrictions img')

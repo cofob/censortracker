@@ -17,7 +17,7 @@ const fixture = async () => {
     'browser-api': { default: { storage: { local: { get: async defaults => { beforeRead(); return { ...defaults, ...storage } } } } } },
     'proxy-route': { proxyAllowed: async () => enabled, getRouteRevision: () => revision },
     proxy: { default: { getRouteForHost: async () => route } },
-    registry: { default: { getDomains: async () => ['protected.example'] } },
+    registry: { default: { getDomainCount: async () => 1 } },
   }, { fetch: () => { throw new Error('Popup must not request the network') } })
   return { ...api, proxy, storage, setEnabled: value => { enabled = value },
     setRoute: value => { route = value; revision++ }, beforeRead: fn => { beforeRead = fn } }
