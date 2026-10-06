@@ -2,7 +2,6 @@ import { callBackground } from 'Background/background-rpc'
 import browser, { getBrowserInfo } from 'Background/browser-api'
 import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
-import Registry from 'Background/registry'
 import * as server from 'Background/server'
 import Settings from 'Background/settings'
 
@@ -181,7 +180,7 @@ import { mountSiteRules } from './site-rules'
     localConfig.proxyLastFetchTs = proxyLastFetchTs
     localConfig.serviceErrors = serviceErrors
     localConfig.geoIPStatus = geoIPStatus
-    localConfig.registryStatus = await Registry.getStatus()
+    localConfig.registryStatus = await callBackground('registryStatus')
     localConfig.serviceRouteError = serviceRouteError
     localConfig.proxySetupError = proxySetupError
     localConfig.badProxies = await ProxyManager.getBadProxies()

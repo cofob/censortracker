@@ -2,6 +2,7 @@ import { getPacScript } from 'Background/pac'
 
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { buildDomainIndex } from './domain-index'
 import { findHostMatch } from './host-match'
 import { getMessage, initializeLanguage } from './i18n'
 import ProxyClient from './localproxy'
@@ -19,6 +20,35 @@ import { createRouter, routingConfig } from './routing'
 import Settings from './settings'
 
 let cachedRouter
+let cachedAntizapret
+
+browser.storage?.onChanged?.addListener((changes, area) => {
+  if (area === 'local' && changes.antizapret) {
+    cachedAntizapret = null
+  }
+})
+
+const getAntizapret = async () => {
+  const pending = cachedAntizapret || (cachedAntizapret =
+    browser.storage.local.get({ antizapret: null }).then(
+      async ({ antizapret }) => antizapret && {
+        proxyKeys: antizapret.proxyKeys,
+        domains: await buildDomainIndex(antizapret.domains,
+          () => cachedAntizapret === pending),
+      },
+    ))
+
+  try {
+    const data = await pending
+
+    return cachedAntizapret === pending ? data : getAntizapret()
+  } catch (error) {
+    if (cachedAntizapret === pending) {
+      cachedAntizapret = null
+    }
+    throw error
+  }
+}
 
 class ProxyManager {
   async getSelectedProxies () {
@@ -48,10 +78,12 @@ class ProxyManager {
       .filter((proxy) => proxy?.host && proxy.port &&
         (!proxy.restricted || proxy.provider) &&
         proxyAuthSupported(proxy, browser.isFirefox))
-    const { proxyFailures, proxyChecks, antizapret } =
+    const { proxyFailures, proxyChecks } =
       await browser.storage.local.get({
-        proxyFailures: {}, proxyChecks: {}, antizapret: null,
+        proxyFailures: {}, proxyChecks: {},
       })
+    const antizapret = selected.some((proxy) => proxy.provider)
+      ? await getAntizapret() : null
 
     return Promise.all(selected.map(async (proxy) => {
       const failure = await currentProxyCheck(proxy, proxyFailures)
@@ -70,17 +102,17 @@ class ProxyManager {
   }
 
   async getRoutingOptions () {
-    const domains = await registry.getDomains()
-    const { ignoredHosts, proxyAll, siteCountryRules, antizapret } =
+    const domains = await registry.getRoutingDomains()
+    const { ignoredHosts, proxyAll, siteCountryRules } =
       await browser.storage.local.get({
         ignoredHosts: [],
         proxyAll: false,
         siteCountryRules: {},
-        antizapret: null,
       })
     const proxies = await this.getSelectedProxies()
-    const providerDomains = proxies.some((proxy) => proxy.provider)
-      ? antizapret?.domains || [] : []
+    const antizapret = proxies.some((proxy) => proxy.provider)
+      ? await getAntizapret() : null
+    const providerDomains = antizapret?.domains || []
 
     return {
       domains,
@@ -148,16 +180,19 @@ class ProxyManager {
   }
 
   async getServiceProxyRoute (hostname) {
-    const { ignoredHosts, siteCountryRules, antizapret } =
+    const { ignoredHosts, siteCountryRules } =
       await browser.storage.local.get({
-        ignoredHosts: [], siteCountryRules: {}, antizapret: null,
+        ignoredHosts: [], siteCountryRules: {},
       })
+    const proxies = await this.getSelectedProxies()
+    const antizapret = proxies.some((proxy) => proxy.provider)
+      ? await getAntizapret() : null
     const options = {
       domains: [hostname],
       ignoredHosts,
       siteCountryRules,
       providerDomains: antizapret?.domains || [],
-      proxies: await this.getSelectedProxies(),
+      proxies,
     }
 
     const resolve = createRouter(

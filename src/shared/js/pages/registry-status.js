@@ -1,13 +1,13 @@
+import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
 import { getMessage } from 'Background/i18n'
-import Registry from 'Background/registry'
 
 import { showPageError } from './page-errors'
 
 export const mountRegistryStatus = async (warning) => {
   const summary = document.getElementById('builtinRegistryStatus')
   const refresh = async () => {
-    const status = await Registry.getStatus()
+    const status = await callBackground('registryStatus')
     let text = getMessage(`registryStatus_${status.state}`)
 
     if (status.skipped > 0) {
@@ -19,7 +19,7 @@ export const mountRegistryStatus = async (warning) => {
     summary.textContent = text
     summary.hidden = status.state === 'ready' && !status.error
     if (warning) {
-      const empty = await Registry.isEmpty()
+      const empty = await callBackground('registryEmpty')
 
       warning.classList.toggle('hidden', !empty && status.state !== 'unavailable')
       warning.querySelector('.extension__title').textContent =

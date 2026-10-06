@@ -1,3 +1,4 @@
+import { createDomainIndex } from './domain-index'
 import { normalizeHostname } from './hostname'
 import { proxyDirective } from './proxy-address'
 import { countryCode } from './proxy-check-data'
@@ -10,7 +11,9 @@ export const routingConfig = ({
   proxyAll,
   providerDomains,
   siteCountryRules: validateSiteRules(siteCountryRules),
-  domains: Array.from(new Set(domains.map(normalizeHostname).filter(Boolean))),
+  domains: Array.isArray(domains)
+    ? Array.from(new Set(domains.map(normalizeHostname).filter(Boolean)))
+    : domains,
   ignoredHosts: ignoredHosts.map(normalizeHostname).filter(Boolean),
   proxies: proxies.map(({
     id, protocol, host, port, retryAt, exitCountry, countryExpiresAt, provider,
@@ -31,9 +34,11 @@ export const routingConfig = ({
 })
 
 // Self-contained so PAC and extension code use the same route decision.
-export const createRouter = (config, matchHost, privateHost) => {
-  const domains = new Set(config.domains)
-  const providerDomains = new Set(config.providerDomains)
+export const createRouter = (
+  config, matchHost, privateHost, hostIndex = createDomainIndex,
+) => {
+  const domains = hostIndex(config.domains)
+  const providerDomains = hostIndex(config.providerDomains)
   const ignored = new Set(config.ignoredHosts)
   const ruleHosts = new Set(Object.keys(config.siteCountryRules))
   const probes = new Map(config.probes.map((probe) => [probe.hostname, probe]))

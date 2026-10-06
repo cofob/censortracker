@@ -64,6 +64,9 @@ registerBackground({
   ),
   findRelatedDomains,
   addRelatedDomains,
+  domainStatus: (url) => Registry.getDomainStatus(url),
+  registryStatus: () => Registry.getStatus(),
+  registryEmpty: () => Registry.isEmpty(),
   setSiteChoice: ({ url, choice } = {}) => withProxyLock(async () => {
     if (!['always', 'never', 'auto'].includes(choice) ||
       typeof url !== 'string' || url.length > 8192 || !normalizeHostname(url)) {

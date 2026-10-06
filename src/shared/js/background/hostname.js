@@ -1,4 +1,10 @@
 export const normalizeHostname = (value) => {
+  // Plain ASCII domains need no URL parsing. Keep IDNs and IPs on the URL path.
+  if (typeof value === 'string' && value.length <= 253 &&
+    !value.includes('xn--') &&
+    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?(?![\s\S])/.test(value)) {
+    return value
+  }
   if (typeof value !== 'string' ||
     Array.from(value).some((char) => char <= ' ' || char === '\u{7F}')) {
     return null

@@ -1,4 +1,5 @@
 import browser from './browser-api'
+import { buildDomainIndex, createDomainIndex } from './domain-index'
 import { findHostMatch } from './host-match'
 import { externalRegistryDomains, registrySourceDefaults } from './registry-source-data'
 import {
@@ -7,47 +8,65 @@ import {
 } from './utilities'
 
 let membership
-const membershipKeys = [
-  'domains', 'customProxiedDomains', 'ignoredHosts',
-  'registrySource', 'externalRegistry',
+let membershipIndexes = []
+const membershipDefaults = [
+  { domains: [] },
+  { registrySource: registrySourceDefaults, externalRegistry: null },
+  { customProxiedDomains: [] },
+  { ignoredHosts: [] },
 ]
 
 if (browser.storage?.onChanged) {
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && membershipKeys.some((key) => changes[key])) {
+    if (area !== 'local') {
+      return
+    }
+    const changed = membershipDefaults.map((defaults) =>
+      Object.keys(defaults).some((key) => changes[key]))
+
+    if (changed.some(Boolean)) {
       membership = null
+      membershipIndexes = membershipIndexes.map((index, position) =>
+        changed[position] ? null : index)
     }
   })
 }
 
 const loadMembership = async () => {
-  const state = await browser.storage.local.get({
-    domains: [],
-    customProxiedDomains: [],
-    ignoredHosts: [],
-    registrySource: registrySourceDefaults,
-    externalRegistry: null,
-  })
+  const indexes = membershipIndexes
+  const state = await browser.storage.local.get(Object.assign({},
+    ...membershipDefaults.filter((defaults, position) => !indexes[position])))
   const lists = [state.domains, externalRegistryDomains(state),
     state.customProxiedDomains, state.ignoredHosts]
-  const indexes = []
+  const current = () => indexes === membershipIndexes
 
-  for (const names of lists) {
-    const index = new Set()
-
-    for (let offset = 0; offset < names.length; offset++) {
-      const host = extractHostnameFromUrl(names[offset])
-
-      if (host) {
-        index.add(host)
-      }
-      if (offset > 0 && offset % 2000 === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      }
+  for (const [position, names] of lists.entries()) {
+    if (indexes[position]) {
+      continue
     }
-    indexes.push(index)
+    const data = await buildDomainIndex(names, current)
+
+    if (!data) {
+      return indexes
+    }
+    indexes[position] = createDomainIndex(data)
   }
   return indexes
+}
+
+const getMembership = async () => {
+  const pending = membership || (membership = loadMembership())
+
+  try {
+    const indexes = await pending
+
+    return membership === pending ? indexes : getMembership()
+  } catch (error) {
+    if (membership === pending) {
+      membership = null
+    }
+    throw error
+  }
 }
 
 class Registry {
@@ -78,18 +97,36 @@ class Registry {
   }
 
   async isEmpty () {
-    const domains = await this.getDomains()
+    return await this.getDomainCount() === 0
+  }
 
-    return domains.length === 0
+  async getRoutingDomains () {
+    const [builtin, external, custom] = await getMembership()
+    const { useRegistry } =
+      await browser.storage.local.get({ useRegistry: true })
+    const indexes = [...(useRegistry ? [builtin] : []), external, custom]
+
+    return {
+      lists: indexes.flatMap((index) => index.data.lists),
+      count: indexes.reduce((count, index) => count + index.data.count, 0),
+    }
+  }
+
+  async getDomainCount () {
+    return (await this.getRoutingDomains()).count
   }
 
   async getStatus () {
-    const { registryStatus, domains } = await browser.storage.local.get({
-      registryStatus: null, domains: [],
-    })
+    const { registryStatus } =
+      await browser.storage.local.get({ registryStatus: null })
 
-    return registryStatus || {
-      state: domains.length > 0 ? 'ready' : 'not_loaded', skipped: 0, error: '',
+    if (registryStatus) {
+      return registryStatus
+    }
+    const [builtin] = await getMembership()
+
+    return {
+      state: builtin.data.count > 0 ? 'ready' : 'not_loaded', skipped: 0, error: '',
     }
   }
 
@@ -135,26 +172,13 @@ class Registry {
    */
   async getDomainStatus (url) {
     const domain = extractHostnameFromUrl(url)
-    const pending = membership || (membership = loadMembership())
+    const [builtin, external, custom, ignored] = await getMembership()
+    const matches = (index) => Boolean(findHostMatch(domain, index))
 
-    try {
-      const [builtin, external, custom, ignored] = await pending
-
-      if (membership !== pending) {
-        return this.getDomainStatus(url)
-      }
-      const matches = (index) => Boolean(findHostMatch(domain, index))
-
-      return {
-        blocked: matches(builtin) || matches(external),
-        custom: matches(custom),
-        ignored: matches(ignored),
-      }
-    } catch (error) {
-      if (membership === pending) {
-        membership = null
-      }
-      throw error
+    return {
+      blocked: matches(builtin) || matches(external),
+      custom: matches(custom),
+      ignored: matches(ignored),
     }
   }
 

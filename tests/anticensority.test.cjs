@@ -33,9 +33,14 @@ test('published source URLs cannot be replaced by backup data', () => {
 test('large registry lookups share an index, yield during construction, and discard stale builds', async () => {
   const storage = {domains: Array.from({length: 10000}, (_,i) => 'site' + i + '.example'), customProxiedDomains: [], ignoredHosts: []}
   let reads = 0
+  let requested
   let changed
   let ticked = false
-  const browser = {storage: {local: {get: async defaults => { reads++; return {...defaults, ...storage} }},
+  const browser = {storage: {local: {get: async defaults => {
+    reads++
+    requested = Object.keys(defaults)
+    return structuredClone(Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, storage[key] ?? value])))
+  }},
     onChanged: {addListener: listener => { changed = listener }}}}
   const registry = load('background/registry', {'browser-api': {default: browser}}).default
   const first = registry.getDomainStatus('site9999.example')
@@ -51,6 +56,16 @@ test('large registry lookups share an index, yield during construction, and disc
   changed({ignoredHosts: {}}, 'local')
   assert.equal((await registry.getDomainStatus('new.example')).ignored, true)
   assert.equal(reads, 3)
+  assert.deepEqual(requested, ['ignoredHosts'])
+  const get = browser.storage.local.get
+  browser.storage.local.get = async () => { throw new Error('Read failed') }
+  storage.customProxiedDomains = ['manual.example']
+  changed({customProxiedDomains: {}}, 'local')
+  await assert.rejects(registry.getDomainStatus('manual.example'), /Read failed/)
+  browser.storage.local.get = get
+  assert.equal((await registry.getDomainStatus('manual.example')).custom, true)
+  assert.equal((await registry.getDomainStatus('new.example')).blocked, true)
+  assert.deepEqual(requested, ['customProxiedDomains'])
 })
 
 test('concurrent requests share router construction and reject stale routing snapshots', async () => {

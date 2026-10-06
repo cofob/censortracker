@@ -26,7 +26,7 @@ test('registry UI separates source failure from an empty list and updates skippe
   const page = load('pages/registry-status', {
     'browser-api': { default: { i18n: { getMessage: (key, value) => value ? `${key}: ${value}` : key },
       storage: { onChanged: { addListener: fn => { changed = fn } } } } },
-    registry: { default: { getStatus: async () => status, isEmpty: async () => status.state !== 'ready' } },
+    'background-rpc': { callBackground: async action => action === 'registryStatus' ? status : status.state !== 'ready' },
     'page-errors': { showPageError: error => { throw error } },
   }, { document: { getElementById: () => summary } })
   await page.mountRegistryStatus(warning)
