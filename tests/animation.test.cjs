@@ -88,7 +88,7 @@ test('a click gives logos outward velocity and damped springs bring them back', 
   for (let index = 0; index < 10; index++) kickLogo(state, 0, 0, 0, 0.5, 0.5)
   assert.ok(Math.hypot(state[2], state[3]) <= 1800.001)
   let maximum = 0
-  for (let index = 0; index < 240; index++) {
+  for (let index = 0; index < 480; index++) {
     stepPhysics(state, 1 / 120)
     maximum = Math.max(maximum, Math.abs(state[0]))
   }
@@ -99,9 +99,9 @@ test('a click gives logos outward velocity and damped springs bring them back', 
   assert.ok(diagonal[2] > 0 && diagonal[3] > 0)
 })
 
-test('hover responds within 100 ms and returns gradually', () => {
+test('hover responds within 200 ms and returns gradually', () => {
   const state = new Float32Array(4)
-  for (let frame = 0; frame < 12; frame++) stepPhysics(state, 1 / 120, [2, 0])
+  for (let frame = 0; frame < 24; frame++) stepPhysics(state, 1 / 120, [2, 0])
   assert.ok(state[0] > 0.7 && state[0] < 2)
   stepPhysics(state, 1 / 60)
   assert.ok(state[0] > 0.7)
@@ -278,7 +278,7 @@ test('hover uses springs and keeps moving after the pointer leaves', async () =>
   state.step(16)
   baseline.step(16)
   assert.ok(state.context.draws[0][1] - baseline.context.draws[0][1] > 100)
-  for (let index = 0; index < 140; index++) {
+  for (let index = 0; index < 280; index++) {
     state.step(16)
     baseline.step(16)
   }

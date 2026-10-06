@@ -11,7 +11,7 @@ export const mountAnimation = async () => {
   const canvas = document.getElementById('animationCanvas')
   const logo = new Image()
 
-  logo.src = browser.runtime.getURL('images/icons/128x128/default.png')
+  logo.src = browser.runtime.getURL('images/rkn.png')
   const [data] = await Promise.all([
     loadAnimation(browser.runtime.getURL('animations/bad-apple.png')),
     logo.decode(),
