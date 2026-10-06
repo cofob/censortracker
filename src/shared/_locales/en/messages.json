@@ -276,7 +276,7 @@
     "message": "No proxy selected."
   },
   "proxyUnavailable": {
-    "message": "Not available"
+    "message": "Address unavailable"
   },
   "proxyEdit": {
     "message": "Edit"
@@ -584,7 +584,7 @@
     "message": "Enter your vless://, vmess:// or ss:// config."
   },
   "localProxyConfigValueTitle": {
-    "message": "Config"
+    "message": "Configuration"
   },
   "localProxyNotFound": {
     "message": "The Censor Tracker Proxy application is not found on your device. Download and run the Censor Tracker Proxy application. It will run in the background and keep the local proxy running."
