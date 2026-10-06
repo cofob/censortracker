@@ -76,6 +76,30 @@ import { mountSiteRules } from './site-rules'
     togglePopup('popupCompletedSuccessfully')
   })
 
+  const detectionCheckbox = document.getElementById('useDPIDetection')
+  const refreshDetection = async () => {
+    const { useDPIDetection } = await browser.storage.local.get({
+      useDPIDetection: true,
+    })
+
+    detectionCheckbox.checked = useDPIDetection
+  }
+
+  await refreshDetection()
+  detectionCheckbox.addEventListener('change', async () => {
+    detectionCheckbox.disabled = true
+    try {
+      await browser.storage.local.set({
+        useDPIDetection: detectionCheckbox.checked,
+      })
+    } catch (error) {
+      showPageError(error)
+      await refreshDetection()
+    } finally {
+      detectionCheckbox.disabled = false
+    }
+  })
+
   const proxyAllCheckbox = document.getElementById('proxyAll')
   const refreshProxyAll = async () => {
     const { proxyAll } = await browser.storage.local.get({ proxyAll: false })

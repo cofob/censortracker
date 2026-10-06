@@ -20,6 +20,7 @@
     "proxy",
     "scripting",
     "storage",
+    "tabs",
     "unlimitedStorage",
     "webNavigation",
     "webRequest",

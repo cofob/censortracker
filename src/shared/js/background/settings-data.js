@@ -10,6 +10,7 @@ export const settingsDefaults = {
   uiLanguage: 'auto',
   enableExtension: false,
   useProxy: true,
+  useDPIDetection: true,
   proxyAll: false,
   siteCountryRules: {},
   proxySubscriptions: [],

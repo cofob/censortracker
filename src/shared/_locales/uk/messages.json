@@ -1,4 +1,10 @@
 {
+  "failedSiteDetection": {"message": "Пропонувати проксі, якщо сайт не завантажується"},
+  "failedSiteDetectionHelp": {"message": "Для сайтів поза реєстром пропонувати проксі після помилки DNS, скидання з’єднання або тайм-ауту. Помилка мережі може мати інші причини. Звіти про домени не надсилаються."},
+  "failedSiteTitle": {"message": "Сайт не завантажується"},
+  "failedSiteHelp": {"message": "Проксі може допомогти. Після його вибору домен залишиться у списку проксійованих сайтів, доки ви його не видалите."},
+  "failedSiteProxy": {"message": "Відкрити через проксі"},
+  "failedSiteDirect": {"message": "Повторити напряму"},
   "animationDescription": {"message": "Анімація Bad Apple з логотипів Censor Tracker"},
   "proxyAll": {"message": "Проксувати все"},
   "uiLanguageTitle": {"message": "Мова"},

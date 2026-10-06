@@ -16,6 +16,7 @@ import {
 import { importAntizapret } from './antizapret'
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
+import { registerFailedSites, retryFailedSite } from './failed-sites'
 import { normalizeHostname } from './hostname'
 import { initializeLanguage } from './i18n'
 import Ignore from './ignore'
@@ -35,6 +36,7 @@ import Settings from './settings'
 import { changeSiteRule } from './site-rules'
 
 registerProxyAuth()
+registerFailedSites()
 initializeLanguage()
 registerRegistrySource()
 registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
@@ -56,6 +58,7 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  retryFailedSite,
   setLocalProxy: (enabled) => withProxyLock(
     () => ProxyManager.setLocalProxyInBackground(enabled),
   ),

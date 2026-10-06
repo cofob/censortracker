@@ -1,4 +1,10 @@
 {
+  "failedSiteDetection": {"message": "Offer a proxy when a site cannot load"},
+  "failedSiteDetectionHelp": {"message": "For sites outside the registry, offer a proxy after a DNS error, connection reset or timeout. A network error can have other causes. No domain reports are sent."},
+  "failedSiteTitle": {"message": "The site cannot load"},
+  "failedSiteHelp": {"message": "A proxy may help. If you choose it, this domain will stay in your proxy list until you remove it."},
+  "failedSiteProxy": {"message": "Open through a proxy"},
+  "failedSiteDirect": {"message": "Retry directly"},
   "animationDescription": {"message": "Bad Apple animation made from Censor Tracker logos"},
   "proxyAll": {"message": "Proxy everything"},
   "uiLanguageTitle": {"message": "Language"},

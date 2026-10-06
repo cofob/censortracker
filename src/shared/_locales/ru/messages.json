@@ -1,4 +1,10 @@
 {
+  "failedSiteDetection": {"message": "Предлагать прокси, если сайт не загружается"},
+  "failedSiteDetectionHelp": {"message": "Для сайтов вне реестра предлагать прокси после ошибки DNS, сброса соединения или тайм-аута. Ошибка сети может иметь другие причины. Отчёты о доменах не отправляются."},
+  "failedSiteTitle": {"message": "Сайт не загружается"},
+  "failedSiteHelp": {"message": "Прокси может помочь. После его выбора домен останется в списке проксируемых сайтов до удаления вами."},
+  "failedSiteProxy": {"message": "Открыть через прокси"},
+  "failedSiteDirect": {"message": "Повторить напрямую"},
   "animationDescription": {"message": "Анимация Bad Apple из логотипов Censor Tracker"},
   "proxyAll": {"message": "Проксировать всё"},
   "uiLanguageTitle": {"message": "Язык"},

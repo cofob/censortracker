@@ -57,9 +57,9 @@ Censor Tracker requires the following permissions:
 - `proxy` — Configures built-in and custom proxy routes.
 - `storage` — Saves user preferences.
 - `unlimitedStorage` — Stores the database of blocked websites (due to its large size).
-- `tabs` (Firefox) — Reads tab URLs and supports page inspection.
+- `tabs` — Reads tab URLs and checks the page before a retry.
 - `scripting` (Chromium) — Reads resource hostnames from the current page on request.
-- `webNavigation` (Chromium) — Monitors navigation and proxy connection errors.
+- `webNavigation` — Tracks navigation to prevent offers for an old page.
 - `webRequest` — Handles request events and proxy authentication.
 - `webRequestAuthProvider` (Chromium) and `webRequestBlocking` (Firefox) — Supply proxy credentials.
 - `<all_urls>` — Allows website proxying, service downloads, country detection and page inspection.

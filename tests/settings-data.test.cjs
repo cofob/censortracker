@@ -5,6 +5,12 @@ const { settingsDefaults, validateSettings } = load('background/settings-data')
 const plain = value => JSON.parse(JSON.stringify(value))
 const defaultProxies = { proxies: [], selectedProxyIds: ['builtin'] }
 
+test('failed site detection defaults to enabled and keeps an explicit disabled choice', () => {
+  assert.equal(settingsDefaults.useDPIDetection, true)
+  assert.equal(validateSettings({ useDPIDetection: false }).useDPIDetection, false)
+  assert.throws(() => validateSettings({ useDPIDetection: 'false' }))
+})
+
 test('settings imports allow only user choices, not runtime state or code', () => {
   const input = JSON.parse('{"useProxy":false,"domains":["evil.example"],"serviceRouteSnapshot":{"owned":true},"proxyServerURI":"evil:80","__proto__":{"polluted":true},"constructor":{}}')
   assert.deepEqual(plain(validateSettings(input)), { useProxy: false, ...defaultProxies })
@@ -56,16 +62,19 @@ test('settings API keeps runtime state and exports a versioned user-only backup'
 for (const enabled of [false, true]) {
   test(`backup round trip preserves registry and recovery choices: ${enabled}`, async () => {
     const source = { kind: 'custom', url: 'https://registry.example/list', enabled, autoUpdate: enabled }
-    const storage = { registrySource: source, proxyRecoveryEnabled: enabled, domains: ['cached.example'] }
+    const storage = { registrySource: source, proxyRecoveryEnabled: enabled,
+      useDPIDetection: enabled, domains: ['cached.example'] }
     const settings = load('background/settings', { 'browser-api': { default: { storage: { local: {
       get: async () => storage, set: async values => Object.assign(storage, plain(values)),
     } } } } }).default
     const backup = await settings.exportSettings()
     storage.registrySource = { ...source, enabled: !enabled, autoUpdate: !enabled }
     storage.proxyRecoveryEnabled = !enabled
+    storage.useDPIDetection = !enabled
     await settings.importSettingsInBackground(backup)
     assert.deepEqual(storage.registrySource, source)
     assert.equal(storage.proxyRecoveryEnabled, enabled)
+    assert.equal(storage.useDPIDetection, enabled)
     assert.deepEqual(storage.domains, ['cached.example'])
   })
 }

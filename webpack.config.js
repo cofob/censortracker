@@ -78,6 +78,7 @@ const webConfig = {
     'rules-editor': './src/shared/js/pages/rules-editor.js',
     translator: './src/shared/js/pages/translator.js',
     controlled: './src/shared/js/pages/controlled.js',
+    unavailable: './src/shared/js/pages/unavailable.js',
     'easter-egg': './src/shared/js/pages/easter-egg.js',
     animation: './src/shared/js/pages/animation.js',
   },
@@ -148,6 +149,12 @@ const webConfig = {
       template: 'src/shared/pages/animation.html',
       inject: true,
       chunks: ['animation'],
+      meta: contentSecurityPolicy,
+    }),
+    new HTMLWebpackPlugin({
+      filename: 'unavailable.html',
+      template: 'src/shared/pages/unavailable.html',
+      chunks: ['unavailable', 'translator'],
       meta: contentSecurityPolicy,
     }),
     new HTMLWebpackPlugin({
