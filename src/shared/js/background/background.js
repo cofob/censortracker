@@ -136,6 +136,12 @@ registerBackground({
     await Settings.importSettingsInBackground(args)
     await ProxyManager.syncLocalProxyInBackground()
     await ProxyManager.setProxyInBackground()
+  }).then(async () => {
+    const { source } = await getRegistrySourceState()
+
+    if (source.enabled) {
+      await refreshRegistrySource()
+    }
   }),
   proxies: (args) => withProxyLock(async () => {
     const state = await updateProxyList(args)

@@ -1020,6 +1020,45 @@ test('proxy-all reports failed application but preserves a disabled user prefere
   assert.equal(state.storage.proxyAll, false)
 })
 
+for (const outcome of ['enabled', 'disabled', 'failed']) {
+  test(`settings import restores an external registry without auto-update: ${outcome}`, async () => {
+    let actions
+    let downloads = 0
+    const source = { kind: 'custom', url: 'https://source.example/list',
+      enabled: outcome !== 'disabled', autoUpdate: false }
+    const state = fixture({ mocks: {
+      handlers: { scheduleLocalProxyCheck: async () => {} }, server: {}, utilities: {},
+      'proxy-auth': { registerProxyAuth() {} },
+      'background-rpc': { registerBackground: value => { actions = value } },
+      proxy: { default: {
+        syncLocalProxy: async () => {}, syncLocalProxyInBackground: async () => {},
+        setProxyInBackground: async () => { state.events.push('apply'); return true },
+      } },
+      request: { requestText: async url => {
+        assert.equal(url, source.url)
+        downloads++
+        if (outcome === 'failed') throw new Error('Download failed')
+        return 'external.example'
+      } },
+    } })
+    state.load('background')
+    const imported = actions.importSettings({ formatVersion: 1, settings: {
+      enableExtension: true, useRegistry: false, registrySource: source,
+    } })
+    if (outcome === 'failed') {
+      await assert.rejects(imported, /External registry update failed/)
+    } else {
+      await imported
+    }
+    assert.equal(downloads, source.enabled ? 1 : 0)
+    assert.deepEqual(state.storage.registrySource, source)
+    assert.deepEqual(Array.from(await state.load('registry').default.getDomains()),
+      outcome === 'enabled' ? ['external.example'] : [])
+    assert.equal(state.events.filter(event => event === 'apply').length,
+      outcome === 'enabled' ? 2 : 1)
+  })
+}
+
 test('reset explicitly enables proxy use before applying the PAC', async () => {
   const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
   const handler = source.slice(source.indexOf('confirmResetBtn.addEventListener'), source.indexOf('exportSettingsBtn.addEventListener'))
