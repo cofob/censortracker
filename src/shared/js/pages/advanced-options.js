@@ -151,16 +151,20 @@ import { mountSiteRules } from './site-rules'
   })
 
   confirmResetBtn.addEventListener('click', async (event) => {
-    await browser.storage.local.set({ uiLanguage: 'auto' })
+    await Settings.importSettings({ enableExtension: true })
+    await ProxyManager.removeBadProxies()
+    await server.synchronize()
+    if (!await ProxyManager.setProxy()) {
+      throw new Error(getMessage('proxySetupFailed'))
+    }
+    const { serviceErrors = [] } = await browser.storage.local.get('serviceErrors')
+
+    if (serviceErrors.length > 0) {
+      throw new Error(serviceErrors.join('; '))
+    }
+    await ProxyManager.ping()
     togglePopup('popupConfirmReset')
     togglePopup('popupCompletedSuccessfully')
-    await server.synchronize()
-    await Settings.enableExtension()
-    await Settings.enableNotifications()
-    await ProxyManager.removeBadProxies()
-    await ProxyManager.enableProxy()
-    await ProxyManager.setProxy()
-    await ProxyManager.ping()
     console.info('Censor Tracker has been reset to default settings.')
   })
 

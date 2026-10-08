@@ -1059,25 +1059,58 @@ for (const outcome of ['enabled', 'disabled', 'failed']) {
   })
 }
 
-test('reset explicitly enables proxy use before applying the PAC', async () => {
-  const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
-  const handler = source.slice(source.indexOf('confirmResetBtn.addEventListener'), source.indexOf('exportSettingsBtn.addEventListener'))
-  let enabled = false
-  let reset
-  vm.runInNewContext(handler, {
-    confirmResetBtn: { addEventListener: (name, fn) => { reset = fn } },
-    browser: { storage: { local: { set: async values => assert.equal(values.uiLanguage, 'auto') } } },
-    togglePopup() {}, console: { info() {} },
-    server: { synchronize: async () => {} },
-    Settings: { enableExtension() {}, enableNotifications() {}, disableParentalControl() {} },
-    ProxyManager: {
-      removeBadProxies() {}, ping() {},
-      enableProxy() { enabled = true },
-      setProxy() { assert.equal(enabled, true) },
-    },
+for (const outcome of ['success', 'sync failure', 'route failure']) {
+  test(`reset applies all defaults before sync and reports success only when ready: ${outcome}`, async () => {
+    const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
+    const handler = source.slice(source.indexOf('confirmResetBtn.addEventListener'), source.indexOf('  const exportFile'))
+    const state = fixture({ storage: {
+      enableExtension: false, useProxy: false, useRegistry: false, uiLanguage: 'ru',
+      useLocalProxy: true, localProxyURI: '127.0.0.1:1080', localProxyAlive: true,
+      proxyAll: true, ignoredHosts: ['ignored.example'], customProxiedDomains: ['custom.example'],
+      siteCountryRules: { 'custom.example': ['RU'] }, currentRegionCode: 'BY',
+      proxies: [{ id: 'custom', protocol: 'HTTP', host: 'proxy.example', port: 80 }],
+      selectedProxyIds: ['custom'], proxyRecoveryEnabled: true,
+      proxySubscriptions: [{ id: 'source', url: 'https://source.example/proxies', protocol: 'HTTP' }],
+      proxySubscriptionsEnabled: true,
+      registrySource: { kind: 'custom', url: 'https://source.example/domains', enabled: true, autoUpdate: true },
+    }, mocks: { 'background-rpc': { callBackground: async (action, args) => {
+      assert.equal(action, 'importSettings')
+      await settings.importSettingsInBackground(args)
+    } } } })
+    const settings = state.load('settings').default
+    const expected = { ...state.load('settings-data').settingsDefaults,
+      enableExtension: true, proxies: [], selectedProxyIds: ['builtin'] }
+    const checkDefaults = () => {
+      for (const [key, value] of Object.entries(expected)) {
+        assert.deepEqual(state.storage[key], clone(value), key)
+      }
+      assert.equal(state.storage.localProxyURI, null)
+      assert.equal(state.storage.localProxyAlive, false)
+    }
+    const popups = []
+    let reset
+    vm.runInNewContext(handler, {
+      confirmResetBtn: { addEventListener: (_, fn) => { reset = fn } },
+      browser: state.browser, Settings: settings, getMessage: key => key,
+      togglePopup: id => popups.push(id), console: { info() {} },
+      server: { synchronize: async () => {
+        checkDefaults()
+        assert.deepEqual(popups, [])
+        state.storage.serviceErrors = outcome === 'sync failure' ? ['Sync failed'] : []
+      } },
+      ProxyManager: { removeBadProxies() {}, ping() {},
+        setProxy: async () => { checkDefaults(); return outcome !== 'route failure' },
+      },
+    })
+    if (outcome === 'success') {
+      await reset()
+      assert.deepEqual(popups, ['popupConfirmReset', 'popupCompletedSuccessfully'])
+    } else {
+      await assert.rejects(reset(), /Sync failed|proxySetupFailed/)
+      assert.deepEqual(popups, [])
+    }
   })
-  await reset()
-})
+}
 
 test('the last registry choice survives an earlier pending download', async () => {
   const source = fs.readFileSync(path.join(root, '../pages/registry-options.js'), 'utf8')
