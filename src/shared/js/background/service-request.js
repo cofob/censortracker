@@ -35,11 +35,36 @@ const proxyRoute = async (hostname) => {
   return decision.route.split(';')[0].trim()
 }
 
-const attempt = async (url, validate, viaProxy = false) => {
-  const hostname = new URL(url).hostname
+const attempt = async (url, validate, viaProxy, allowRedirects) => {
+  const parsed = new URL(url)
+  const { hostname } = parsed
+
+  parsed.hash = ''
   const controller = new AbortController()
   let abortReason = ''
   let stage = 'route check'
+  let redirectUrl
+  let requestId
+  let headersReceived
+  const headersReady = new Promise((resolve) => {
+    headersReceived = resolve
+  })
+  const onHeadersReceived = (details) => {
+    const initiator = details.initiator ||
+      details.originUrl || details.documentUrl || ''
+
+    if (details.url !== parsed.href ||
+      !`${initiator}/`.startsWith(browser.runtime.getURL('')) ||
+      (requestId && details.requestId !== requestId)) {
+      return
+    }
+    requestId = details.requestId
+    if ([301, 302, 303, 307, 308].includes(details.statusCode)) {
+      redirectUrl = details.responseHeaders?.find((header) =>
+        header.name.toLowerCase() === 'location')?.value
+    }
+    headersReceived()
+  }
   const timeout = setTimeout(() => {
     abortReason = 'Timeout after 15 seconds'
     controller.abort()
@@ -70,10 +95,30 @@ const attempt = async (url, validate, viaProxy = false) => {
       throw new Error(abortReason)
     }
     stage = 'fetch'
+    if (allowRedirects) {
+      controller.signal.addEventListener('abort', headersReceived, { once: true })
+      browser.webRequest.onHeadersReceived.addListener(onHeadersReceived, {
+        urls: [`${parsed.protocol}//${parsed.hostname}/*`],
+        types: ['xmlhttprequest'],
+      }, ['responseHeaders'])
+    }
     const response = await fetch(url, {
-      signal: controller.signal, cache: 'no-store', redirect: 'error',
+      signal: controller.signal,
+      cache: 'no-store',
+      redirect: allowRedirects ? 'manual' : 'error',
     })
 
+    if (controller.signal.aborted) {
+      throw new Error(abortReason)
+    }
+    if (allowRedirects && (response.type === 'opaqueredirect' ||
+      [301, 302, 303, 307, 308].includes(response.status))) {
+      await headersReady
+      if (controller.signal.aborted) {
+        throw new Error(abortReason)
+      }
+      return { redirectUrl: redirectUrl || response.headers?.get('location') }
+    }
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
@@ -87,16 +132,20 @@ const attempt = async (url, validate, viaProxy = false) => {
     if (!validate(data)) {
       throw new Error('Response does not match the expected service data')
     }
-    return data
+    return { data }
   } catch (error) {
     throw new Error(`${stage}: ${abortReason || error.message}`, { cause: error })
   } finally {
     clearTimeout(timeout)
     browser.storage.onChanged.removeListener(onSettingsChanged)
+    if (allowRedirects) {
+      controller.signal.removeEventListener('abort', headersReceived)
+      browser.webRequest.onHeadersReceived.removeListener(onHeadersReceived)
+    }
   }
 }
 
-const requestDirect = async (url, validate) => {
+const requestDirect = async (url, validate, allowRedirects) => {
   const setting = browser.proxy.settings
   const { levelOfControl } = await setting.get({})
   let direct = false
@@ -114,14 +163,14 @@ const requestDirect = async (url, validate) => {
   setting.onChange?.addListener(onRouteChange)
   try {
     const before = await setting.get({})
-    const data = await attempt(url, validate)
+    const result = await attempt(url, validate, false, allowRedirects)
     const after = await setting.get({})
     const knownDirect = ['direct', 'none'].includes(
       before.value.mode || before.value.proxyType,
     ) || (direct && before.levelOfControl === 'controlled_by_this_extension')
 
     return {
-      data,
+      ...result,
       viaProxy: !knownDirect || routeChanged ||
         before.levelOfControl !== after.levelOfControl ||
         JSON.stringify(before.value) !== JSON.stringify(after.value),
@@ -131,7 +180,7 @@ const requestDirect = async (url, validate) => {
   }
 }
 
-const requestProxy = async (url, validate) => {
+const requestProxy = async (url, validate, allowRedirects) => {
   const hostname = new URL(url).hostname
 
   await proxyRoute(hostname)
@@ -141,45 +190,79 @@ const requestProxy = async (url, validate) => {
   if (!await setServiceRoute(hostname, route)) {
     throw new Error('Proxy request cannot preserve existing browser routes')
   }
-  return { data: await attempt(url, validate, true), viaProxy: true }
+  return {
+    ...await attempt(url, validate, true, allowRedirects), viaProxy: true,
+  }
+}
+
+const requestHop = async (url, validate, allowProxyRetry, allowRedirects) => {
+  let directError
+  const choice = await siteChoice(new URL(url).hostname)
+
+  if (choice === 'always' && !allowProxyRetry) {
+    throw new Error('DIRECT: blocked by the always-proxy rule')
+  }
+  if (choice !== 'always') {
+    try {
+      return await requestDirect(url, validate, allowRedirects)
+    } catch (error) {
+      directError = new Error(`DIRECT: ${error.message}`, { cause: error })
+    }
+    if (!allowProxyRetry) {
+      throw directError
+    }
+    if (choice === 'never') {
+      throw new Error(`${directError.message}; proxy retry blocked by an exclusion or a private host`, {
+        cause: directError,
+      })
+    }
+  }
+  try {
+    return await requestProxy(url, validate, allowRedirects)
+  } catch (error) {
+    const errors = [directError?.message, `PROXY: ${error.message}`]
+
+    throw new Error(errors.filter(Boolean).join('; '), { cause: error })
+  }
 }
 
 export const requestService = (
-  url, validate, { allowProxyRetry = true } = {},
+  url, validate, { allowProxyRetry = true, maxRedirects = 0 } = {},
 ) => {
   const parsed = new URL(url)
   const endpoint = `${parsed.origin}${parsed.pathname}`
 
   return withProxyLock(async () => {
-    let directError
+    const visited = new Set()
+    let viaProxy = false
 
     try {
-      const choice = await siteChoice(parsed.hostname)
+      for (let hops = 0; ; hops++) {
+        const current = new URL(url)
 
-      if (choice === 'always' && !allowProxyRetry) {
-        throw new Error('DIRECT: blocked by the always-proxy rule')
-      }
-      if (choice !== 'always') {
-        try {
-          return await requestDirect(url, validate)
-        } catch (error) {
-          directError = new Error(`DIRECT: ${error.message}`, { cause: error })
+        current.hash = ''
+        if (!['http:', 'https:'].includes(current.protocol)) {
+          throw new Error('Service request requires HTTP or HTTPS')
         }
-        if (!allowProxyRetry) {
-          throw directError
+        if (visited.has(current.href)) {
+          throw new Error('Redirect cycle')
         }
-        if (choice === 'never') {
-          throw new Error(`${directError.message}; proxy retry blocked by an exclusion or a private host`, {
-            cause: directError,
-          })
-        }
-      }
-      try {
-        return await requestProxy(url, validate)
-      } catch (error) {
-        const errors = [directError?.message, `PROXY: ${error.message}`]
+        visited.add(current.href)
+        const result = await requestHop(
+          url, validate, allowProxyRetry, maxRedirects > 0,
+        )
 
-        throw new Error(errors.filter(Boolean).join('; '), { cause: error })
+        viaProxy ||= result.viaProxy
+        if (!('redirectUrl' in result)) {
+          return { data: result.data, viaProxy }
+        }
+        if (hops >= maxRedirects) {
+          throw new Error(`Redirect limit exceeded: maximum ${maxRedirects} hops`)
+        }
+        if (!result.redirectUrl) {
+          throw new Error('Redirect has no Location header')
+        }
+        url = new URL(result.redirectUrl, current).href
       }
     } finally {
       try {

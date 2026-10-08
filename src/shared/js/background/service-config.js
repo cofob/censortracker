@@ -2,6 +2,7 @@ export const GEOIP_URL = 'https://geo.ctreserve.de/get-iso/'
 export const ORI_URL = 'https://registry.ctreserve.de/api/v3/disseminators/refused/'
 export const PROXY_LIST_URL = 'https://cozyquokka.net/api/proxy-list/'
 export const CONFIG_URL = 'https://cozyquokka.net/api/config/'
+export const DOMAINS_URL = 'https://cozyquokka.net/api/domains/'
 
 export const getRegionConfig = (code) => {
   const countryCode = code.toUpperCase()

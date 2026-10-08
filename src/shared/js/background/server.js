@@ -3,7 +3,7 @@ import browser from './browser-api'
 import ProxyManager from './proxy'
 import { refreshRegistrySource } from './registry-source'
 import {
-  CONFIG_URL, GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
+  CONFIG_URL, DOMAINS_URL, GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
   validConfig, validCountry, validCustomRegistry, validDomain, validDomains,
   validORI, validProxies,
 } from './service-config'
@@ -157,11 +157,15 @@ const requestRegistry = async ({ registryUrl, registryMirrors = [] }) => {
 }
 
 const requestCustomRegistry = async (config) => {
-  const { data } = await requestService(
+  const result = await requestService(
     `${CONFIG_URL}${config.countryCode}/`, validConfig,
-  )
+  ).catch(() => null)
 
-  config.customRegistryUrl = data.customRegistryUrl || null
+  if (!result) {
+    return null
+  }
+
+  config.customRegistryUrl = result.data.customRegistryUrl || null
   await browser.storage.local.set({ localConfig: config })
   if (!config.customRegistryUrl) {
     return []
@@ -185,6 +189,7 @@ const fetchRegistry = async (config) => {
     custom: [],
   }
 
+  cache.backend ||= []
   if (registryRegionCode !== countryCode) {
     await browser.storage.local.set({
       domains: [], registryRegionCode: countryCode,
@@ -200,17 +205,25 @@ const fetchRegistry = async (config) => {
   for (const [source, request] of [
     ['primary', () => requestRegistry(config)],
     ['custom', () => requestCustomRegistry(config)],
+    ['backend', async () => (await requestService(
+      `${DOMAINS_URL}${countryCode}/`, validDomains, { maxRedirects: 5 },
+    ).catch(() => null))?.data ?? null],
   ]) {
     try {
       const data = await request()
 
+      if (data === null) {
+        continue
+      }
       cache[source] = data.filter(validDomain)
       skipped += data.length - cache[source].length
     } catch (error) {
       errors.push(`${source}: ${error.message}`)
     }
   }
-  const domains = [...new Set([...cache.primary, ...cache.custom])]
+  const domains = [...new Set([
+    ...cache.primary, ...cache.custom, ...cache.backend,
+  ])]
   const state = domains.length > 0 ? 'ready' : 'empty'
 
   await browser.storage.local.set({

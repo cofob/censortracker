@@ -17,8 +17,13 @@ function fixture(options = {}) {
   let settings = { value: original, levelOfControl: options.control || 'controlled_by_this_extension' }
   const listeners = new Set()
   const routeListeners = new Set()
+  const headerListeners = new Set()
   const events = []
   const browser = {
+    runtime: { getURL: (path = '') => `${options.firefox ? 'moz' : 'chrome'}-extension://test/${path}` },
+    webRequest: { onHeadersReceived: {
+      addListener: fn => headerListeners.add(fn), removeListener: fn => headerListeners.delete(fn),
+    } },
     alarms: { create() {} },
     isFirefox: !!options.firefox,
     extension: { isAllowedIncognitoAccess: async () => options.privateAllowed !== false },
@@ -102,7 +107,7 @@ function fixture(options = {}) {
     }, { filename: name + '.js' })
     return module.exports
   }
-  return { load, storage, events, route, original, settings: () => settings, listeners, routeListeners, browser }
+  return { load, storage, events, route, original, settings: () => settings, listeners, routeListeners, headerListeners, browser }
 }
 
 const response = data => ({ ok: true, json: async () => data })
@@ -521,7 +526,7 @@ for (const [data, expected, status, skipped] of [
     const state = fixture({ storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'] },
       mocks: { 'service-request': { requestService: async (url, validate) => {
         const response = url.includes('/api/config/') ? { customRegistryUrl: null }
-          : url.includes('disseminators') ? [] : data
+          : url.includes('disseminators') || url.includes('/api/domains/') ? [] : data
         if (!validate(response)) throw new Error('Response validation failed')
         return { data: response }
       } } },
@@ -998,6 +1003,7 @@ for (const failure of ['', 'primary', 'custom', 'config', 'both']) {
       registryCache: { countryCode: 'RU', primary: ['old-primary.example'], custom: ['old-custom.example'] },
     }, mocks: { 'service-request': { requestService: async (url, validate) => {
       urls.push(url)
+      if (url.includes('/api/domains/')) return { data: [] }
       if (url.includes('/api/config/')) {
         if (failure === 'config') throw new Error('Config unavailable')
         return { data: { customRegistryUrl: customUrl } }
@@ -1018,10 +1024,10 @@ for (const failure of ['', 'primary', 'custom', 'config', 'both']) {
     const custom = ['custom', 'config', 'both'].includes(failure)
       ? ['old-custom.example'] : ['custom.example', 'shared.example', 'other.example']
     assert.deepEqual(state.storage.domains, [...new Set([...primary, ...custom])])
-    assert.deepEqual(state.storage.registryCache, { countryCode: 'RU', primary, custom })
-    assert.equal(state.storage.registryStatus.state, failure ? 'unavailable' : 'ready')
+    assert.deepEqual(state.storage.registryCache, { countryCode: 'RU', primary, custom, backend: [] })
+    assert.equal(state.storage.registryStatus.state, failure && failure !== 'config' ? 'unavailable' : 'ready')
     assert.equal(state.storage.registryStatus.skipped, failure === 'primary' || !failure ? 1 : 0)
-    assert.equal(state.storage.serviceErrors.length, failure ? 1 : 0)
+    assert.equal(state.storage.serviceErrors.length, failure && failure !== 'config' ? 1 : 0)
     if (failure !== 'config') assert.equal(state.storage.localConfig.customRegistryUrl, customUrl)
   })
 }
@@ -1101,11 +1107,191 @@ for (const firefox of [false, true]) {
     await state.load('server').synchronizeInBackground()
     const config = state.load('service-config')
     assert.deepEqual([...attempts], [config.PROXY_LIST_URL, config.getRegionConfig('RU').registryUrl,
-      `${config.CONFIG_URL}RU/`, customRegistryUrl, config.ORI_URL].map(url => [url, 2]))
+      `${config.CONFIG_URL}RU/`, customRegistryUrl, `${config.DOMAINS_URL}RU/`, config.ORI_URL].map(url => [url, 2]))
     assert.deepEqual(state.storage.domains, ['blocked.example', 'custom.example'])
     assert.deepEqual(state.storage.serviceErrors, [])
     assert.equal(state.storage.registryStatus.state, 'ready')
     assert.equal(state.storage.serviceRouteSnapshot, undefined)
     assert.equal(state.route('other.example'), 'HTTPS normal.example:443')
+  })
+}
+
+for (const endpoint of ['config', 'domains']) {
+  for (const failure of ['404', 'network', 'json', 'invalid', 'timeout']) {
+    test(`optional ${endpoint} ignores ${failure} and preserves its country cache`, async () => {
+      let attempts = 0
+      const state = fixture({ fastTimeout: failure === 'timeout', storage: {
+        currentRegionCode: 'ru', registryRegionCode: 'RU',
+        registryCache: { countryCode: 'RU', primary: [], custom: ['old-custom.example'], backend: ['old-backend.example'] },
+      }, fetch: async (url, init) => {
+        if (url.includes(`/api/${endpoint}/`)) {
+          attempts++
+          if (failure === '404') return { ok: false, status: 404 }
+          if (failure === 'network') throw new Error('offline')
+          if (failure === 'json') return { ok: true, json: async () => { throw new Error('Invalid JSON') } }
+          if (failure === 'invalid') return response(endpoint === 'config' ? [] : {})
+          return new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted'))))
+        }
+        if (url.includes('/api/config/')) return response({ customRegistryUrl: 'https://custom.example/list' })
+        if (url === 'https://custom.example/list') return response([{ domains: ['custom.example'] }])
+        if (url.includes('/api/domains/')) {
+          assert.equal(url, 'https://cozyquokka.net/api/domains/RU/')
+          assert.equal(init.redirect, 'manual')
+          return response(['backend.example', 'shared.example', null])
+        }
+        return response(url.includes('ct-domains') ? ['primary.example', 'shared.example'] : [])
+      } })
+      await state.load('server').synchronizeInBackground({ syncProxy: false })
+      assert.equal(attempts, 2)
+      assert.deepEqual(state.storage.domains, endpoint === 'config'
+        ? ['primary.example', 'shared.example', 'old-custom.example', 'backend.example']
+        : ['primary.example', 'shared.example', 'custom.example', 'old-backend.example'])
+      assert.equal(state.storage.registryStatus.state, 'ready')
+      assert.equal(state.storage.registryStatus.error, '')
+      assert.deepEqual(state.storage.serviceErrors, [])
+      assert.equal(state.storage.serviceRouteSnapshot, undefined)
+      assert.equal(state.headerListeners.size, 0)
+    })
+  }
+}
+
+for (const [countryCode, data] of [['RU', []], ['BY', null]]) {
+  test(`backend cache clears on empty response or country change: ${countryCode}`, async () => {
+    const state = fixture({ storage: { currentRegionCode: countryCode, registryRegionCode: 'RU',
+      registryCache: { countryCode: 'RU', primary: [], custom: [], backend: ['russian.example'] },
+    }, mocks: { 'service-request': { requestService: async url => {
+      if (url.includes('/api/config/')) throw new Error('HTTP 404')
+      if (url.includes('/api/domains/')) {
+        if (data === null) throw new Error('HTTP 404')
+        return { data }
+      }
+      return { data: [] }
+    } } } })
+    await state.load('server').synchronizeInBackground({ syncProxy: false })
+    assert.deepEqual(state.storage.domains, [])
+    assert.deepEqual(state.storage.registryCache.backend, [])
+    assert.equal(state.storage.registryCache.countryCode, countryCode)
+    assert.deepEqual(state.storage.serviceErrors, [])
+  })
+}
+
+const redirectResponse = (state, url, location, status = 302) => {
+  for (const listener of state.headerListeners) {
+    const details = { url, statusCode: status, requestId: 'service',
+      initiator: state.browser.runtime.getURL('').slice(0, -1),
+      responseHeaders: location ? [{ name: 'Location', value: location }] : [],
+    }
+    listener({ ...details, initiator: 'https://unrelated.example' })
+    listener(details)
+    listener({ ...details, requestId: 'other', responseHeaders: [{ name: 'Location', value: '/wrong' }] })
+  }
+  return { type: 'opaqueredirect', status: 0, ok: false, headers: { get: () => null } }
+}
+
+for (const firefox of [false, true]) {
+  for (const status of [301, 302, 303, 307, 308]) {
+    test(`redirect ${status} uses the next host's proxy rule: Firefox=${firefox}`, async () => {
+      const urls = []
+      const state = fixture({ firefox, storage: { customProxiedDomains: ['next.example'] },
+        fetch: async (url, init, { route }) => {
+          urls.push(url)
+          assert.equal(init.redirect, 'manual')
+          if (urls.length === 1) {
+            assert.equal(route('first.example'), 'DIRECT')
+            return redirectResponse(state, url, 'https://next.example/list', status)
+          }
+          assert.equal(route('next.example'), 'HTTPS retry.example:443')
+          return response(['added.example'])
+        },
+      })
+      const result = await state.load('service-request').requestService('https://first.example/list', Array.isArray, { maxRedirects: 5 })
+      assert.deepEqual(urls, ['https://first.example/list', 'https://next.example/list'])
+      assert.equal(result.viaProxy, true)
+      assert.deepEqual(clone(result.data), ['added.example'])
+      assert.equal(state.headerListeners.size, 0)
+      assert.equal(state.storage.serviceRouteSnapshot, undefined)
+      assert.equal(state.route('other.example'), 'HTTPS normal.example:443')
+    })
+  }
+}
+
+for (const hops of [5, 6]) {
+  test(`redirect chain accepts five hops and stops before a sixth target: ${hops}`, async () => {
+    let calls = 0
+    const state = fixture({ fetch: async (url, init) => {
+      assert.equal(init.redirect, 'manual')
+      const hop = Number(new URL(url).pathname.slice(1))
+      calls++
+      return hop === hops ? response([]) : redirectResponse(state, url, `/${hop + 1}`)
+    } })
+    const pending = state.load('service-request').requestService('https://api.example/0', Array.isArray, { maxRedirects: 5 })
+    if (hops === 5) await pending
+    else await assert.rejects(pending, /Redirect limit/)
+    assert.equal(calls, 6)
+    assert.equal(state.headerListeners.size, 0)
+    assert.deepEqual(state.settings().value, state.original)
+  })
+}
+
+for (const [location, expected] of [['/start', /cycle/], [null, /no Location/], ['data:text/plain,[]', /HTTP or HTTPS/]]) {
+  test(`invalid redirect does not retry its chain: ${location}`, async () => {
+    let calls = 0
+    const state = fixture({ fetch: async url => { calls++; return redirectResponse(state, url, location) } })
+    await assert.rejects(state.load('service-request').requestService('https://api.example/start', Array.isArray, { maxRedirects: 5 }), expected)
+    assert.equal(calls, 1)
+    assert.equal(state.headerListeners.size, 0)
+    assert.deepEqual(state.settings().value, state.original)
+  })
+}
+
+test('default service requests still reject redirects', async () => {
+  let calls = 0
+  const state = fixture({ fetch: async (url, init) => {
+    calls++
+    assert.equal(init.redirect, 'error')
+    assert.equal(state.headerListeners.size, 0)
+    throw new Error('Redirect rejected')
+  } })
+  await assert.rejects(state.load('service-request').requestService('https://api.example/list', Array.isArray), /Redirect rejected/)
+  assert.equal(calls, 2)
+})
+
+test('manual redirects wait for delayed browser headers', async () => {
+  let calls = 0
+  const state = fixture({ fetch: async url => {
+    if (++calls === 1) {
+      setTimeout(() => redirectResponse(state, url, '/final'), 5)
+      return { type: 'opaqueredirect', status: 0, ok: false }
+    }
+    return response([])
+  } })
+  await state.load('service-request').requestService('https://api.example/start', Array.isArray, { maxRedirects: 5 })
+  assert.equal(calls, 2)
+  assert.equal(state.headerListeners.size, 0)
+})
+
+for (const failure of ['timeout', 'cancel', 'exclusion']) {
+  test(`redirect routing preserves ${failure} and removes listeners`, async () => {
+    let calls = 0
+    const state = fixture({ fastTimeout: true, storage: { ignoredHosts: failure === 'exclusion' ? ['next.example'] : [] },
+      fetch: async (url, init, { listeners, storage }) => {
+        calls++
+        if (calls === 1) return redirectResponse(state, url, 'https://next.example/list')
+        if (failure === 'exclusion') throw new Error('offline')
+        return new Promise((resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('aborted')))
+          if (failure === 'cancel') {
+            storage.useProxy = false
+            for (const listener of listeners) listener({ useProxy: { newValue: false } })
+          }
+        })
+      },
+    })
+    await assert.rejects(state.load('service-request').requestService('https://first.example/list', Array.isArray,
+      { maxRedirects: 5, allowProxyRetry: failure === 'exclusion' }),
+    failure === 'timeout' ? /Timeout/ : failure === 'cancel' ? /Cancelled/ : /exclusion/)
+    assert.equal(calls, 2)
+    assert.equal(state.headerListeners.size, 0)
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
   })
 }
