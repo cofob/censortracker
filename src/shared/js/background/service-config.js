@@ -15,6 +15,8 @@ export const getRegionConfig = (code) => {
   return {
     countryCode,
     registryUrl,
+    registryMirrors: countryCode === 'RU'
+      ? ['https://109.61.17.39/api/v3/ct-domains/'] : [],
     configSource: 'built-in',
   }
 }

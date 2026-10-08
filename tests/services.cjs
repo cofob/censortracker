@@ -393,9 +393,13 @@ test('country mappings and validators', () => {
   for (const country of ['AZ', 'BY', 'GE', 'KG', 'KZ', 'TR', 'UA', 'UZ']) {
     assert.equal(config.getRegionConfig(country).registryUrl,
       `https://censortracker.github.io/ctconf/registry/${country.toLowerCase()}.json`)
+    assert.deepEqual(clone(config.getRegionConfig(country).registryMirrors), [])
   }
   assert.equal(config.getRegionConfig('PL').registryUrl, null)
+  assert.deepEqual(clone(config.getRegionConfig('PL').registryMirrors), [])
   assert.match(config.getRegionConfig('RU').registryUrl, /registry.ctreserve.de/)
+  assert.deepEqual(clone(config.getRegionConfig('RU').registryMirrors),
+    ['https://109.61.17.39/api/v3/ct-domains/'])
   assert.equal(config.validCountry({ countryCode: 'PL' }), true)
   assert.equal(config.validCountry({ countryCode: 'invalid' }), false)
   assert.equal(config.validDomains(['example.com']), true)
@@ -403,6 +407,39 @@ test('country mappings and validators', () => {
   assert.equal(config.validORI([{ url: 'example.com', cooperationRefused: false }]), true)
   assert.equal(config.validORI([{}]), false)
 })
+
+for (const result of ['success', 'empty', 'network', 'invalid', 'unavailable']) {
+  test(`RU registry mirror: ${result}`, async () => {
+    const primary = 'https://registry.ctreserve.de/api/v3/ct-domains/'
+    const mirror = 'https://109.61.17.39/api/v3/ct-domains/'
+    const urls = []
+    const state = fixture({ noProxy: true,
+      storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'] },
+      fetch: async url => {
+        if (![primary, mirror].includes(url)) return response([])
+        urls.push(url)
+        if (result === 'unavailable' || (url === primary && result === 'network')) {
+          throw new Error('offline')
+        }
+        return response(url === primary && result === 'invalid' ? [null]
+          : result === 'empty' ? [] : ['registry.example'])
+      },
+    })
+    await state.load('server').synchronizeInBackground({ syncProxy: false })
+    assert.deepEqual(urls, ['success', 'empty'].includes(result) ? [primary] : [primary, mirror])
+    assert.deepEqual(state.storage.domains, result === 'unavailable' ? ['cached.example']
+      : result === 'empty' ? [] : ['registry.example'])
+    assert.equal(state.storage.registryStatus.state, result === 'unavailable' ? 'unavailable'
+      : result === 'empty' ? 'empty' : 'ready')
+    if (result === 'unavailable') {
+      assert.ok(state.storage.registryStatus.error.includes(primary))
+      assert.ok(state.storage.registryStatus.error.includes(mirror))
+    } else {
+      assert.equal(state.storage.registryStatus.error, '')
+    }
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+}
 
 for (const country of ['', 'RU', 'BY', 'PL']) {
   test(`region selection and failed registry cache: ${country || 'automatic'}`, async () => {

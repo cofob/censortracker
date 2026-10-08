@@ -137,6 +137,24 @@ const fetchProxy = async () => {
   }
 }
 
+const requestRegistry = async ({ registryUrl, registryMirrors = [] }) => {
+  if (!registryUrl) {
+    return []
+  }
+  const errors = []
+
+  for (const url of [registryUrl, ...registryMirrors]) {
+    try {
+      const { data } = await requestService(url, validDomains)
+
+      return data
+    } catch (error) {
+      errors.push(error.message)
+    }
+  }
+  throw new Error(errors.join('; '))
+}
+
 const fetchRegistry = async (config) => {
   const { countryCode, registryUrl } = config
   const { registryRegionCode } = await browser.storage.local.get({
@@ -153,9 +171,7 @@ const fetchRegistry = async (config) => {
     registryStatus: { state: 'loading', skipped: 0, error: '' },
   })
   try {
-    const { data } = registryUrl
-      ? await requestService(registryUrl, validDomains)
-      : { data: [] }
+    const data = await requestRegistry(config)
     const domains = data.filter(validDomain)
     const state = domains.length > 0 ? 'ready' : 'empty'
 
