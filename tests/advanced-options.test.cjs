@@ -9,6 +9,76 @@ const source = fs.readFileSync(path.join(__dirname, '../src/shared/js/pages/adva
 const sequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
   'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a']
 
+function diagnosticPage() {
+  const button = () => ({ addEventListener(name, handler) { this.click = handler } })
+  const showDebugInfoBtn = button()
+  const exportSettingsBtn = button()
+  const exportSupportBtn = button()
+  const debugInfoJSON = {}
+  const copyDebugInfoBtn = {}
+  const downloads = []
+  const errors = []
+  const revoked = []
+  const popups = []
+  let data = { reportType: 'censortracker-diagnostics', generatedAt: 'first' }
+  let failure
+  const debug = source.slice(source.indexOf('  showDebugInfoBtn.addEventListener'),
+    source.indexOf('  confirmResetBtn.addEventListener'))
+  const exports = source.slice(source.indexOf('  const exportFile'),
+    source.indexOf('  importSettingsInput.addEventListener'))
+  vm.runInNewContext(debug + exports, {
+    showDebugInfoBtn, exportSettingsBtn, exportSupportBtn, debugInfoJSON, copyDebugInfoBtn,
+    getMessage: key => key,
+    callBackground: async action => {
+      assert.equal(action, 'diagnosticInfo')
+      if (failure) throw failure
+      return data
+    },
+    Settings: { exportSettings: async () => ({ formatVersion: 1, settings: { useProxy: true } }) },
+    togglePopup: id => popups.push(id), showPageError: error => errors.push(error.message),
+    Blob, URL: { createObjectURL: blob => blob, revokeObjectURL: url => revoked.push(url) },
+    document: { body: { append() {} }, createElement: () => ({ style: {},
+      click() { downloads.push({ filename: this.download, blob: this.href }) }, remove() {},
+    }) },
+  })
+  return { showDebugInfoBtn, exportSettingsBtn, exportSupportBtn, debugInfoJSON,
+    copyDebugInfoBtn, downloads, revoked, errors, popups,
+    update: value => { data = value }, fail: error => { failure = error } }
+}
+
+test('debug information refreshes the textarea and restores its button after errors', async () => {
+  const page = diagnosticPage()
+  await page.showDebugInfoBtn.click()
+  assert.equal(JSON.parse(page.debugInfoJSON.value).generatedAt, 'first')
+  page.update({ generatedAt: 'second' })
+  await page.showDebugInfoBtn.click()
+  assert.equal(JSON.parse(page.debugInfoJSON.value).generatedAt, 'second')
+  assert.equal(page.copyDebugInfoBtn.textContent, 'copyButton')
+  assert.equal(page.popups.length, 2)
+  page.fail(new Error('Background unavailable'))
+  await page.showDebugInfoBtn.click()
+  assert.equal(page.showDebugInfoBtn.disabled, false)
+  assert.deepEqual(page.errors, ['Background unavailable'])
+})
+
+test('exports download the correct documents and release each download URL', async () => {
+  const page = diagnosticPage()
+  await page.exportSettingsBtn.click()
+  await page.exportSupportBtn.click()
+  assert.deepEqual(page.downloads.map(({ filename }) => filename),
+    ['censortracker.settings.json', 'censortracker.diagnostics.json'])
+  assert.equal(JSON.parse(await page.downloads[0].blob.text()).formatVersion, 1)
+  assert.equal(JSON.parse(await page.downloads[1].blob.text()).reportType, 'censortracker-diagnostics')
+  assert.equal(page.revoked.length, 2)
+  assert.equal(page.exportSettingsBtn.disabled, false)
+  assert.equal(page.exportSupportBtn.disabled, false)
+  page.fail(new Error('Background unavailable'))
+  await page.exportSupportBtn.click()
+  assert.equal(page.exportSupportBtn.disabled, false)
+  assert.equal(page.downloads.length, 2)
+  assert.deepEqual(page.errors, ['Background unavailable'])
+})
+
 async function fixture(saved = false, apply = async () => {}) {
   const listeners = {}
   const checkbox = { addEventListener: (name, handler) => { listeners.change = handler } }

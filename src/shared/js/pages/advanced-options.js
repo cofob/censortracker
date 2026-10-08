@@ -1,5 +1,5 @@
 import { callBackground } from 'Background/background-rpc'
-import browser, { getBrowserInfo } from 'Background/browser-api'
+import browser from 'Background/browser-api'
 import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import ProxyManager from 'Background/proxy'
 import * as server from 'Background/server'
@@ -25,6 +25,7 @@ import { mountSiteRules } from './site-rules'
   const updateLocalRegistryBtn = document.getElementById('updateLocalRegistry')
   const resetSettingsToDefaultBtn = document.getElementById('resetSettingsToDefault')
   const exportSettingsBtn = document.getElementById('exportSettings')
+  const exportSupportBtn = document.getElementById('exportSupport')
   const importSettingsInput = document.getElementById('importSettingsInput')
 
   document.getElementById('importSettings').addEventListener('click', () => {
@@ -135,59 +136,18 @@ import { mountSiteRules } from './site-rules'
   })
 
   showDebugInfoBtn.addEventListener('click', async (event) => {
-    const thisExtension = await browser.management.getSelf()
-    const extensionsInfo = await browser.management.getAll()
-    const { version: currentVersion } = browser.runtime.getManifest()
+    showDebugInfoBtn.disabled = true
+    try {
+      const info = await callBackground('diagnosticInfo')
 
-    const {
-      localConfig = {},
-      fallbackReason,
-      fallbackProxyInUse = false,
-      fallbackProxyError,
-      proxyLastFetchTs,
-      serviceErrors = [],
-      geoIPStatus,
-      serviceRouteError,
-      proxySetupError,
-    } = await browser.storage.local.get([
-      'localConfig',
-      'fallbackReason',
-      'fallbackProxyInUse',
-      'fallbackProxyError',
-      'proxyLastFetchTs',
-      'serviceErrors',
-      'geoIPStatus',
-      'serviceRouteError',
-      'proxySetupError',
-    ])
-
-    if (extensionsInfo.length > 0) {
-      localConfig.conflictingExtensions = extensionsInfo
-        .filter(({ name }) => name !== thisExtension.name)
-        .filter(({ enabled, permissions = [] }) =>
-          permissions.includes('proxy') && enabled)
-        .map(({ name }) => name.split(' - ')[0])
+      debugInfoJSON.value = JSON.stringify(info, null, 2)
+      copyDebugInfoBtn.textContent = getMessage('copyButton')
+      togglePopup('popupDebugInformation')
+    } catch (error) {
+      showPageError(error)
+    } finally {
+      showDebugInfoBtn.disabled = false
     }
-
-    localConfig.version = currentVersion
-
-    if (fallbackProxyInUse) {
-      localConfig.fallbackReason = fallbackReason
-      localConfig.fallbackProxyError = fallbackProxyError
-      localConfig.fallbackProxyInUse = fallbackProxyInUse
-    }
-    localConfig.browser = getBrowserInfo()
-    localConfig.proxyLastFetchTs = proxyLastFetchTs
-    localConfig.serviceErrors = serviceErrors
-    localConfig.geoIPStatus = geoIPStatus
-    localConfig.registryStatus = await callBackground('registryStatus')
-    localConfig.serviceRouteError = serviceRouteError
-    localConfig.proxySetupError = proxySetupError
-    localConfig.badProxies = await ProxyManager.getBadProxies()
-    localConfig.currentProxyURI = await ProxyManager.getProxyingRules()
-    localConfig.proxyControlled = await ProxyManager.controlledByThisExtension()
-    debugInfoJSON.textContent = JSON.stringify(localConfig, null, 2)
-    togglePopup('popupDebugInformation')
   })
 
   confirmResetBtn.addEventListener('click', async (event) => {
@@ -204,24 +164,38 @@ import { mountSiteRules } from './site-rules'
     console.info('Censor Tracker has been reset to default settings.')
   })
 
-  exportSettingsBtn.addEventListener('click', (event) => {
-    Settings.exportSettings().then((settings) => {
-      const data = JSON.stringify(settings, null, 2)
+  const exportFile = async (button, read, filename) => {
+    button.disabled = true
+    try {
+      const data = JSON.stringify(await read(), null, 2)
       const blob = new Blob([data], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
 
-      link.href = url
-      link.download = 'censortracker.settings.json'
+      try {
+        link.href = url
+        link.download = filename
+        link.style.display = 'none'
+        document.body.append(link)
+        link.click()
+      } finally {
+        link.remove()
+        URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      showPageError(error)
+    } finally {
+      button.disabled = false
+    }
+  }
 
-      link.style.display = 'none'
-      document.body.append(link)
-
-      link.click()
-
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    })
+  exportSettingsBtn.addEventListener('click', () => {
+    return exportFile(exportSettingsBtn, () => Settings.exportSettings(),
+      'censortracker.settings.json')
+  })
+  exportSupportBtn.addEventListener('click', () => {
+    return exportFile(exportSupportBtn, () => callBackground('diagnosticInfo'),
+      'censortracker.diagnostics.json')
   })
 
   importSettingsInput.addEventListener('change', async (event) => {

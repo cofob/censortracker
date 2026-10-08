@@ -4,10 +4,14 @@
  */
 export const getBrowserInfo = () => {
   const userAgent = navigator.userAgent
-  const uaMatch = userAgent.match(/(Firefox|Chrome)\/(\d+)/) || []
+  const uaMatch = userAgent.match(/(Firefox|Chrome)\/([\d.]+)/) || []
 
   if (uaMatch[1] === 'Chrome') {
-    const innerMatch = userAgent.match(/(Edg|OPR|YaBrowser)\/(\d+)/) || []
+    const innerMatch = userAgent.match(/(Edg|OPR|YaBrowser)\/([\d.]+)/) || []
+
+    if (innerMatch[2]) {
+      uaMatch[2] = innerMatch[2]
+    }
 
     if (innerMatch[1] === 'OPR') {
       uaMatch[1] = 'Opera'
@@ -36,4 +40,27 @@ const getBrowser = () => {
   return chrome
 }
 
-export default getBrowser()
+const browserAPI = getBrowser()
+
+export const getDetailedBrowserInfo = async () => {
+  const info = getBrowserInfo()
+
+  try {
+    if (browserAPI.isFirefox) {
+      const { name, version } = await browserAPI.runtime.getBrowserInfo()
+
+      return { name, version }
+    }
+    const { fullVersionList } = await navigator.userAgentData
+      .getHighEntropyValues(['fullVersionList'])
+    const expected = info.name === 'Chrome' ? 'Google Chrome' : info.name
+    const version = fullVersionList.find(({ brand }) =>
+      brand === expected)?.version
+
+    return { ...info, version: version || info.version }
+  } catch {
+    return info
+  }
+}
+
+export default browserAPI

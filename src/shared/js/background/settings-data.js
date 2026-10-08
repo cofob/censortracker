@@ -34,7 +34,8 @@ const isObject = (value) => value !== null && typeof value === 'object' &&
   !Array.isArray(value)
 
 export const validateSettings = (input) => {
-  if (!isObject(input) || (input.formatVersion !== undefined &&
+  if (!isObject(input) || input.reportType !== undefined ||
+    (input.formatVersion !== undefined &&
     input.formatVersion !== 1)) {
     throw new Error('Invalid settings format')
   }

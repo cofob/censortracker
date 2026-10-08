@@ -16,6 +16,7 @@ import {
 import { importAntizapret } from './antizapret'
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
+import { getDiagnosticInfo } from './diagnostics'
 import { normalizeHostname } from './hostname'
 import { initializeLanguage } from './i18n'
 import Ignore from './ignore'
@@ -56,6 +57,7 @@ withProxyLock(() => {}).catch((error) => {
 })
 
 registerBackground({
+  diagnosticInfo: getDiagnosticInfo,
   setLocalProxy: (enabled) => withProxyLock(
     () => ProxyManager.setLocalProxyInBackground(enabled),
   ),

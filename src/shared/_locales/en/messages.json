@@ -486,10 +486,16 @@
     "message": "The file is empty or damaged. Please check it and try again."
   },
   "exportSettingsDesc": {
-    "message": "You can export your settings to a JSON file and import them later."
+    "message": "Save a full settings backup. This file includes proxy passwords and source URLs."
   },
   "exportSettingsTitle": {
     "message": "Export Settings"
+  },
+  "exportSupportDesc": {
+    "message": "Save a diagnostic report without proxy passwords, source URLs, or personal domain lists."
+  },
+  "exportSupportTitle": {
+    "message": "Export for support"
   },
   "extensionDisabledTitle": {
     "message": "Censor Tracker disabled"

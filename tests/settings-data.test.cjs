@@ -2,6 +2,15 @@ const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const load = require('./load.cjs')
 const { settingsDefaults, validateSettings } = load('background/settings-data')
+const loadSettings = mocks => load('background/settings', {
+  ...mocks,
+  'browser-api': { ...mocks['browser-api'],
+    getDetailedBrowserInfo: async () => ({ name: 'Firefox', version: '142.0.1' }),
+    default: { ...mocks['browser-api'].default,
+      runtime: { getManifest: () => ({ version: '20.0.0', manifest_version: 2 }) },
+    },
+  },
+})
 const plain = value => JSON.parse(JSON.stringify(value))
 const defaultProxies = { proxies: [], selectedProxyIds: ['builtin'] }
 
@@ -23,7 +32,7 @@ test('settings API keeps runtime state and exports a versioned user-only backup'
     set: async values => { writes++; Object.assign(storage, plain(values)) },
     clear: () => { throw new Error('Must not clear storage') },
   } } }
-  const settings = load('background/settings', {
+  const settings = loadSettings({
     'browser-api': { default: browser },
     'background-rpc': { callBackground: (method, input) => {
       assert.equal(method, 'importSettings')
@@ -31,8 +40,13 @@ test('settings API keeps runtime state and exports a versioned user-only backup'
     } },
   }).default
   const backup = plain(await settings.exportSettings())
-  assert.deepEqual(backup, { formatVersion: 1, settings: { ...plain(settingsDefaults), ...defaultProxies, useProxy: true, currentRegionCode: 'BY' } })
+  assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt)
+  assert.equal(backup.extensionVersion, '20.0.0')
+  assert.deepEqual(backup.browser, { name: 'Firefox', version: '142.0.1' })
+  assert.equal(backup.manifestVersion, 2)
+  assert.deepEqual(backup.settings, { ...plain(settingsDefaults), ...defaultProxies, useProxy: true, currentRegionCode: 'BY' })
   await assert.rejects(settings.importSettings({ useProxy: false, ignoredHosts: [null] }))
+  await assert.rejects(settings.importSettings({ reportType: 'censortracker-diagnostics' }))
   assert.equal(writes, 0)
   await settings.importSettings({ formatVersion: 1, settings: { useProxy: false, serviceRouteSnapshot: {} } })
   assert.equal(storage.useProxy, false)
@@ -57,7 +71,7 @@ for (const enabled of [false, true]) {
   test(`backup round trip preserves registry and recovery choices: ${enabled}`, async () => {
     const source = { kind: 'custom', url: 'https://registry.example/list', enabled, autoUpdate: enabled }
     const storage = { registrySource: source, proxyRecoveryEnabled: enabled, domains: ['cached.example'] }
-    const settings = load('background/settings', { 'browser-api': { default: { storage: { local: {
+    const settings = loadSettings({ 'browser-api': { default: { storage: { local: {
       get: async () => storage, set: async values => Object.assign(storage, plain(values)),
     } } } } }).default
     const backup = await settings.exportSettings()
@@ -71,7 +85,7 @@ for (const enabled of [false, true]) {
 }
 
 test('export migrates a legacy selection before it applies defaults', async () => {
-  const settings = load('background/settings', {
+  const settings = loadSettings({
     'browser-api': { default: { storage: { local: { get: async () => ({
       customProxyProtocol: 'HTTP', customProxyServerURI: 'legacy.example:80',
     }) } } } },
@@ -92,7 +106,7 @@ test('invalid known settings reject the full import before any write', () => {
 test('language choices survive settings export and import', async () => {
   for (const uiLanguage of ['auto', 'en', 'ru', 'uk']) {
     const storage = { uiLanguage }
-    const settings = load('background/settings', {
+    const settings = loadSettings({
       'browser-api': { default: { storage: { local: {
         get: async () => storage, set: async values => Object.assign(storage, plain(values)),
       } } } },

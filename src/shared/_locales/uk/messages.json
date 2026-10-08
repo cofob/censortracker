@@ -486,10 +486,16 @@
     "message": "Файл порожній або пошкоджений. Будь ласка, перевірте його та спробуйте ще раз."
   },
   "exportSettingsDesc": {
-    "message": "Ви можете експортувати налаштування Censor Tracker у файл JSON та імпортувати їх пізніше."
+    "message": "Зберегти повну резервну копію налаштувань. Файл містить паролі проксі та URL джерел."
   },
   "exportSettingsTitle": {
     "message": "Експортувати налаштування"
+  },
+  "exportSupportDesc": {
+    "message": "Зберегти звіт діагностики без паролів проксі, URL джерел і списків особистих доменів."
+  },
+  "exportSupportTitle": {
+    "message": "Експорт для підтримки"
   },
   "extensionDisabledTitle": {
     "message": "Censor Tracker вимкнено"

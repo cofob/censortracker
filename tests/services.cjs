@@ -419,7 +419,8 @@ for (const result of ['success', 'empty', 'network', 'invalid', 'unavailable']) 
     const mirror = 'https://109.61.17.39/api/v3/ct-domains/'
     const urls = []
     const state = fixture({ noProxy: true,
-      storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'] },
+      storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'],
+        registryCache: { countryCode: 'RU', primary: ['cached.example'], custom: [], backend: [], updatedAt: 100 } },
       fetch: async url => {
         if (url.includes('/api/config/')) return response({ customRegistryUrl: null })
         if (![primary, mirror].includes(url)) return response([])
@@ -438,9 +439,11 @@ for (const result of ['success', 'empty', 'network', 'invalid', 'unavailable']) 
     assert.equal(state.storage.registryStatus.state, result === 'unavailable' ? 'unavailable'
       : result === 'empty' ? 'empty' : 'ready')
     if (result === 'unavailable') {
+      assert.equal(state.storage.registryCache.updatedAt, 100)
       assert.ok(state.storage.registryStatus.error.includes(primary))
       assert.ok(state.storage.registryStatus.error.includes(mirror))
     } else {
+      assert.ok(state.storage.registryCache.updatedAt > 100)
       assert.equal(state.storage.registryStatus.error, '')
     }
     assert.equal(state.storage.serviceRouteSnapshot, undefined)
@@ -1024,7 +1027,9 @@ for (const failure of ['', 'primary', 'custom', 'config', 'both']) {
     const custom = ['custom', 'config', 'both'].includes(failure)
       ? ['old-custom.example'] : ['custom.example', 'shared.example', 'other.example']
     assert.deepEqual(state.storage.domains, [...new Set([...primary, ...custom])])
-    assert.deepEqual(state.storage.registryCache, { countryCode: 'RU', primary, custom, backend: [] })
+    const { updatedAt, ...cache } = state.storage.registryCache
+    assert.deepEqual(cache, { countryCode: 'RU', primary, custom, backend: [] })
+    assert.equal(Boolean(updatedAt), !failure || failure === 'config')
     assert.equal(state.storage.registryStatus.state, failure && failure !== 'config' ? 'unavailable' : 'ready')
     assert.equal(state.storage.registryStatus.skipped, failure === 'primary' || !failure ? 1 : 0)
     assert.equal(state.storage.serviceErrors.length, failure && failure !== 'config' ? 1 : 0)

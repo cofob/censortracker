@@ -2,6 +2,15 @@ const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const load = require('./load.cjs')
 const { validateSettings } = load('background/settings-data')
+const loadSettings = mocks => load('background/settings', {
+  ...mocks,
+  'browser-api': { ...mocks['browser-api'],
+    getDetailedBrowserInfo: async () => ({ name: 'Firefox', version: '142.0.1' }),
+    default: { ...mocks['browser-api'].default,
+      runtime: { getManifest: () => ({ version: '20.0.0', manifest_version: 2 }) },
+    },
+  },
+})
 const plain = value => JSON.parse(JSON.stringify(value))
 const proxy = { id: 'old_proxy', name: 'My proxy', protocol: 'https://',
   uri: 'ПРИМЕР.РФ:443', credentials: 'a%40b:p%3Aa:ss' }
@@ -53,7 +62,7 @@ test('fork selections preserve disabled custom mode, empty pools and legacy back
 test('fork backups restore source URLs and recovery without importing source caches', async () => {
   const storage = { domains: ['trusted.example'], proxyChecks: { trusted: true } }
   let writes = 0
-  const settings = load('background/settings', {
+  const settings = loadSettings({
     'browser-api': { default: { storage: { local: {
       get: async () => storage,
       set: async values => { writes++; Object.assign(storage, plain(values)) },
@@ -99,7 +108,7 @@ test('canonical and versioned settings ignore stale fork keys', () => {
 
 test('invalid fork backups reject the whole import before a write', async () => {
   let writes = 0
-  const settings = load('background/settings', {
+  const settings = loadSettings({
     'browser-api': { default: { storage: { local: { set: async () => { writes++ } } } } },
   }).default
   const invalid = [

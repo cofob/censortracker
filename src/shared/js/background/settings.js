@@ -1,5 +1,5 @@
 import { callBackground } from './background-rpc'
-import browser from './browser-api'
+import browser, { getDetailedBrowserInfo } from './browser-api'
 import { settingsDefaults, validateSettings } from './settings-data'
 
 class Settings {
@@ -79,8 +79,15 @@ class Settings {
   }
 
   async exportSettings () {
+    const { version, manifest_version: manifestVersion } =
+      browser.runtime.getManifest()
+
     return {
       formatVersion: 1,
+      exportedAt: new Date().toISOString(),
+      extensionVersion: version,
+      browser: await getDetailedBrowserInfo(),
+      manifestVersion,
       settings: {
         ...settingsDefaults,
         ...validateSettings(await browser.storage.local.get(null)),

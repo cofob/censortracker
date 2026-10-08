@@ -226,6 +226,9 @@ const fetchRegistry = async (config) => {
   ])]
   const state = domains.length > 0 ? 'ready' : 'empty'
 
+  if (errors.length === 0) {
+    cache.updatedAt = Date.now()
+  }
   await browser.storage.local.set({
     domains,
     registryCache: cache,
