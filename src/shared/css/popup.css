@@ -159,14 +159,15 @@ a {
     margin-bottom: 50px;
 }
 
-#grantPrivateBrowsingPermissionsButton {
+#grantPrivateBrowsingPermissionsButton,
+#relatedDomains button {
     box-sizing: border-box;
     width: 100%;
     border: 0;
     font-family: inherit;
 }
 
-.default-btn:hover {
+.default-btn:hover:not(:disabled) {
     cursor: pointer;
     background-color: #625c55;
 }
@@ -518,6 +519,15 @@ div#grantPrivateBrowsingPermissionsButton {
     color: #8A8580;
 }
 
+#relatedDomains button {
+    margin: 10px 0 0;
+}
+
+#relatedDomains button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 #relatedDomainsList {
     max-height: 140px;
     overflow-y: auto;
@@ -774,7 +784,7 @@ div#grantPrivateBrowsingPermissionsButton {
         box-shadow: 0 2.01027px 11.8382px rgba(15, 13, 11, .055), 0 1.12694px 6.63642px rgba(15, 13, 11, .066), 0 .598509px 3.52455px rgba(15, 13, 11, .079)
     }
 
-    .default-btn:hover {
+    .default-btn:hover:not(:disabled) {
         background: #61666b
     }
 
