@@ -1032,7 +1032,7 @@ kbd {
 }
 
 .popup {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   height: 100vh;
@@ -1040,6 +1040,8 @@ kbd {
   background: rgba(255, 255, 255, 0.97);
   padding: 10px;
   box-sizing: border-box;
+  overflow: auto;
+  z-index: 15;
   display: none;
 }
 
