@@ -311,11 +311,13 @@ for (const firefox of [false, true]) {
   })
 }
 
-for (const failure of ['network', 'http', 'invalid', 'json', 'timeout']) {
-  test(`retry after ${failure}, knock first, restore normal route`, async () => {
+for (const [firefox, failure] of [false, true].flatMap(firefox =>
+  ['network', 'http', 'invalid', 'json', 'timeout'].map(failure => [firefox, failure]))) {
+  test(`retry after ${failure}, knock first, restore normal route: Firefox=${firefox}`, async () => {
     let calls = 0
-    const state = fixture({ fastTimeout: true, fetch: async (url, init, { route }) => {
+    const state = fixture({ firefox, fastTimeout: true, fetch: async (url, init, { route }) => {
       if (++calls === 1) {
+        assert.equal(route('service.example'), 'DIRECT')
         if (failure === 'network') throw new Error('network')
         if (failure === 'http') return { ok: false, status: 503 }
         if (failure === 'invalid') return response({})
@@ -330,7 +332,9 @@ for (const failure of ['network', 'http', 'invalid', 'json', 'timeout']) {
     const result = await state.load('service-request').requestService('https://service.example', Array.isArray)
     assert.equal(result.viaProxy, true)
     assert.equal(calls, 2)
-    assert.deepEqual(state.settings().value, state.original)
+    if (!firefox) assert.deepEqual(state.settings().value, state.original)
+    else assert.equal(state.route('service.example'), 'HTTPS normal.example:443')
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
   })
 }
 
