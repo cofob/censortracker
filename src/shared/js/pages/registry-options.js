@@ -48,7 +48,6 @@ import { mountRegistryStatus } from './registry-status'
     }
 
     await ProxyManager.setProxy()
-    await browser.storage.local.set({ useRegistry })
   }, false)
 
   document.addEventListener('click', (event) => {

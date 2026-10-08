@@ -1079,6 +1079,33 @@ test('reset explicitly enables proxy use before applying the PAC', async () => {
   await reset()
 })
 
+test('the last registry choice survives an earlier pending download', async () => {
+  const source = fs.readFileSync(path.join(root, '../pages/registry-options.js'), 'utf8')
+  const handler = source.slice(source.indexOf("  useRegistryCheckbox.addEventListener('change'"),
+    source.indexOf("  document.addEventListener('click'"))
+  const state = fixture({ storage: { useRegistry: false }, mocks: { utilities: {} } })
+  let change, release, started
+  const ready = new Promise(resolve => { started = resolve })
+  const checkbox = { checked: true, addEventListener: (_, fn) => { change = fn } }
+  const applied = []
+  vm.runInNewContext(handler, {
+    useRegistryCheckbox: checkbox,
+    selectRegion: { classList: { add() {}, remove() {} } },
+    browser: state.browser, Registry: state.load('registry').default,
+    ProxyManager: { setProxy: async () => { applied.push(state.storage.useRegistry) } },
+    server: { synchronize: () => { started(); return new Promise(resolve => { release = resolve }) } },
+  })
+  const enabling = change({ target: checkbox })
+  await ready
+  checkbox.checked = false
+  await change({ target: checkbox })
+  assert.equal(state.storage.useRegistry, false)
+  release()
+  await enabling
+  assert.equal(state.storage.useRegistry, checkbox.checked)
+  assert.deepEqual(applied, [false, false])
+})
+
 for (const code of ['RU', 'BY']) {
   test(`manual region ${code} clears mismatched cache before sync with proxy disabled`, async () => {
     const source = fs.readFileSync(path.join(root, '../pages/registry-options.js'), 'utf8')
