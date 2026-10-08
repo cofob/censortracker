@@ -535,8 +535,26 @@ div#grantPrivateBrowsingPermissionsButton {
 }
 
 #relatedDomainsList label {
-    display: block;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 4px;
+    border-radius: 4px;
+    cursor: pointer;
     text-align: left;
+}
+
+#relatedDomainsList label:hover,
+#relatedDomainsList label:focus-within {
+    background: rgba(138, 133, 128, 0.12);
+}
+
+#relatedDomainsList input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin: 2px 0 0;
+    accent-color: #6c9e2c;
 }
 
 .site-actions-group {
