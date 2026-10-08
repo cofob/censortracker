@@ -3,13 +3,14 @@ import browser from './browser-api'
 import ProxyManager from './proxy'
 import { refreshRegistrySource } from './registry-source'
 import {
-  CONFIG_URL, DOMAINS_URL, GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
+  getRegionConfig,
   validConfig, validCountry, validCustomRegistry, validDomain, validDomains,
   validORI, validProxies,
 } from './service-config'
+import { getServiceMirrors, requestMirroredService } from './service-mirrors'
 import { requestService } from './service-request'
 
-const fetchConfig = async () => {
+const fetchConfig = async (mirrors) => {
   const { currentRegionCode } = await browser.storage.local.get({
     currentRegionCode: '',
   })
@@ -18,13 +19,8 @@ const fetchConfig = async () => {
 
   if (!countryCode) {
     try {
-      const { data, viaProxy } = await requestService(GEOIP_URL, validCountry, {
-        allowProxyRetry: false,
-      })
+      const { data } = await requestMirroredService(mirrors, 'geoip', validCountry)
 
-      if (viaProxy) {
-        throw new Error('GeoIP returned the proxy country, not the user country')
-      }
       countryCode = data.countryCode.toUpperCase()
       geoIPStatus = 'direct'
     } catch (error) {
@@ -70,7 +66,7 @@ const selectProxy = (proxies) => {
  * Fetches available configurations and selects a proxy server.
  * @returns {Promise<void>} Resolves when the proxy is selected.
  */
-const fetchProxy = async () => {
+const fetchProxy = async (mirrors) => {
   const { badProxies } = await browser.storage.local.get({ badProxies: [] })
 
   console.group('[Proxy] Fetching proxy...')
@@ -82,7 +78,7 @@ const fetchProxy = async () => {
     }
 
     const { data: proxyList } =
-      await requestService(PROXY_LIST_URL, validProxies)
+      await requestMirroredService(mirrors, 'proxyList', validProxies)
 
     const activeProxies = proxyList.filter(({ active, weight }) => {
       return active && Number(weight) > 0
@@ -138,27 +134,20 @@ const fetchProxy = async () => {
   }
 }
 
-const requestRegistry = async ({ registryUrl, registryMirrors = [] }) => {
+const requestRegistry = async ({ registryUrl, countryCode }, mirrors) => {
   if (!registryUrl) {
     return []
   }
-  const errors = []
+  const { data } = await requestMirroredService(
+    mirrors, 'registry', validDomains, { countryCode },
+  )
 
-  for (const url of [registryUrl, ...registryMirrors]) {
-    try {
-      const { data } = await requestService(url, validDomains)
-
-      return data
-    } catch (error) {
-      errors.push(error.message)
-    }
-  }
-  throw new Error(errors.join('; '))
+  return data
 }
 
-const requestCustomRegistry = async (config) => {
-  const result = await requestService(
-    `${CONFIG_URL}${config.countryCode}/`, validConfig,
+const requestCustomRegistry = async (config, mirrors) => {
+  const result = await requestMirroredService(
+    mirrors, 'config', validConfig, { countryCode: config.countryCode },
   ).catch(() => null)
 
   if (!result) {
@@ -177,7 +166,7 @@ const requestCustomRegistry = async (config) => {
   return records.flatMap((record) => record.domains)
 }
 
-const fetchRegistry = async (config) => {
+const fetchRegistry = async (config, mirrors) => {
   const { countryCode } = config
   const { registryRegionCode, registryCache, domains: previousDomains } =
     await browser.storage.local.get({
@@ -203,10 +192,10 @@ const fetchRegistry = async (config) => {
   let skipped = 0
 
   for (const [source, request] of [
-    ['primary', () => requestRegistry(config)],
-    ['custom', () => requestCustomRegistry(config)],
-    ['backend', async () => (await requestService(
-      `${DOMAINS_URL}${countryCode}/`, validDomains, { maxRedirects: 5 },
+    ['primary', () => requestRegistry(config, mirrors)],
+    ['custom', () => requestCustomRegistry(config, mirrors)],
+    ['backend', async () => (await requestMirroredService(
+      mirrors, 'domains', validDomains, { countryCode, maxRedirects: 5 },
     ).catch(() => null))?.data ?? null],
   ]) {
     try {
@@ -249,6 +238,7 @@ let syncQueue = Promise.resolve()
 export const synchronizeInBackground = (options = {}) => {
   const operation = async () => {
     const { syncRegistry = true, syncProxy = true, region } = options
+    const mirrors = await getServiceMirrors()
     const failures = []
     const run = async (name, task) => {
       try {
@@ -275,7 +265,7 @@ export const synchronizeInBackground = (options = {}) => {
       await ProxyManager.setProxy()
     }
     if (syncProxy) {
-      await run('Proxy list', fetchProxy)
+      await run('Proxy list', () => fetchProxy(mirrors))
     }
     if (syncRegistry) {
       // Remember the previous region before replacing diagnostic configuration.
@@ -287,12 +277,12 @@ export const synchronizeInBackground = (options = {}) => {
           registryRegionCode: localConfig.countryCode,
         })
       }
-      const config = await fetchConfig()
+      const config = await fetchConfig(mirrors)
 
-      await run('Registry', () => fetchRegistry(config))
+      await run('Registry', () => fetchRegistry(config, mirrors))
       await run('External registry', () => refreshRegistrySource({ automatic: true }))
       await run('ORI', async () => {
-        const { data } = await requestService(ORI_URL, validORI)
+        const { data } = await requestMirroredService(mirrors, 'ori', validORI)
 
         await browser.storage.local.set({ disseminators: data })
       })

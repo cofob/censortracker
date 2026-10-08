@@ -35,7 +35,9 @@ const proxyRoute = async (hostname) => {
   return decision.route.split(';')[0].trim()
 }
 
-const attempt = async (url, validate, viaProxy, allowRedirects) => {
+const attempt = async (
+  url, validate, viaProxy, allowRedirects, requireEnabled,
+) => {
   const parsed = new URL(url)
   const { hostname } = parsed
 
@@ -84,6 +86,13 @@ const attempt = async (url, validate, viaProxy, allowRedirects) => {
 
   browser.storage.onChanged.addListener(onSettingsChanged)
   try {
+    if (requireEnabled) {
+      const { enableExtension } = await browser.storage.local.get('enableExtension')
+
+      if (!enableExtension) {
+        throw new Error('Extension is disabled')
+      }
+    }
     if (viaProxy) {
       if (await proxyRoute(hostname) !== getServiceRoute()?.route) {
         throw new Error('Proxy route changed before the request')
@@ -145,7 +154,7 @@ const attempt = async (url, validate, viaProxy, allowRedirects) => {
   }
 }
 
-const requestDirect = async (url, validate, allowRedirects) => {
+const requestDirect = async (url, validate, allowRedirects, requireEnabled) => {
   const setting = browser.proxy.settings
   const { levelOfControl } = await setting.get({})
   let direct = false
@@ -163,7 +172,9 @@ const requestDirect = async (url, validate, allowRedirects) => {
   setting.onChange?.addListener(onRouteChange)
   try {
     const before = await setting.get({})
-    const result = await attempt(url, validate, false, allowRedirects)
+    const result = await attempt(
+      url, validate, false, allowRedirects, requireEnabled,
+    )
     const after = await setting.get({})
     const knownDirect = ['direct', 'none'].includes(
       before.value.mode || before.value.proxyType,
@@ -180,7 +191,7 @@ const requestDirect = async (url, validate, allowRedirects) => {
   }
 }
 
-const requestProxy = async (url, validate, allowRedirects) => {
+const requestProxy = async (url, validate, allowRedirects, requireEnabled) => {
   const hostname = new URL(url).hostname
 
   await proxyRoute(hostname)
@@ -191,11 +202,14 @@ const requestProxy = async (url, validate, allowRedirects) => {
     throw new Error('Proxy request cannot preserve existing browser routes')
   }
   return {
-    ...await attempt(url, validate, true, allowRedirects), viaProxy: true,
+    ...await attempt(url, validate, true, allowRedirects, requireEnabled),
+    viaProxy: true,
   }
 }
 
-const requestHop = async (url, validate, allowProxyRetry, allowRedirects) => {
+const requestHop = async (
+  url, validate, allowProxyRetry, allowRedirects, requireEnabled,
+) => {
   let directError
   const choice = await siteChoice(new URL(url).hostname)
 
@@ -204,7 +218,7 @@ const requestHop = async (url, validate, allowProxyRetry, allowRedirects) => {
   }
   if (choice !== 'always') {
     try {
-      return await requestDirect(url, validate, allowRedirects)
+      return await requestDirect(url, validate, allowRedirects, requireEnabled)
     } catch (error) {
       directError = new Error(`DIRECT: ${error.message}`, { cause: error })
     }
@@ -218,7 +232,7 @@ const requestHop = async (url, validate, allowProxyRetry, allowRedirects) => {
     }
   }
   try {
-    return await requestProxy(url, validate, allowRedirects)
+    return await requestProxy(url, validate, allowRedirects, requireEnabled)
   } catch (error) {
     const errors = [directError?.message, `PROXY: ${error.message}`]
 
@@ -227,7 +241,9 @@ const requestHop = async (url, validate, allowProxyRetry, allowRedirects) => {
 }
 
 export const requestService = (
-  url, validate, { allowProxyRetry = true, maxRedirects = 0 } = {},
+  url, validate, {
+    allowProxyRetry = true, maxRedirects = 0, requireEnabled = false,
+  } = {},
 ) => {
   const parsed = new URL(url)
   const endpoint = `${parsed.origin}${parsed.pathname}`
@@ -249,7 +265,7 @@ export const requestService = (
         }
         visited.add(current.href)
         const result = await requestHop(
-          url, validate, allowProxyRetry, maxRedirects > 0,
+          url, validate, allowProxyRetry, maxRedirects > 0, requireEnabled,
         )
 
         viaProxy ||= result.viaProxy

@@ -148,6 +148,11 @@ export const getDiagnosticInfo = async () => {
     version,
     manifestVersion,
     configSource: localConfig.configSource,
+    mirrors: {
+      checkedAt: state.mirrorsCheckedAt || null,
+      updatedAt: state.mirrorsUpdatedAt || null,
+      error: text(state.mirrorsError),
+    },
     browser: await getDetailedBrowserInfo(),
     platform,
     incognitoAllowed,

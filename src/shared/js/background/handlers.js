@@ -8,6 +8,7 @@ import { recoverProxy, RECOVERY_ALARM, retryFailedProxies } from './proxy-recove
 import { withProxyLock } from './proxy-route'
 import Registry from './registry'
 import * as server from './server'
+import { MIRRORS_ALARM, refreshServiceMirrors, scheduleServiceMirrors } from './service-mirrors'
 import Settings from './settings'
 import Task from './task'
 import * as utilities from './utilities'
@@ -47,6 +48,8 @@ export const handleOnAlarm = async ({ name }) => {
 
   if (name === 'checkLocalProxy') {
     await ProxyManager.syncLocalProxy()
+  } else if (name === MIRRORS_ALARM) {
+    await refreshServiceMirrors()
   } else if (name === RECOVERY_ALARM) {
     try {
       await retryFailedProxies()
@@ -92,6 +95,7 @@ export const handleStartup = async () => {
 
   await scheduleLocalProxyCheck()
   await ProxyManager.syncLocalProxy()
+  await scheduleServiceMirrors()
   const proxyingEnabled = await ProxyManager.isEnabled()
 
   if (proxyingEnabled && await Settings.extensionEnabled()) {
@@ -191,6 +195,7 @@ export const handleInstalled = async ({ reason }) => {
     await Registry.enableRegistry()
     await Settings.enableExtension()
     await Settings.enableNotifications()
+    await scheduleServiceMirrors()
 
     await server.synchronize()
     await ProxyManager.enableProxy()

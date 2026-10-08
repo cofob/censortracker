@@ -32,12 +32,14 @@ import Registry from './registry'
 import { getRegistrySourceState, refreshRegistrySource, registerRegistrySource, updateRegistrySource } from './registry-source'
 import { addRelatedDomains, findRelatedDomains } from './related-domains'
 import { synchronizeInBackground } from './server'
+import { registerServiceMirrors } from './service-mirrors'
 import Settings from './settings'
 import { changeSiteRule } from './site-rules'
 
 registerProxyAuth()
 initializeLanguage()
 registerRegistrySource()
+registerServiceMirrors().catch(() => console.warn('Could not schedule service mirrors'))
 registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
 registerProxyRecovery().catch(() => console.warn('Could not schedule proxy recovery'))
 

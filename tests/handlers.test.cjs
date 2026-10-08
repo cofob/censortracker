@@ -2,7 +2,7 @@ const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const load = require('./load.cjs')
 
-function fixture(values = {}, globals = {}) {
+function fixture(values = {}, globals = {}, mocks = {}) {
   const storage = { enableExtension: true, useProxy: true, ...values }
   const events = []
   let queue = Promise.resolve()
@@ -40,6 +40,10 @@ function fixture(values = {}, globals = {}) {
     ignore: { default: {} }, registry: { default: {} },
     server: {}, task: { default: { schedule: async () => {} } }, utilities: {},
     'proxy-importer': {}, 'proxy-recovery': {},
+    'service-mirrors': { MIRRORS_ALARM: 'service-mirrors',
+      scheduleServiceMirrors: async () => events.push('schedule mirrors'),
+      refreshServiceMirrors: async () => events.push('refresh mirrors') },
+    ...mocks,
   }, globals)
   return { storage, events, proxy, browser, handlers, withProxyLock }
 }
@@ -62,7 +66,34 @@ test('startup checks the local proxy before it applies routing', async () => {
   const state = fixture({ useLocalProxy: true })
   await state.handlers.handleStartup()
   assert.deepEqual(state.events, [
-    ['create', 'checkLocalProxy', { periodInMinutes: 1 }], 'check local', 'apply',
+    ['create', 'checkLocalProxy', { periodInMinutes: 1 }], 'check local', 'schedule mirrors', 'apply',
+  ])
+})
+
+test('the mirror alarm starts a refresh', async () => {
+  const state = fixture()
+  await state.handlers.handleOnAlarm({ name: 'service-mirrors' })
+  assert.deepEqual(state.events, ['refresh mirrors'])
+})
+
+test('installation loads mirrors before API sync, and updates load them through startup', async () => {
+  const state = fixture({}, {}, {
+    settings: { default: {
+      enableExtension: async () => { state.storage.enableExtension = true },
+      enableNotifications: async () => {},
+      extensionEnabled: async () => state.storage.enableExtension,
+    } },
+    registry: { default: { enableRegistry: async () => {} } },
+    server: { synchronize: async () => state.events.push('sync') },
+  })
+  state.browser.runtime = { OnInstalledReason: { INSTALL: 'install', UPDATE: 'update' } }
+  state.proxy.enableProxy = async () => { state.storage.useProxy = true }
+  await state.handlers.handleInstalled({ reason: 'install' })
+  assert.deepEqual(state.events, ['schedule mirrors', 'sync', 'permissions', 'apply', 'knock'])
+  state.events.length = 0
+  await state.handlers.handleInstalled({ reason: 'update' })
+  assert.deepEqual(state.events, [
+    ['clear', 'checkLocalProxy'], 'check local', 'schedule mirrors', 'apply',
   ])
 })
 

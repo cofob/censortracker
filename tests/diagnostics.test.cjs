@@ -127,6 +127,18 @@ test('missing optional browser APIs do not prevent a diagnostic report', async (
   }
 })
 
+test('mirror diagnostics show attempt and update times and redact error URLs', async () => {
+  const state = await fixture()
+  assert.deepEqual(plain((await state.getDiagnosticInfo()).mirrors), {
+    checkedAt: null, updatedAt: null, error: '',
+  })
+  Object.assign(state.storage, { mirrorsCheckedAt: 600, mirrorsUpdatedAt: 500,
+    mirrorsError: 'HTTP 404: https://alice:secret-password@api.example/private-token' })
+  assert.deepEqual(plain((await state.getDiagnosticInfo()).mirrors), {
+    checkedAt: 600, updatedAt: 500, error: 'HTTP 404: [URL]',
+  })
+})
+
 test('browser information uses full browser-specific versions', () => {
   for (const [userAgent, name, version] of [
     ['Firefox/142.0.1', 'Firefox', '142.0.1'],

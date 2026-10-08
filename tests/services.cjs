@@ -113,6 +113,132 @@ function fixture(options = {}) {
 const response = data => ({ ok: true, json: async () => data })
 
 for (const firefox of [false, true]) {
+  test(`all core APIs use added mirrors after built-in failures and restore routes: Firefox=${firefox}`, async () => {
+    const mirrors = {
+      geoip: ['https://geo.mirror.example/iso'], proxyList: ['https://proxy.mirror.example/list'],
+      config: ['https://config.mirror.example/{country}/'], domains: ['https://domains.mirror.example/{country}/'],
+      ori: ['https://ori.mirror.example/list'], registry: { BY: ['https://registry.mirror.example/by.json'] },
+    }
+    const custom = 'https://custom.example/registry'
+    const payloads = {
+      'https://geo.mirror.example/iso': { countryCode: 'BY' },
+      'https://proxy.mirror.example/list': [{ server: 'managed.example', port: 443,
+        pingHost: 'knock.example', pingPort: 8443, active: true, weight: 1 }],
+      'https://config.mirror.example/BY/': { customRegistryUrl: custom },
+      'https://domains.mirror.example/BY/': ['backend.example'],
+      'https://ori.mirror.example/list': [{ url: 'ori.example', cooperationRefused: true }],
+      'https://registry.mirror.example/by.json': ['primary.example'],
+      [custom]: [{ domains: ['custom.example'] }],
+    }
+    const urls = []
+    const state = fixture({ firefox, storage: { serviceMirrors: mirrors },
+      fetch: async (url, init, { route }) => {
+        urls.push(url)
+        assert.equal(route('other.example'), 'HTTPS normal.example:443')
+        assert.equal(init.redirect, url.includes('/api/domains/') || url.includes('domains.mirror') ? 'manual' : 'error')
+        if (!(url in payloads)) throw new Error('Built-in endpoint is offline')
+        assert.equal(route(new URL(url).hostname), 'DIRECT')
+        return response(payloads[url])
+      },
+    })
+    await state.load('server').synchronizeInBackground()
+    assert.deepEqual(urls, [
+      ...Array(2).fill('https://cozyquokka.net/api/proxy-list/'), 'https://proxy.mirror.example/list',
+      'https://geo.ctreserve.de/get-iso/', 'https://geo.mirror.example/iso',
+      ...Array(2).fill('https://censortracker.github.io/ctconf/registry/by.json'), 'https://registry.mirror.example/by.json',
+      ...Array(2).fill('https://cozyquokka.net/api/config/BY/'), 'https://config.mirror.example/BY/', custom,
+      ...Array(2).fill('https://cozyquokka.net/api/domains/BY/'), 'https://domains.mirror.example/BY/',
+      ...Array(2).fill('https://registry.ctreserve.de/api/v3/disseminators/refused/'), 'https://ori.mirror.example/list',
+    ])
+    assert.equal(state.storage.localConfig.countryCode, 'BY')
+    assert.equal(state.storage.geoIPStatus, 'direct')
+    assert.deepEqual(state.storage.domains, ['primary.example', 'custom.example', 'backend.example'])
+    assert.deepEqual(state.storage.disseminators, payloads['https://ori.mirror.example/list'])
+    assert.deepEqual(state.storage.serviceErrors, [])
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+    assert.equal(state.route('other.example'), 'HTTPS normal.example:443')
+  })
+
+  test(`a queued mirror download does not fetch after extension disablement: Firefox=${firefox}`, async () => {
+    let finish
+    const urls = []
+    const state = fixture({ firefox, fetch: async url => {
+      urls.push(url)
+      return new Promise(resolve => { finish = () => resolve(response([])) })
+    } })
+    const running = state.load('service-request').requestService('https://busy.example/', Array.isArray)
+    await new Promise(setImmediate)
+    const download = state.load('service-mirrors').refreshServiceMirrors()
+    await new Promise(setImmediate)
+    state.storage.enableExtension = false
+    finish()
+    await running
+    await download
+    assert.deepEqual(urls, ['https://busy.example/'])
+    assert.equal(state.storage.serviceMirrors, undefined)
+    assert.match(state.storage.mirrorsError, /Extension is disabled/)
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+
+  test(`the mirror file retries through a proxy and restores routes: Firefox=${firefox}`, async () => {
+    const routes = []
+    const mirrors = { ori: ['https://ori.mirror.example/list'] }
+    const state = fixture({ firefox, fetch: async (url, init, { route }) => {
+      assert.equal(init.redirect, 'error')
+      routes.push(route(new URL(url).hostname))
+      if (routes.length === 1) throw new Error('GitHub is offline directly')
+      return response({ formatVersion: 1, mirrors })
+    } })
+    await state.load('service-mirrors').refreshServiceMirrors()
+    assert.deepEqual(routes, ['DIRECT', 'HTTPS retry.example:443'])
+    assert.deepEqual(state.storage.serviceMirrors, mirrors)
+    assert.equal(state.storage.mirrorsError, '')
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+    assert.equal(state.route('other.example'), 'HTTPS normal.example:443')
+  })
+
+  test(`the mirror file downloads with proxy use disabled: Firefox=${firefox}`, async () => {
+    let calls = 0
+    const value = firefox ? { proxyType: 'none' } : { mode: 'direct' }
+    const state = fixture({ firefox, value, control: 'controllable_by_this_extension',
+      storage: { useProxy: false },
+      fetch: async () => { calls++; return response({ formatVersion: 1, mirrors: {} }) },
+    })
+    await state.load('service-mirrors').refreshServiceMirrors()
+    assert.equal(calls, 1)
+    assert.deepEqual(state.storage.serviceMirrors, {})
+    assert.equal(state.storage.mirrorsError, '')
+    assert.deepEqual(state.settings().value, value)
+    assert.ok(!state.events.includes('knock'))
+  })
+}
+
+test('a sync keeps one mirror snapshot when a new file is saved during a service request', async () => {
+  const old = { registry: { BY: ['https://old.example/registry'] },
+    config: ['https://old.example/config/{country}'], domains: ['https://old.example/domains/{country}'],
+    ori: ['https://old.example/ori'] }
+  const urls = []
+  const state = fixture({ storage: { currentRegionCode: 'BY', serviceMirrors: old },
+    mocks: { 'service-request': { requestService: async url => {
+      urls.push(url)
+      if (url.includes('proxy-list')) {
+        state.storage.serviceMirrors = { ori: ['https://new.example/ori'] }
+        return { data: [{ server: 'proxy.example', port: 443, pingHost: 'ping.example', pingPort: 443, active: true, weight: 1 }] }
+      }
+      if (!url.includes('old.example')) throw new Error('offline')
+      return { data: url.includes('/config/') ? { customRegistryUrl: null } : [] }
+    } } },
+  })
+  await state.load('server').synchronizeInBackground()
+  assert.deepEqual(urls.filter(url => url.includes('old.example')), [
+    'https://old.example/registry', 'https://old.example/config/BY',
+    'https://old.example/domains/BY', 'https://old.example/ori',
+  ])
+  assert.ok(!urls.some(url => url.includes('new.example')))
+  assert.deepEqual(state.storage.serviceErrors, [])
+})
+
+for (const firefox of [false, true]) {
   for (const failure of [false, 'network', 'timeout']) {
     test(`port knocks bypass proxy-all and restore routing: Firefox=${firefox}, failure=${failure}`, async () => {
       const requests = []
