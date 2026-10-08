@@ -214,7 +214,7 @@ export const handleInstalled = async ({ reason }) => {
 export const handleTabState = async (
   tabId,
   { status = 'loading' } = {},
-  { url } = {},
+  { url, incognito } = {},
 ) => {
   if (url && status === browser.tabs.TabStatus.LOADING) {
     Settings.extensionEnabled().then((enabled) => {
@@ -225,7 +225,10 @@ export const handleTabState = async (
               if (disseminatorUrl) {
                 if (!cooperationRefused) {
                   Settings.setDangerIcon(tabId)
-                  await showDisseminatorWarning(url)
+                  // Notifications save the domain; require a known non-private tab.
+                  if (incognito === false) {
+                    await showDisseminatorWarning(url)
+                  }
                 }
               }
             },

@@ -192,3 +192,76 @@ test('a queued settings event reads current choices after it acquires the route 
     assert.deepEqual(state.events, [action])
   }
 })
+
+function notificationFixture(showNotifications = true) {
+  const storage = { notifiedHosts: ['previous.example'], showNotifications }
+  const notifications = []
+  const writes = []
+  const icons = []
+  const browser = {
+    tabs: { TabStatus: { LOADING: 'loading' } },
+    notifications: { create: async id => notifications.push(id) },
+    storage: { local: {
+      get: async defaults => structuredClone({ ...defaults, ...storage }),
+      set: async values => {
+        writes.push(structuredClone(values))
+        Object.assign(storage, structuredClone(values))
+      },
+    } },
+  }
+  const { handleTabState } = load('background/handlers', {
+    'browser-api': { default: browser },
+    settings: { default: {
+      extensionEnabled: async () => true,
+      setDangerIcon: id => icons.push(id),
+      getName: () => 'Censor Tracker',
+      getDangerIcon: () => 'icon.png',
+    } },
+    ignore: { default: { contains: async () => false } },
+    registry: { default: {
+      retrieveDisseminator: async url => ({ url, cooperationRefused: false }),
+      contains: async () => false,
+    } },
+    i18n: { initializeLanguage: async () => {}, getMessage: () => 'Warning' },
+    utilities: { extractDomainFromUrl: url => new URL(url).hostname },
+    proxy: {}, server: {}, task: {}, 'proxy-route': {},
+    'proxy-importer': {}, 'proxy-recovery': {}, 'service-mirrors': {},
+  })
+  return { storage, notifications, writes, icons, visit: async incognito => {
+    const tab = { url: 'https://host.example' }
+    if (incognito !== undefined) tab.incognito = incognito
+    await handleTabState(1, { status: 'loading' }, tab)
+    // Drain the nested promise handlers before checking their effects.
+    await new Promise(resolve => setImmediate(resolve))
+  } }
+}
+
+for (const incognito of [true, undefined]) {
+  test(`private or unknown tab (${incognito}) only changes the icon`, async () => {
+    const state = notificationFixture()
+    await state.visit(incognito)
+    assert.deepEqual(state.icons, [1])
+    assert.deepEqual(state.notifications, [])
+    assert.deepEqual(state.writes, [])
+    assert.deepEqual(state.storage.notifiedHosts, ['previous.example'])
+  })
+}
+
+test('regular tabs notify and save each new host once', async () => {
+  const state = notificationFixture()
+  await state.visit(false)
+  await state.visit(false)
+  assert.deepEqual(state.icons, [1, 1])
+  assert.deepEqual(state.notifications, ['host.example'])
+  assert.equal(state.writes.length, 1)
+  assert.deepEqual(state.storage.notifiedHosts, ['previous.example', 'host.example'])
+})
+
+test('disabled notifications do not save hosts', async () => {
+  const state = notificationFixture(false)
+  await state.visit(false)
+  assert.deepEqual(state.icons, [1])
+  assert.deepEqual(state.notifications, [])
+  assert.deepEqual(state.writes, [])
+  assert.deepEqual(state.storage.notifiedHosts, ['previous.example'])
+})
