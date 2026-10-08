@@ -730,7 +730,8 @@ div#grantPrivateBrowsingPermissionsButton {
     }
 
     .main-page-setting {
-        background-color: #2b323b
+        background-color: #2b323b;
+        color: #f4f1f1
     }
 
     .main-page-setting::after {
