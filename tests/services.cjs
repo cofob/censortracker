@@ -416,6 +416,7 @@ for (const result of ['success', 'empty', 'network', 'invalid', 'unavailable']) 
     const state = fixture({ noProxy: true,
       storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'] },
       fetch: async url => {
+        if (url.includes('/api/config/')) return response({ customRegistryUrl: null })
         if (![primary, mirror].includes(url)) return response([])
         urls.push(url)
         if (result === 'unavailable' || (url === primary && result === 'network')) {
@@ -502,7 +503,8 @@ for (const protocol of ['SOCKS5', 'HTTP']) {
 
 test('successful registry update replaces cached data', async () => {
   const state = fixture({ storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['old.example'] },
-    mocks: { 'service-request': { requestService: async url => ({ data: url.includes('disseminators') ? [] : ['new.example'] }) } },
+    mocks: { 'service-request': { requestService: async url => ({ data: url.includes('/api/config/') ? { customRegistryUrl: null }
+      : url.includes('disseminators') ? [] : ['new.example'] }) } },
   })
   await state.load('server').synchronizeInBackground({ syncProxy: false })
   assert.deepEqual(state.storage.domains, ['new.example'])
@@ -518,7 +520,8 @@ for (const [data, expected, status, skipped] of [
   test(`registry status ${status} filters invalid entries and keeps a failed cache`, async () => {
     const state = fixture({ storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', domains: ['cached.example'] },
       mocks: { 'service-request': { requestService: async (url, validate) => {
-        const response = url.includes('disseminators') ? [] : data
+        const response = url.includes('/api/config/') ? { customRegistryUrl: null }
+          : url.includes('disseminators') ? [] : data
         if (!validate(response)) throw new Error('Response validation failed')
         return { data: response }
       } } },
@@ -698,6 +701,7 @@ test('database update applies the new registry routes after an ORI failure', asy
     mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => state.storage.domains } },
       'service-request': { requestService: async url => {
         if (url.includes('disseminators')) throw new Error('HTTP 503')
+        if (url.includes('/api/config/')) return { data: { customRegistryUrl: null } }
         return { data: ['new.example'] }
       } },
     },
@@ -983,3 +987,125 @@ test('queued region selection cannot be overwritten by an old-country download',
   assert.deepEqual(state.storage.domains, [])
   assert.equal(state.events.at(-1), 'refresh')
 })
+
+
+for (const failure of ['', 'primary', 'custom', 'config', 'both']) {
+  test(`customRegistryUrl merges country caches: ${failure || 'success'}`, async () => {
+    const urls = []
+    const customUrl = 'https://custom.example/registry'
+    const state = fixture({ storage: {
+      currentRegionCode: 'ru', registryRegionCode: 'RU',
+      registryCache: { countryCode: 'RU', primary: ['old-primary.example'], custom: ['old-custom.example'] },
+    }, mocks: { 'service-request': { requestService: async (url, validate) => {
+      urls.push(url)
+      if (url.includes('/api/config/')) {
+        if (failure === 'config') throw new Error('Config unavailable')
+        return { data: { customRegistryUrl: customUrl } }
+      }
+      if (url.includes('disseminators')) return { data: [] }
+      const source = url === customUrl ? 'custom' : 'primary'
+      if (failure === source || failure === 'both') throw new Error(`${source} unavailable`)
+      const data = source === 'primary' ? ['primary.example', 'shared.example']
+        : [{ domains: ['custom.example', 'shared.example', null] }, { domains: ['other.example'] }]
+      assert.equal(validate(data), true)
+      return { data }
+    } } } })
+    await state.load('server').synchronizeInBackground({ syncProxy: false })
+    assert.ok(urls.includes('https://cozyquokka.net/api/config/RU/'))
+    assert.equal(urls.includes(customUrl), failure !== 'config')
+    const primary = ['primary', 'both'].includes(failure)
+      ? ['old-primary.example'] : ['primary.example', 'shared.example']
+    const custom = ['custom', 'config', 'both'].includes(failure)
+      ? ['old-custom.example'] : ['custom.example', 'shared.example', 'other.example']
+    assert.deepEqual(state.storage.domains, [...new Set([...primary, ...custom])])
+    assert.deepEqual(state.storage.registryCache, { countryCode: 'RU', primary, custom })
+    assert.equal(state.storage.registryStatus.state, failure ? 'unavailable' : 'ready')
+    assert.equal(state.storage.registryStatus.skipped, failure === 'primary' || !failure ? 1 : 0)
+    assert.equal(state.storage.serviceErrors.length, failure ? 1 : 0)
+    if (failure !== 'config') assert.equal(state.storage.localConfig.customRegistryUrl, customUrl)
+  })
+}
+
+for (const customRegistryUrl of [null, '', 'https://custom.example/registry']) {
+  test(`empty custom registry clears only its cache: ${customRegistryUrl}`, async () => {
+    const state = fixture({ storage: {
+      currentRegionCode: 'RU', registryRegionCode: 'RU',
+      registryCache: { countryCode: 'RU', primary: ['primary.example'], custom: ['old-custom.example'] },
+    }, mocks: { 'service-request': { requestService: async url => {
+      if (url.includes('/api/config/')) return { data: { customRegistryUrl } }
+      if (url.includes('disseminators') || url === customRegistryUrl) return { data: [] }
+      throw new Error('Primary unavailable')
+    } } } })
+    await state.load('server').synchronizeInBackground({ syncProxy: false })
+    assert.deepEqual(state.storage.domains, ['primary.example'])
+    assert.deepEqual(state.storage.registryCache.custom, [])
+  })
+}
+
+for (const code of ['RU', 'PL']) {
+  test(`custom registry legacy cache and region change: ${code}`, async () => {
+    const state = fixture({ storage: {
+      currentRegionCode: code, registryRegionCode: 'RU', domains: ['legacy.example'],
+    }, mocks: { 'service-request': { requestService: async url => {
+      if (url.includes('/api/config/')) return { data: { customRegistryUrl: 'https://custom.example/list' } }
+      if (url === 'https://custom.example/list') return { data: [{ domains: ['custom.example'] }] }
+      if (url.includes('disseminators')) return { data: [] }
+      throw new Error('Primary unavailable')
+    } } } })
+    await state.load('server').synchronizeInBackground({ syncProxy: false })
+    assert.deepEqual(state.storage.domains, code === 'RU' ? ['legacy.example', 'custom.example'] : ['custom.example'])
+    assert.equal(state.storage.registryCache.countryCode, code)
+    assert.equal(state.storage.registryRegionCode, code)
+  })
+}
+
+test('custom registry validators reject malformed responses', () => {
+  const { validConfig, validCustomRegistry } = fixture().load('service-config')
+  for (const data of [null, [], 'config', { customRegistryUrl: 123 }]) assert.ok(!validConfig(data))
+  for (const data of [{ customRegistryUrl: null }, { customRegistryUrl: 'https://custom.example/list' }]) assert.ok(validConfig(data))
+  for (const data of [null, {}, ['domain.example'], [{ domains: null }], [{ domains: [null] }]]) assert.equal(validCustomRegistry(data), false)
+  for (const data of [[], [{ domains: [] }], [{ domains: ['valid.example', null] }]]) assert.equal(validCustomRegistry(data), true)
+})
+
+for (const firefox of [false, true]) {
+  test(`API sync retries direct failures through the managed proxy: Firefox=${firefox}`, async () => {
+    const attempts = new Map()
+    const customRegistryUrl = 'https://custom.example/registry'
+    const state = fixture({ firefox,
+      storage: { currentRegionCode: 'RU', registryRegionCode: 'RU', selectedProxyIds: ['builtin'] },
+      mocks: { proxy: null, registry: { default: { getRoutingDomains: async () => [] } } },
+      fetch: async (url, init, { route, storage }) => {
+        const host = new URL(url).hostname
+        if (init.method === 'POST') {
+          assert.equal(route(host), 'DIRECT')
+          return response([])
+        }
+        const attempt = (attempts.get(url) || 0) + 1
+        attempts.set(url, attempt)
+        assert.equal(route('other.example'), 'HTTPS normal.example:443')
+        if (attempt === 1) {
+          assert.equal(route(host), 'DIRECT')
+          throw new Error('Direct API connection failed')
+        }
+        assert.equal(attempt, 2)
+        assert.equal(route(host), `HTTPS ${storage.proxyServerURI}`)
+        if (url.includes('proxy-list')) return response([{
+          server: 'managed.example', port: '443', pingHost: 'knock.example',
+          pingPort: '8443', active: true, weight: 1,
+        }])
+        if (url.includes('/api/config/')) return response({ customRegistryUrl })
+        if (url === customRegistryUrl) return response([{ domains: ['custom.example'] }])
+        return response(url.includes('ct-domains') ? ['blocked.example'] : [])
+      },
+    })
+    await state.load('server').synchronizeInBackground()
+    const config = state.load('service-config')
+    assert.deepEqual([...attempts], [config.PROXY_LIST_URL, config.getRegionConfig('RU').registryUrl,
+      `${config.CONFIG_URL}RU/`, customRegistryUrl, config.ORI_URL].map(url => [url, 2]))
+    assert.deepEqual(state.storage.domains, ['blocked.example', 'custom.example'])
+    assert.deepEqual(state.storage.serviceErrors, [])
+    assert.equal(state.storage.registryStatus.state, 'ready')
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+    assert.equal(state.route('other.example'), 'HTTPS normal.example:443')
+  })
+}

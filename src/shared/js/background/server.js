@@ -3,8 +3,9 @@ import browser from './browser-api'
 import ProxyManager from './proxy'
 import { refreshRegistrySource } from './registry-source'
 import {
-  GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
-  validCountry, validDomain, validDomains, validORI, validProxies,
+  CONFIG_URL, GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
+  validConfig, validCountry, validCustomRegistry, validDomain, validDomains,
+  validORI, validProxies,
 } from './service-config'
 import { requestService } from './service-request'
 
@@ -155,11 +156,34 @@ const requestRegistry = async ({ registryUrl, registryMirrors = [] }) => {
   throw new Error(errors.join('; '))
 }
 
+const requestCustomRegistry = async (config) => {
+  const { data } = await requestService(
+    `${CONFIG_URL}${config.countryCode}/`, validConfig,
+  )
+
+  config.customRegistryUrl = data.customRegistryUrl || null
+  await browser.storage.local.set({ localConfig: config })
+  if (!config.customRegistryUrl) {
+    return []
+  }
+  const { data: records } = await requestService(
+    config.customRegistryUrl, validCustomRegistry,
+  )
+
+  return records.flatMap((record) => record.domains)
+}
+
 const fetchRegistry = async (config) => {
-  const { countryCode, registryUrl } = config
-  const { registryRegionCode } = await browser.storage.local.get({
-    registryRegionCode: '',
-  })
+  const { countryCode } = config
+  const { registryRegionCode, registryCache, domains: previousDomains } =
+    await browser.storage.local.get({
+      registryRegionCode: '', registryCache: null, domains: [],
+    })
+  const cache = registryCache?.countryCode === countryCode ? registryCache : {
+    countryCode,
+    primary: registryRegionCode === countryCode ? previousDomains : [],
+    custom: [],
+  }
 
   if (registryRegionCode !== countryCode) {
     await browser.storage.local.set({
@@ -170,25 +194,37 @@ const fetchRegistry = async (config) => {
   await browser.storage.local.set({
     registryStatus: { state: 'loading', skipped: 0, error: '' },
   })
-  try {
-    const data = await requestRegistry(config)
-    const domains = data.filter(validDomain)
-    const state = domains.length > 0 ? 'ready' : 'empty'
+  const errors = []
+  let skipped = 0
 
-    await browser.storage.local.set({
-      domains,
-      registryRegionCode: countryCode,
-      registryStatus: {
-        state: registryUrl ? state : 'unsupported',
-        skipped: data.length - domains.length,
-        error: '',
-      },
-    })
-  } catch (error) {
-    await browser.storage.local.set({
-      registryStatus: { state: 'unavailable', skipped: 0, error: error.message },
-    })
-    throw error
+  for (const [source, request] of [
+    ['primary', () => requestRegistry(config)],
+    ['custom', () => requestCustomRegistry(config)],
+  ]) {
+    try {
+      const data = await request()
+
+      cache[source] = data.filter(validDomain)
+      skipped += data.length - cache[source].length
+    } catch (error) {
+      errors.push(`${source}: ${error.message}`)
+    }
+  }
+  const domains = [...new Set([...cache.primary, ...cache.custom])]
+  const state = domains.length > 0 ? 'ready' : 'empty'
+
+  await browser.storage.local.set({
+    domains,
+    registryCache: cache,
+    registryRegionCode: countryCode,
+    registryStatus: {
+      state: errors.length > 0 ? 'unavailable' : state,
+      skipped,
+      error: errors.join('; '),
+    },
+  })
+  if (errors.length > 0) {
+    throw new Error(errors.join('; '))
   }
 }
 

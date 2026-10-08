@@ -1,6 +1,7 @@
 export const GEOIP_URL = 'https://geo.ctreserve.de/get-iso/'
 export const ORI_URL = 'https://registry.ctreserve.de/api/v3/disseminators/refused/'
 export const PROXY_LIST_URL = 'https://cozyquokka.net/api/proxy-list/'
+export const CONFIG_URL = 'https://cozyquokka.net/api/config/'
 
 export const getRegionConfig = (code) => {
   const countryCode = code.toUpperCase()
@@ -31,6 +32,13 @@ export const validDomain = (domain) => typeof domain === 'string' &&
 
 export const validDomains = (data) => Array.isArray(data) &&
   (data.length === 0 || data.some(validDomain))
+
+export const validConfig = (data) => data && typeof data === 'object' &&
+  !Array.isArray(data) && (data.customRegistryUrl == null ||
+    typeof data.customRegistryUrl === 'string')
+
+export const validCustomRegistry = (data) => Array.isArray(data) &&
+  data.every((record) => validDomains(record?.domains))
 
 export const validORI = (data) => {
   return Array.isArray(data) && data.every((entry) => {
