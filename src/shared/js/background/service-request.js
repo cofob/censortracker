@@ -70,9 +70,9 @@ const attemptRequest = async (
     headersReceived()
   }
   const timeout = setTimeout(() => {
-    abortReason = 'Timeout after 15 seconds'
+    abortReason = 'Timeout after 60 seconds'
     controller.abort()
-  }, 15000)
+  }, 60000)
   const onSettingsChanged = (changes) => {
     if (changes.enableExtension?.newValue === false ||
       changes.useProxy?.newValue === false || changes.customProxiedDomains ||

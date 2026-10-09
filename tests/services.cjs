@@ -748,7 +748,7 @@ test('service deadline reports a timeout while reading JSON', async () => {
   const state = fixture({ fastTimeout: true, fetch: async (url, init) => ({ ok: true,
     json: () => new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('The operation was aborted')))),
   }) })
-  await assert.rejects(state.load('service-request').requestService('https://registry.example/list', Array.isArray, { allowProxyRetry: false }), /registry.example\/list: DIRECT: JSON parsing: Timeout after 15 seconds/)
+  await assert.rejects(state.load('service-request').requestService('https://registry.example/list', Array.isArray, { allowProxyRetry: false }), /registry.example\/list: DIRECT: JSON parsing: Timeout after 60 seconds/)
   assert.equal(state.storage.serviceRouteSnapshot, undefined)
 })
 
