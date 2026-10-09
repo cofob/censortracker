@@ -77,13 +77,19 @@ test('the mirror alarm starts a refresh', async () => {
   assert.deepEqual(state.events, ['refresh mirrors'])
 })
 
-test('updates with consent load mirrors through startup', async () => {
+test('updates with consent show notices once and load mirrors through startup', async () => {
   const state = fixture()
-  state.browser.runtime = { OnInstalledReason: { INSTALL: 'install', UPDATE: 'update' } }
+  state.browser.runtime = { getURL: path => `extension://${path}`,
+    OnInstalledReason: { INSTALL: 'install', UPDATE: 'update' } }
+  state.browser.tabs.create = async tab => state.events.push(['tab', tab.url])
   await state.handlers.handleInstalled({ reason: 'update' })
   assert.deepEqual(state.events, [
+    ['tab', 'extension://notifications.html'],
     ['clear', 'checkLocalProxy'], 'check local', 'schedule mirrors', 'apply',
   ])
+  await state.handlers.handleInstalled({ reason: 'update' })
+  assert.equal(state.events.filter(event => event[0] === 'tab').length, 1)
+  assert.equal(state.storage['noticeActive:release-21'], true)
 })
 
 test('local proxy alarms follow the latest selected mode', async () => {

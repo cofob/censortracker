@@ -10,6 +10,7 @@ import Registry from 'Background/registry'
 import Settings from 'Background/settings'
 import { extractHostnameFromUrl, i18nGetMessage, isI2PUrl, isOnionUrl, isValidURL } from 'Background/utilities'
 
+import { mountNotices } from './notice-panel'
 import { mountPrivateBrowsing } from './private-browsing'
 import { mountProxyInfo } from './proxy-info'
 import { mountRelatedDomains } from './related-domains'
@@ -17,6 +18,7 @@ import { mountRelatedDomains } from './related-domains'
 (async () => {
   await initializeLanguage()
   document.documentElement.lang = getUILanguage()
+  await mountNotices(document.querySelector('.main-page__info'))
   const statusImage = document.getElementById('statusImage')
   const disseminatorInfoBlock = document.getElementById('ori')
   const siteActions = document.getElementById('siteActions')

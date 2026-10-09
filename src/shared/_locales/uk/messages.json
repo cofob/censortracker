@@ -1,4 +1,13 @@
 {
+  "release21Title": {
+    "message": "CensorTracker повернувся!"
+  },
+  "release21Text": {
+    "message": "Оновили розширення та стабілізували його роботу — має працювати краще, ніж раніше. Якщо виникнуть труднощі, зверніться до підтримки в однойменному розділі."
+  },
+  "noticeOkay": {
+    "message": "Гаразд"
+  },
   "animationDescription": {
     "message": "Анімація Bad Apple з логотипів Censor Tracker"
   },

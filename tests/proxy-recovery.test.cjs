@@ -140,6 +140,7 @@ test('automatic recovery is opt-in, checks at most four due selected proxies, an
 test('extension updates and navigation keep disabled settings disabled', async () => {
   const calls = []
   const handlers = load('background/handlers', {
+    'extension-notices': { activateNotices: async () => false },
     'browser-api': { default: { runtime: { OnInstalledReason: { UPDATE: 'update', INSTALL: 'install' } },
       storage: { local: { get: async () => ({ useLocalProxy: false, dataConsent: { version: 1, accepted: true } }) } },
       alarms: { clear: async () => {} } } },

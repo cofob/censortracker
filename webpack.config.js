@@ -74,6 +74,7 @@ const webConfig = {
   entry: {
     popup: './src/shared/js/pages/popup.js',
     consent: './src/shared/js/pages/consent.js',
+    notifications: './src/shared/js/pages/notifications.js',
     'consent-status': './src/shared/js/pages/consent-status.js',
     options: './src/shared/js/pages/options.js',
     'advanced-options': './src/shared/js/pages/advanced-options.js',
@@ -115,6 +116,12 @@ const webConfig = {
   },
 
   plugins: [
+    new HTMLWebpackPlugin({
+      filename: 'notifications.html',
+      template: 'src/shared/pages/notifications.html',
+      chunks: ['notifications'],
+      meta: contentSecurityPolicy,
+    }),
     new HTMLWebpackPlugin({
       filename: 'consent.html',
       template: 'src/shared/pages/consent.html',

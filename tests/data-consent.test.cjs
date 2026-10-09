@@ -139,6 +139,8 @@ for (const reason of ['install', 'update']) {
     await f.handlers.handleStartup()
     await f.handlers.handleOnAlarm({ name: 'anything' })
     assert.equal(f.events.filter(event => Array.isArray(event)).length, 1)
+    assert.equal(f.events.find(event => Array.isArray(event))[1], 'moz-extension://test/consent.html')
+    assert.equal(f.state['noticeActive:release-21'], true)
     assert.equal(f.events.includes('sync'), false)
     assert.equal(f.events.includes('proxy'), false)
     assert.equal(f.state.enableExtension, reason === 'update' ? true : undefined)

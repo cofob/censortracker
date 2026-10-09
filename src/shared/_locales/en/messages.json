@@ -1,4 +1,13 @@
 {
+  "release21Title": {
+    "message": "CensorTracker is back!"
+  },
+  "release21Text": {
+    "message": "We updated the extension and made it more stable — it should work better than before. If you have any problems, contact support in the Support section."
+  },
+  "noticeOkay": {
+    "message": "Okay"
+  },
   "animationDescription": {
     "message": "Bad Apple animation made from Censor Tracker logos"
   },

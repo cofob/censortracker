@@ -6,6 +6,7 @@ test('the open popup refreshes when local routing changes', async () => {
   let changed
   let reloads = 0
   load('pages/popup', {
+    'notice-panel': { mountNotices: async () => {} },
     'page-errors': {}, 'background-rpc': {}, ignore: {}, proxy: {}, registry: {},
     i18n: { initializeLanguage: async () => 'auto', getUILanguage: () => 'en' },
     settings: {}, utilities: {}, 'proxy-info': {}, 'related-domains': {},
@@ -14,7 +15,7 @@ test('the open popup refreshes when local routing changes', async () => {
       onChanged: { addListener: listener => { changed = listener } },
     } } },
   }, {
-    document: { documentElement: {}, getElementById: () => ({}), querySelectorAll: () => [] },
+    document: { documentElement: {}, querySelector: () => ({}), getElementById: () => ({}), querySelectorAll: () => [] },
     window: { location: { reload: () => { reloads++ } } },
   })
   await new Promise(resolve => setImmediate(resolve))
