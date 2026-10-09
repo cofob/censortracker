@@ -97,7 +97,7 @@ function fixture(options = {}) {
     }).code
     vm.runInNewContext(source, {
       module, exports: module.exports, require: load,
-      URL, AbortController, TextEncoder, console: { warn() {}, info() {}, error() {}, group() {}, groupEnd() {}, log() {}, table() {} },
+      URL, AbortController, TextEncoder, crypto: require('node:crypto').webcrypto, console: { warn() {}, info() {}, error() {}, group() {}, groupEnd() {}, log() {}, table() {} },
       setTimeout: (fn, delay) => setTimeout(fn, options.fastTimeout ? 5 : delay), clearTimeout,
       fetch: async (url, init) => {
         if (url.startsWith('data:')) return { text: async () => decodeURIComponent(url.split(',').slice(1).join(',')) }
@@ -997,7 +997,33 @@ test('an empty proxy pool installs a blocking route without disabling the extens
   assert.equal(state.route('other.example'), 'DIRECT')
   assert.equal(state.settings().value.pacScript.mandatory, true)
   assert.equal(state.storage.useProxy, true)
+  assert.equal(state.storage.proxyIsAlive, false)
 })
+
+for (const firefox of [false, true]) {
+  test(`proxy health survives setup, enabling and address refresh: Firefox=${firefox}`, async () => {
+    const state = fixture({ firefox, mocks: {
+      proxy: null, registry: { default: { getRoutingDomains: async () => [] } },
+      'service-mirrors': { getServiceMirrors: async () => [], requestMirroredService: async () => ({
+        data: [{ active: true, weight: 1, server: 'normal.example', port: 443,
+          pingHost: 'knock.example', pingPort: 8443 }],
+      }) },
+    } })
+    const manager = state.load('proxy').default
+    const [proxy] = await manager.getSelectedProxies()
+    await state.load('proxy-health').recordProxyHealth(proxy, true)
+    assert.equal(await manager.setProxyInBackground({ ping: false }), true)
+    assert.equal(state.storage.proxyIsAlive, false)
+    await manager.enableProxy()
+    await state.load('server').synchronizeInBackground({ syncRegistry: false })
+    assert.equal(state.storage.proxyIsAlive, false)
+    await manager.setProxyInBackground({ ping: false })
+    assert.equal(state.storage.proxyIsAlive, false)
+    await state.load('proxy-health').recordProxyHealth(proxy, false)
+    await manager.setProxyInBackground({ ping: false })
+    assert.equal(state.storage.proxyIsAlive, true)
+  })
+}
 
 test('proxy-all reports failed application but preserves a disabled user preference', async () => {
   let actions

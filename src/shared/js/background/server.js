@@ -121,7 +121,6 @@ const fetchProxy = async (mirrors) => {
 
     console.log(`Proxy server fetched: ${proxyServerURI}!`)
 
-    await browser.storage.local.set({ proxyIsAlive: true })
     await browser.storage.local.remove([
       'fallbackReason',
       'fallbackProxyInUse',

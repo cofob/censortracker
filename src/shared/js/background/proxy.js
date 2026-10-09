@@ -279,7 +279,11 @@ class ProxyManager {
       if (revision !== getRouteRevision()) {
         return this.setProxyInBackground({ ping })
       }
-      await browser.storage.local.set({ proxyIsAlive: true })
+      const proxies = options?.proxies || await this.getSelectedProxies()
+
+      await browser.storage.local.set({
+        proxyIsAlive: proxies.some(({ retryAt = 0 }) => retryAt <= Date.now()),
+      })
       await browser.storage.local.remove('proxySetupError')
       await this.requestIncognitoAccess()
       console.info('PAC has been set successfully!')
@@ -401,7 +405,7 @@ class ProxyManager {
 
   async enableProxy () {
     console.log('Proxying enabled.')
-    await browser.storage.local.set({ useProxy: true, proxyIsAlive: true })
+    await browser.storage.local.set({ useProxy: true })
   }
 
   async disableProxy () {
