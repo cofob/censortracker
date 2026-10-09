@@ -221,6 +221,27 @@
   "proxyExitCountry": {
     "message": "Страна выхода"
   },
+  "proxyCheckReason_ok": {
+    "message": "Ответ получен"
+  },
+  "proxyCheckReason_timeout": {
+    "message": "Время ожидания истекло"
+  },
+  "proxyCheckReason_network": {
+    "message": "Ошибка сети"
+  },
+  "proxyCheckReason_http": {
+    "message": "Ошибка HTTP"
+  },
+  "proxyCheckReason_invalid_response": {
+    "message": "Неверный ответ"
+  },
+  "proxyCheckReason_auth": {
+    "message": "Требуется авторизация или доступ отклонён"
+  },
+  "proxyCheckReason_route_setup": {
+    "message": "Не удалось подготовить маршрут проверки"
+  },
   "proxyStatus_unchecked": {
     "message": "Не проверен"
   },

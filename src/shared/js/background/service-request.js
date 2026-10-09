@@ -8,6 +8,7 @@ import {
   setServiceRoute, withProxyLock,
 } from './proxy-route'
 import { isRegistryCancellation, requestRegistry } from './registry-request'
+import { requestFailure, watchRequest } from './request-diagnostics'
 
 const siteChoice = async (hostname) => {
   if (await mustUseDirect(hostname)) {
@@ -87,6 +88,8 @@ const attemptRequest = async (
   }
 
   browser.storage.onChanged.addListener(onSettingsChanged)
+  const stop = watchRequest(url, method)
+
   try {
     if (requireEnabled) {
       const { enableExtension } = await browser.storage.local.get('enableExtension')
@@ -132,7 +135,9 @@ const attemptRequest = async (
       return { redirectUrl: redirectUrl || response.headers?.get('location') }
     }
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+      throw Object.assign(new Error(`HTTP ${response.status}`), {
+        httpStatus: response.status,
+      })
     }
     const headers = metadata || method === 'HEAD' ? {
       etag: response.headers?.get('etag') || '', finalUrl: url,
@@ -153,7 +158,9 @@ const attemptRequest = async (
     }
     return { data, ...headers }
   } catch (error) {
-    const failure = new Error(`${stage}: ${abortReason || error.message}`, { cause: error })
+    clearTimeout(timeout)
+    await stop(error)
+    const failure = new Error(`${stage}: ${abortReason || error.netError || error.message}`, { cause: error })
 
     if (abortReason.startsWith('Timeout')) {
       failure.name = 'TimeoutError'
@@ -163,6 +170,7 @@ const attemptRequest = async (
     }
     throw failure
   } finally {
+    stop()
     clearTimeout(timeout)
     browser.storage.onChanged.removeListener(onSettingsChanged)
     if (allowRedirects) {
@@ -257,6 +265,9 @@ const requestHop = async (
         throw error
       }
       directError = new Error(`DIRECT: ${error.message}`, { cause: error })
+      if ([404, 410].includes(requestFailure(error).httpStatus)) {
+        throw directError
+      }
     }
     if (!allowProxyRetry) {
       throw directError

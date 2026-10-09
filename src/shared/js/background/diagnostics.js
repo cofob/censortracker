@@ -2,7 +2,7 @@ import browser, { getDetailedBrowserInfo } from './browser-api'
 import { findHostMatch } from './host-match'
 import ProxyManager from './proxy'
 import { getProxyCheckState } from './proxy-check'
-import { countryCode, currentProxyCheck } from './proxy-check-data'
+import { checkAttempts, countryCode, currentProxyCheck } from './proxy-check-data'
 import { readProxyState } from './proxy-list'
 import { hasProxyAuth, proxyAuthSupported } from './proxy-record'
 import Registry from './registry'
@@ -30,6 +30,7 @@ const redactText = (value, secrets, privateHosts) => {
 }
 
 const describeCheck = (check) => check ? {
+  ...(check.attempts ? { attempts: checkAttempts(check) } : {}),
   status: check.status,
   checkedAt: check.checkedAt,
   latency: check.latency,

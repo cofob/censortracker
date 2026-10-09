@@ -2,26 +2,25 @@ import { isPrivateHost } from './private-host'
 import { countryCode, publicIP } from './proxy-check-data'
 import { requestText } from './request'
 
-export const CHECK_URLS = [
-  'https://api.ipify.org/?format=json',
-  'https://api.myip.com/',
-  'https://ipwho.is/',
-  'https://api.country.is/',
-]
+export { CHECK_URLS } from './proxy-check-data'
+
+export const CHECK_TIMEOUT = 8000
 
 const json = async (url, signal, options = {}) => JSON.parse(
   await requestText(url, {
-    timeout: 8000, maxBytes: 65536, redirect: 'error', signal, ...options,
+    timeout: CHECK_TIMEOUT, maxBytes: 65536, redirect: 'error', signal, ...options,
   }),
 )
 
 export const probeProxy = async (url, signal) => {
   const started = performance.now()
   const data = await json(url, signal)
-  const exitIP = publicIP(data.ip)
+  const exitIP = publicIP(data?.ip)
 
   if (!exitIP || data.success === false) {
-    throw new Error('Invalid IP check response')
+    throw Object.assign(new Error('Invalid IP check response'), {
+      code: 'invalid-response',
+    })
   }
   return {
     latency: Math.round(performance.now() - started),

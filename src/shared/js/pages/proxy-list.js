@@ -2,6 +2,7 @@ import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
 import { getMessage, getUILanguage } from 'Background/i18n'
 import { parseProxyAddress } from 'Background/proxy-address'
+import { checkAttempts } from 'Background/proxy-check-data'
 import { hasProxyAuth, proxyAuthSupported } from 'Background/proxy-record'
 
 import { checkedCountry, filterProxies } from './proxy-filter'
@@ -129,15 +130,25 @@ export const mountProxyList = async () => {
         cells[2].textContent = '—'
       }
       const check = checks[proxy.id]
+      const attempts = checkAttempts(check)
+      const describe = (attempt) => [
+        message(`proxyCheckReason_${attempt.code.replaceAll('-', '_')}`),
+        attempt.netError, attempt.httpStatus,
+      ].filter(Boolean).join(' · ')
 
       cells[3].textContent = message(`proxyStatus_${check?.status || 'unchecked'}`)
+      if (check?.status === 'failed' && attempts.length > 0) {
+        cells[3].textContent += ` · ${describe(attempts.at(-1))}`
+      }
       if (check?.status === 'ok') {
         cells[3].textContent += ` · ${check.latency} ms`
       }
-      if (check && proxy.id !== 'builtin') {
-        cells[3].title = new Date(check.checkedAt)
-          .toLocaleString(getUILanguage())
-        if (check.status === 'ok') {
+      if (check) {
+        cells[3].title = [
+          new Date(check.checkedAt).toLocaleString(getUILanguage()),
+          ...attempts.map((attempt) => `${attempt.service}: ${describe(attempt)}`),
+        ].join('\n')
+        if (check.status === 'ok' && proxy.id !== 'builtin') {
           const location = document.createElement('div')
 
           location.textContent = `${message('proxyServerCountry')}: ${check.serverCountry || '?'}; ` +

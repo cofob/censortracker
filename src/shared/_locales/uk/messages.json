@@ -221,6 +221,27 @@
   "proxyExitCountry": {
     "message": "Країна виходу"
   },
+  "proxyCheckReason_ok": {
+    "message": "Відповідь отримано"
+  },
+  "proxyCheckReason_timeout": {
+    "message": "Час очікування вичерпано"
+  },
+  "proxyCheckReason_network": {
+    "message": "Помилка мережі"
+  },
+  "proxyCheckReason_http": {
+    "message": "Помилка HTTP"
+  },
+  "proxyCheckReason_invalid_response": {
+    "message": "Некоректна відповідь"
+  },
+  "proxyCheckReason_auth": {
+    "message": "Потрібна авторизація або доступ відхилено"
+  },
+  "proxyCheckReason_route_setup": {
+    "message": "Не вдалося підготувати маршрут перевірки"
+  },
   "proxyStatus_unchecked": {
     "message": "Не перевірено"
   },

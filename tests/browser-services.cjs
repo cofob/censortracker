@@ -1,7 +1,10 @@
 const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const { createServer } = require('node:http')
-const { spawn } = require('node:child_process')
+const { createServer: createSecureServer } = require('node:https')
+const { connect } = require('node:net')
+const { promisify } = require('node:util')
+const { spawn, execFile } = require('node:child_process')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 const os = require('node:os')
@@ -18,6 +21,9 @@ for (const firefox of [false, true]) {
     let remote
     let timer
     let proxyHits = 0
+    let secureProxy
+    let echo
+    let tunnels = 0
     const handler = (request, response) => {
       const url = new URL(request.url, 'http://first.api.example')
       response.setHeader('Access-Control-Allow-Origin', '*')
@@ -47,6 +53,28 @@ for (const firefox of [false, true]) {
     const proxy = createServer((request, response) => { proxyHits++; handler(request, response) })
     try {
       await Promise.all([origin, proxy].map(server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve))))
+      if (!firefox) {
+        const key = path.join(temporary, 'key.pem'), cert = path.join(temporary, 'cert.pem')
+        await promisify(execFile)('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+          '-keyout', key, '-out', cert, '-subj', '/CN=localhost', '-days', '1'])
+        const tls = { key: await fs.readFile(key), cert: await fs.readFile(cert) }
+        echo = createSecureServer(tls, (request, response) => {
+          response.end(request.url === '/invalid' ? 'not JSON' : '["via-https-proxy.example"]')
+        })
+        secureProxy = createSecureServer(tls)
+        await Promise.all([echo, secureProxy].map(server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve))))
+        secureProxy.on('connect', (request, client, head) => {
+          tunnels++
+          const upstream = connect(echo.address().port, '127.0.0.1', () => {
+            client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+            upstream.write(head)
+            client.pipe(upstream).pipe(client)
+          })
+          client.on('error', () => upstream.destroy())
+          upstream.on('error', () => client.destroy())
+          client.on('close', () => upstream.destroy())
+        })
+      }
       const root = path.resolve(__dirname, '../src/shared/js/background')
       const entry = path.join(temporary, 'entry.js')
       await fs.writeFile(entry, `
@@ -76,6 +104,21 @@ for (const firefox of [false, true]) {
             const proxied = await requestService(base + '/status/302', Array.isArray, {maxRedirects: 5});
             results.push(proxied.viaProxy, proxied.data);
             results.push((await browser.storage.local.get('serviceRouteSnapshot')).serviceRouteSnapshot || null);
+            if (!${firefox}) {
+              await browser.storage.local.set({customProxiedDomains: [],
+                proxies: [{id: 'test', protocol: 'HTTPS', host: '127.0.0.1', port: ${secureProxy?.address().port || 0}}]});
+              const original = (await browser.proxy.settings.get({})).value;
+              // Direct TLS to an HTTP-only port fails; the local proxy tunnels to the TLS echo server.
+              const secure = 'https://second.api.example:${origin.address().port}';
+              try { await requestService(secure + '/direct-error', Array.isArray, {allowProxyRetry: false}); results.push('unexpected success'); }
+              catch (error) { results.push(error.message); }
+              const retry = await requestService(secure + '/retry', Array.isArray);
+              results.push(retry.viaProxy, retry.data);
+              try { await requestService(secure + '/invalid', Array.isArray); results.push('unexpected success'); }
+              catch (error) { results.push(error.message.includes('PROXY: JSON parsing:')); }
+              results.push(JSON.stringify(original) === JSON.stringify((await browser.proxy.settings.get({})).value));
+              results.push(!(await browser.storage.local.get('serviceRouteSnapshot')).serviceRouteSnapshot);
+            }
           } catch (error) { results.push(error.stack || error.message || String(error)); }
           await fetch('http://127.0.0.1:${origin.address().port}/report?data=' + encodeURIComponent(JSON.stringify(results)));
         })();
@@ -111,6 +154,7 @@ for (const firefox of [false, true]) {
         await remote.installTemporaryAddon(addon)
       } else {
         child = spawn(process.env.CHROMIUM || 'chromium', ['--headless', '--no-sandbox', '--disable-gpu',
+          '--ignore-certificate-errors', // Self-signed certificates in this isolated local test only.
           '--disable-dev-shm-usage', '--disable-background-networking', '--disable-component-update',
           '--host-resolver-rules=MAP * 127.0.0.1, EXCLUDE localhost', `--user-data-dir=${profile}`,
           `--disable-extensions-except=${addon}`, `--load-extension=${addon}`, 'about:blank'], { stdio: 'ignore' })
@@ -124,7 +168,12 @@ for (const firefox of [false, true]) {
       assert.match(outcome[6], /Redirect limit/)
       assert.match(outcome[7], /Redirect cycle/)
       assert.match(outcome[8], /no Location/)
-      assert.deepEqual(outcome.slice(9), ['redirect rejected by default', true, ['added.example'], null])
+      assert.deepEqual(outcome.slice(9, 13), ['redirect rejected by default', true, ['added.example'], null])
+      if (!firefox) {
+        assert.match(outcome[13], /DIRECT: fetch: net::ERR_/)
+        assert.deepEqual(outcome.slice(14), [true, ['via-https-proxy.example'], true, true, true])
+        assert.ok(tunnels > 0)
+      }
       assert.ok(proxyHits > 0)
     } finally {
       clearTimeout(timer)
@@ -133,7 +182,7 @@ for (const firefox of [false, true]) {
         child.kill('SIGKILL')
         await new Promise(resolve => child.once('exit', resolve))
       }
-      for (const server of [origin, proxy]) { server.closeAllConnections(); server.close() }
+      for (const server of [origin, proxy, secureProxy, echo].filter(Boolean)) { server.closeAllConnections(); server.close() }
       await fs.rm(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
     }
   })

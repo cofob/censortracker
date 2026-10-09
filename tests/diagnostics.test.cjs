@@ -165,3 +165,15 @@ test('browser versions use native information when the user agent is reduced', a
   })
   assert.deepEqual(plain(await firefoxInfo.getDetailedBrowserInfo()), { name: 'Firefox', version: '142.0.1' })
 })
+
+test('diagnostic reports include only safe attempt details for managed and custom proxies', async () => {
+  const state = await fixture()
+  const builtin = { id: 'builtin', protocol: 'HTTPS', host: 'builtin.example', port: 443 }
+  state.storage.proxyChecks.builtin = { status: 'failed', fingerprint: await proxyFingerprint(builtin),
+    attempts: [{ service: 'api.ipify.org', code: 'network', netError: 'net::ERR_TIMED_OUT', password: 'do-not-export' }] }
+  state.storage.proxyChecks.one.attempts = [{ service: 'api.myip.com', code: 'ok', headers: { cookie: 'do-not-export' } }]
+  const report = plain(await state.getDiagnosticInfo())
+  assert.equal(report.proxies[0].check.attempts[0].netError, 'net::ERR_TIMED_OUT')
+  assert.deepEqual(report.proxies[1].check.attempts, [{ service: 'api.myip.com', code: 'ok' }])
+  assert.equal(JSON.stringify(report).includes('do-not-export'), false)
+})

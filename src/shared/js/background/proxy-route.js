@@ -39,7 +39,7 @@ export const noteProbeAuthFailure = (id) => {
 }
 export const setProbeRoute = (hostname, proxy) => {
   if (proxy) {
-    probes.set(hostname, { hostname, proxy, expiresAt: Date.now() + 10000 })
+    probes.set(hostname, { hostname, proxy, expiresAt: Date.now() + 30000 })
   } else {
     probes.delete(hostname)
   }

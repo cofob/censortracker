@@ -1,4 +1,5 @@
 import { withDataConsent } from './data-consent'
+import { watchRequest } from './request-diagnostics'
 
 // Keep the deadline active until the entire response has been read.
 const readText = async (url, {
@@ -7,6 +8,7 @@ const readText = async (url, {
 } = {}, controller) => {
   const abort = () => controller.abort()
   let timedOut = false
+  const stop = watchRequest(url, options.method)
   const timer = setTimeout(() => {
     timedOut = true
     abort()
@@ -27,7 +29,9 @@ const readText = async (url, {
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+      throw Object.assign(new Error(`HTTP ${response.status}`), {
+        httpStatus: response.status,
+      })
     }
     const headers = { etag: response.headers?.get('etag') || '', finalUrl: response.url || url }
 
@@ -48,11 +52,15 @@ const readText = async (url, {
       }
       size += value.byteLength
       if (size > maxBytes) {
-        throw new Error('Response is too large')
+        throw Object.assign(new Error('Response is too large'), {
+          code: 'invalid-response',
+        })
       }
       text += decoder.decode(value, { stream: true })
     }
   } catch (error) {
+    clearTimeout(timer)
+    await stop(error)
     if (timedOut) {
       throw Object.assign(new Error('Request aborted by timeout'), {
         name: 'TimeoutError',
@@ -60,6 +68,7 @@ const readText = async (url, {
     }
     throw error
   } finally {
+    stop()
     clearTimeout(timer)
     if (signal) {
       signal.removeEventListener('abort', abort)

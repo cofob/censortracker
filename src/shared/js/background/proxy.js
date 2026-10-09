@@ -387,7 +387,7 @@ class ProxyManager {
       await restoreServiceRoute()
     }
 
-    console.log(`Knocked ${proxyPingURI}!`)
+    console.log(`Knock attempted: ${proxyPingURI}`)
     return undefined
   }
 

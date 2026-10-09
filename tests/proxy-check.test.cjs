@@ -44,15 +44,16 @@ const fixture = (probe) => {
       proxyAllowed: async () => controlled && storage.enableExtension && storage.useProxy,
       mustUseDirect: async host => (storage.ignoredHosts || []).includes(host),
       getProbeRoutes: () => Array.from(probes.values()),
-      setProbeRoute: (hostname, proxy) => proxy ? probes.set(hostname, { hostname, proxy }) : probes.delete(hostname),
+      setProbeRoute: (hostname, proxy) => proxy ? probes.set(hostname, { hostname, proxy, expiresAt: Date.now() + 30000 }) : probes.delete(hostname),
     }, 'proxy-check-network': {
+      CHECK_TIMEOUT: 8000,
       CHECK_URLS: [0, 1, 2, 3].map(index => `https://echo${index}.example/`),
       probeProxy: async (url, signal) => {
         const record = probes.get(new URL(url).hostname)?.proxy
         assert.ok(record, 'No isolated proxy route')
         active++; maxActive = Math.max(maxActive, active)
         try {
-          if (probe) return await probe(record, signal)
+          if (probe) return await probe(record, signal, url)
           await new Promise(resolve => setTimeout(resolve, 10))
           return { exitIP: '8.8.8.8', exitCountry: 'US', latency: 10 }
         } finally { active-- }
@@ -218,4 +219,132 @@ test('Firefox probe errors cannot mark the selected managed endpoint bad or trig
   assert.equal(normalRecoveries, 0)
   await handleProxyError({ error: 'NS_ERROR_UNKNOWN_PROXY_HOST', url: 'https://normal.example/', tabId: 1 })
   assert.equal(normalRecoveries, 1)
+})
+
+test('a failed first service retries another service without changing health early', async () => {
+  const calls = []
+  const state = fixture(async (proxy, signal, url) => {
+    calls.push(new URL(url).hostname)
+    assert.equal(state.storage.proxyChecks[proxy.id], undefined)
+    assert.equal(state.storage.proxyFailures?.[proxy.id]?.retryAt, 1)
+    if (calls.length === 1) throw Object.assign(new Error('Timeout'), { name: 'TimeoutError' })
+    return { exitIP: '8.8.8.8', latency: 1 }
+  })
+  const proxy = state.storage.proxies[0]
+  state.storage.proxyFailures = { [proxy.id]: { retryAt: 1, fingerprint: await proxyFingerprint(proxy) } }
+  await state.startProxyChecks({ ids: [proxy.id] })
+  await until(() => !state.storage.proxyCheckRun.running)
+  assert.deepEqual(calls, ['echo0.example', 'echo1.example'])
+  assert.equal(state.storage.proxyChecks[proxy.id].status, 'ok')
+  assert.deepEqual(state.storage.proxyChecks[proxy.id].attempts.map(x => x.code), ['timeout', 'ok'])
+  assert.equal(state.storage.proxyFailures[proxy.id], undefined)
+  assert.equal(state.storage.proxyCheckRun.completed, 1)
+})
+
+test('two failed attempts keep native errors and exclude a proxy only once', async () => {
+  let calls = 0
+  const state = fixture(async () => {
+    calls++
+    assert.equal(state.storage.proxyFailures, undefined)
+    throw Object.assign(new Error('Failed to fetch'), { netError: 'net::ERR_PROXY_CONNECTION_FAILED' })
+  })
+  await state.startProxyChecks({ ids: ['proxy-0'] })
+  await until(() => !state.storage.proxyCheckRun.running)
+  const result = state.storage.proxyChecks['proxy-0']
+  assert.equal(calls, 2)
+  assert.equal(result.status, 'failed')
+  assert.equal(result.attempts.length, 2)
+  assert.equal(result.attempts[1].netError, 'net::ERR_PROXY_CONNECTION_FAILED')
+  assert.ok(state.storage.proxyFailures['proxy-0'].retryAt > Date.now() + 290000)
+})
+
+test('retry rounds have no overlapping routes for the same service', async () => {
+  const used = new Map()
+  const busy = new Set()
+  const state = fixture(async (proxy, signal, url) => {
+    assert.equal(busy.has(url), false)
+    busy.add(url)
+    const calls = used.get(proxy.id) || []
+    assert.equal(calls.includes(url), false)
+    calls.push(url); used.set(proxy.id, calls)
+    await new Promise(resolve => setTimeout(resolve, 5))
+    assert.equal(state.probes.get(new URL(url).hostname).proxy.id, proxy.id)
+    busy.delete(url)
+    if (calls.length === 1) throw new Error('Network failed')
+    return { exitIP: '8.8.8.8', latency: 1 }
+  })
+  await state.startProxyChecks({ ids: state.storage.proxies.map(x => x.id) })
+  await until(() => !state.storage.proxyCheckRun.running)
+  assert.equal(state.maxActive(), 4)
+  assert.equal(state.storage.proxyCheckRun.completed, 8)
+  assert.ok([...used.values()].every(calls => calls.length === 2))
+  assert.equal(state.probes.size, 0)
+})
+
+test('one permitted service gets one attempt, and authentication failures never retry', async () => {
+  for (const auth of [false, true]) {
+    let calls = 0
+    const state = fixture(async (proxy, signal, url) => {
+      calls++
+      if (auth) state.probes.get(new URL(url).hostname).authFailed = true
+      throw new Error('Failed')
+    })
+    if (!auth) state.storage.ignoredHosts = ['echo1.example', 'echo2.example', 'echo3.example']
+    await state.startProxyChecks({ ids: ['proxy-0'] })
+    await until(() => !state.storage.proxyCheckRun.running)
+    assert.equal(calls, 1)
+    assert.equal(state.storage.proxyChecks['proxy-0'].status, auth ? 'auth' : 'failed')
+    assert.equal(Boolean(state.storage.proxyFailures?.['proxy-0']), !auth)
+  }
+})
+
+test('slow route setup does not send a probe or exclude the proxy', async () => {
+  let calls = 0
+  const state = fixture(async () => { calls++; throw new Error('Unexpected probe') })
+  const apply = state.manager.setProxyInBackground
+  state.manager.setProxyInBackground = async () => {
+    for (const route of state.probes.values()) route.expiresAt = Date.now() + 100
+    return apply()
+  }
+  await state.startProxyChecks({ ids: ['proxy-0'] })
+  await until(() => !state.storage.proxyCheckRun.running)
+  assert.equal(calls, 0)
+  assert.equal(state.storage.proxyChecks['proxy-0'].attempts[0].code, 'route-setup')
+  assert.equal(state.storage.proxyFailures, undefined)
+  assert.equal(state.probes.size, 0)
+})
+
+test('cancellation between attempts and endpoint changes do not save a failure', async () => {
+  for (const change of ['useProxy', 'proxyServerURI', 'proxies']) {
+    let calls = 0
+    const state = fixture(async () => {
+      calls++
+      await state.browser.storage.local.set({ [change]: change === 'useProxy' ? false : 'changed' })
+      throw new Error('Network failed')
+    })
+    await state.registerProxyChecks()
+    await state.startProxyChecks({ ids: ['proxy-0'] })
+    await until(() => !state.storage.proxyCheckRun.running)
+    assert.equal(calls, 1)
+    assert.equal(Object.keys(state.storage.proxyChecks).length, 0)
+    assert.equal(state.storage.proxyFailures, undefined)
+    assert.equal(state.storage.proxyCheckRun.cancelled, true)
+    assert.equal(state.probes.size, 0)
+  }
+})
+
+test('invalid responses retry but authenticated proxy failures are not excluded', async () => {
+  let calls = 0
+  const state = fixture(async () => {
+    calls++
+    if (calls === 1) throw new SyntaxError('Invalid JSON')
+    throw Object.assign(new Error('HTTP 503'), { httpStatus: 503 })
+  })
+  Object.assign(state.storage.proxies[0], { username: 'alice', password: 'secret' })
+  await state.startProxyChecks({ ids: ['proxy-0'] })
+  await until(() => !state.storage.proxyCheckRun.running)
+  assert.equal(calls, 2)
+  assert.deepEqual(state.storage.proxyChecks['proxy-0'].attempts.map(x => x.code), ['invalid-response', 'http'])
+  assert.equal(state.storage.proxyChecks['proxy-0'].attempts[1].httpStatus, 503)
+  assert.equal(state.storage.proxyFailures, undefined)
 })

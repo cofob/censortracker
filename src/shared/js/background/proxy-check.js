@@ -1,11 +1,12 @@
 import browser from './browser-api'
 import ProxyManager from './proxy'
 import { currentProxyCheck, proxyFingerprint } from './proxy-check-data'
-import { CHECK_URLS, locateProxy, probeProxy } from './proxy-check-network'
+import { CHECK_TIMEOUT, CHECK_URLS, locateProxy, probeProxy } from './proxy-check-network'
 import { recordProxyHealth, recoverableProxies } from './proxy-health'
 import { readProxyState } from './proxy-list'
 import { hasProxyAuth, proxyAuthSupported } from './proxy-record'
 import { getProbeRoutes, mustUseDirect, proxyAllowed, setProbeRoute, withProxyLock } from './proxy-route'
+import { requestFailure } from './request-diagnostics'
 import { hasSiteRestriction } from './site-rules'
 
 let job
@@ -45,7 +46,7 @@ export const getProxyCheckState = async () => {
   }
 }
 
-const checkOne = async (current, proxy, url) => {
+const checkOne = async (current, proxy, url, attempts, canRetry) => {
   const { signal } = current.controller
   const hostname = new URL(url).hostname
   const fingerprint = await proxyFingerprint(proxy)
@@ -55,29 +56,46 @@ const checkOne = async (current, proxy, url) => {
     !proxyAuthSupported(proxy, browser.isFirefox)) {
     result = { status: proxy.restricted ? 'restricted' : 'unsupported' }
   } else {
+    let prepared = false
+
     try {
       await withProxyLock(async () => {
         if (signal.aborted || !await proxyAllowed() ||
           await mustUseDirect(hostname)) {
+          current.controller.abort()
           throw new Error('Proxy check cancelled')
         }
         setProbeRoute(hostname, proxy)
         if (!await ProxyManager.setProxyInBackground({ ping: false })) {
-          current.controller.abort()
           throw new Error('Could not install check route')
         }
       })
       if (signal.aborted || !await proxyAllowed()) {
         current.controller.abort()
-        return
+        return null
       }
+      const route = getProbeRoutes()
+        .find((probe) => probe.hostname === hostname)
+
+      if (!Number.isFinite(route?.expiresAt) ||
+        route.expiresAt - Date.now() < CHECK_TIMEOUT) {
+        throw new Error('Check route expires before the request deadline')
+      }
+      prepared = true
       result = { ...await probeProxy(url, signal), status: 'ok' }
+      attempts.push({ service: hostname, code: 'ok' })
     } catch (error) {
       result = {
         status: getProbeRoutes()
           .find((probe) => probe.hostname === hostname)?.authFailed
           ? 'auth' : 'failed',
       }
+      let failure = prepared ? requestFailure(error) : { code: 'route-setup' }
+
+      if (result.status === 'auth') {
+        failure = { code: 'auth' }
+      }
+      attempts.push({ service: hostname, ...failure })
     } finally {
       await withProxyLock(async () => {
         setProbeRoute(hostname, null)
@@ -87,6 +105,10 @@ const checkOne = async (current, proxy, url) => {
     if (result?.status === 'ok' && !signal.aborted) {
       result = await locateProxy(proxy, result, signal)
     }
+  }
+  if (!signal.aborted && canRetry && result.status === 'failed' &&
+    attempts.at(-1)?.code !== 'route-setup') {
+    return attempts
   }
   if (!signal.aborted && await proxyAllowed()) {
     await withProxyLock(async () => {
@@ -101,36 +123,60 @@ const checkOne = async (current, proxy, url) => {
         proxyChecks: {},
       })
 
-      proxyChecks[proxy.id] = { ...result, fingerprint, checkedAt: Date.now() }
+      proxyChecks[proxy.id] = {
+        ...result, attempts, fingerprint, checkedAt: Date.now(),
+      }
       await browser.storage.local.set({ proxyChecks })
-      if (result.status === 'ok' || (result.status === 'failed' && !hasProxyAuth(proxy))) {
+      if (result.status === 'ok' || (result.status === 'failed' &&
+        attempts.at(-1)?.code !== 'route-setup' && !hasProxyAuth(proxy))) {
         await recordProxyHealth(proxy, result.status !== 'ok')
       }
       await ProxyManager.setProxyInBackground({ ping: false })
     })
   }
+  return null
 }
 
 const runChecks = async (current, urls) => {
-  try {
-    await Promise.allSettled(urls.map(async (url) => {
-      try {
-        while (!current.controller.signal.aborted &&
-          current.next < current.proxies.length) {
-          const proxy = current.proxies[current.next++]
+  let queues = urls.map(() => [])
 
-          await checkOne(current, proxy, url)
-          if (current.controller.signal.aborted) {
-            break
+  current.proxies.forEach((proxy, index) => {
+    queues[index % urls.length].push({ proxy, attempts: [] })
+  })
+  try {
+    for (let round = 0; round < 2; round++) {
+      const retries = urls.map(() => [])
+      const roundQueues = queues
+
+      await Promise.allSettled(urls.map(async (url, index) => {
+        try {
+          for (const { proxy, attempts } of roundQueues[index]) {
+            if (current.controller.signal.aborted) {
+              break
+            }
+            const retry = await checkOne(current, proxy, url, attempts,
+              round === 0 && urls.length > 1)
+
+            if (current.controller.signal.aborted) {
+              break
+            }
+            if (retry) {
+              retries[(index + 1) % urls.length]
+                .push({ proxy, attempts: retry })
+            } else {
+              current.completed++
+              await browser.storage.local.set({
+                proxyCheckRun: runState(current),
+              })
+            }
           }
-          current.completed++
-          await browser.storage.local.set({ proxyCheckRun: runState(current) })
+        } catch (error) {
+          current.controller.abort()
+          throw error
         }
-      } catch (error) {
-        current.controller.abort()
-        throw error
-      }
-    }))
+      }))
+      queues = retries
+    }
   } finally {
     current.controller.abort()
     await withProxyLock(async () => {
@@ -159,7 +205,6 @@ export const startProxyChecks = async ({ ids, automatic = false } = {}) => {
   const current = {
     controller: new AbortController(),
     proxies: [],
-    next: 0,
     completed: 0,
     automatic,
   }
@@ -247,7 +292,8 @@ export const registerProxyChecks = async () => {
       job.controller.abort()
     }
     if (area === 'local' && ['dataConsent', 'enableExtension', 'useProxy', 'proxies',
-      'selectedProxyIds', 'ignoredHosts', 'localProxyURI',
+      'selectedProxyIds', 'ignoredHosts', 'localProxyURI', 'proxyServerURI',
+      'useLocalProxy', 'localProxyAlive',
       'siteCountryRules'].some((key) => changes[key])) {
       if (job) {
         job.controller.abort()

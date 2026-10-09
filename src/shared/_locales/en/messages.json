@@ -221,6 +221,27 @@
   "proxyExitCountry": {
     "message": "Exit country"
   },
+  "proxyCheckReason_ok": {
+    "message": "Response received"
+  },
+  "proxyCheckReason_timeout": {
+    "message": "Request timeout"
+  },
+  "proxyCheckReason_network": {
+    "message": "Network error"
+  },
+  "proxyCheckReason_http": {
+    "message": "HTTP error"
+  },
+  "proxyCheckReason_invalid_response": {
+    "message": "Invalid response"
+  },
+  "proxyCheckReason_auth": {
+    "message": "Authentication required or rejected"
+  },
+  "proxyCheckReason_route_setup": {
+    "message": "Cannot prepare the check route"
+  },
   "proxyStatus_unchecked": {
     "message": "Not checked"
   },

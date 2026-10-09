@@ -9,6 +9,9 @@ test('all supported locales contain the same nonempty messages', () => {
   for (const locale of ['ru', 'uk']) {
     const messages = read(locale)
     assert.deepEqual(Object.keys(messages).sort(), keys, locale)
-    for (const [key, entry] of Object.entries(messages)) assert.ok(entry.message, `${locale}: ${key}`)
+    for (const [key, entry] of Object.entries(messages)) {
+      assert.ok(entry.message, `${locale}: ${key}`)
+      assert.match(key, /^[A-Za-z0-9_@]+$/, `${locale}: invalid message name ${key}`)
+    }
   }
 })

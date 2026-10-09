@@ -306,6 +306,17 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 60000 }, async
     await evaluate("chrome.storage.local.set({useProxy: false, proxies: [], selectedProxyIds: ['builtin']})")
     await evaluate("location.href = chrome.runtime.getURL('proxy-options.html')")
     await until("document.querySelectorAll('#proxyRows tr').length === 1")
+    const builtinAddress = await evaluate("chrome.storage.local.get('proxyServerURI').then(data => data.proxyServerURI)")
+    const builtinFingerprint = await load('background/proxy-check-data').proxyFingerprint({ id: 'builtin', protocol: 'HTTPS',
+      ...load('background/proxy-address').parseProxyAddress(builtinAddress) })
+    await evaluate(`chrome.storage.local.get('proxyChecks').then(({proxyChecks = {}}) => chrome.storage.local.set({proxyChecks: {...proxyChecks,
+      builtin: {status: 'failed', checkedAt: Date.now(), fingerprint: ${JSON.stringify(builtinFingerprint)},
+        attempts: [{service: 'api.ipify.org', code: 'timeout'}, {service: 'api.myip.com', code: 'network', netError: 'net::ERR_PROXY_CONNECTION_FAILED'}]}}}))`)
+    await until("document.querySelector('#proxyRows').textContent.includes('net::ERR_PROXY_CONNECTION_FAILED')")
+    assert.match(await evaluate("document.querySelector('#proxyRows tr').cells[3].title"), /api\.ipify\.org: Request timeout/)
+    assert.match(await evaluate("document.querySelector('#proxyRows tr').cells[3].title"), /api\.myip\.com: Network error/)
+    await evaluate("chrome.storage.local.get('proxyChecks').then(({proxyChecks}) => {delete proxyChecks.builtin; return chrome.storage.local.set({proxyChecks})})")
+    await until("!document.querySelector('#proxyRows').textContent.includes('net::ERR_PROXY_CONNECTION_FAILED')")
     assert.equal(await evaluate("document.querySelector('#proxyListOptions').open"), false)
     assert.equal(await evaluate("document.querySelector('#proxyPagination').hidden"), true)
     await evaluate("document.querySelector('#useProxyCheckbox').click()")

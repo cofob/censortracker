@@ -1085,7 +1085,7 @@ for (const outcome of ['enabled', 'disabled', 'failed']) {
   })
 }
 
-for (const outcome of ['success', 'sync failure', 'route failure']) {
+for (const outcome of ['success', 'no private permission', 'sync failure', 'route failure']) {
   test(`reset applies all defaults before sync and reports success only when ready: ${outcome}`, async () => {
     const source = fs.readFileSync(path.join(root, '../pages/advanced-options.js'), 'utf8')
     const handler = source.slice(source.indexOf('confirmResetBtn.addEventListener'), source.indexOf('  const exportFile'))
@@ -1114,25 +1114,38 @@ for (const outcome of ['success', 'sync failure', 'route failure']) {
       assert.equal(state.storage.localProxyAlive, false)
     }
     const popups = []
+    const errors = []
+    const closed = []
     let reset
+    const button = { addEventListener: (_, fn) => { reset = fn } }
+
     vm.runInNewContext(handler, {
-      confirmResetBtn: { addEventListener: (_, fn) => { reset = fn } },
+      confirmResetBtn: button,
       browser: state.browser, Settings: settings, getMessage: key => key,
       togglePopup: id => popups.push(id), console: { info() {} },
+      document: { getElementById: id => ({ classList: { remove: name => closed.push([id, name]) } }) },
+      showPageError: error => errors.push(error.message),
       server: { synchronize: async () => {
         checkDefaults()
         assert.deepEqual(popups, [])
         state.storage.serviceErrors = outcome === 'sync failure' ? ['Sync failed'] : []
       } },
-      ProxyManager: { removeBadProxies() {}, ping() {},
-        setProxy: async () => { checkDefaults(); return outcome !== 'route failure' },
+      ProxyManager: { removeBadProxies() {}, ping() { assert.notEqual(outcome, 'no private permission') },
+        requestIncognitoAccess: async () => outcome !== 'no private permission',
+        setProxy: async () => { assert.notEqual(outcome, 'no private permission'); checkDefaults(); return outcome !== 'route failure' },
       },
     })
-    if (outcome === 'success') {
-      await reset()
+    const pending = reset()
+    assert.equal(button.disabled, true)
+    await pending
+    assert.equal(button.disabled, false)
+    if (['success', 'no private permission'].includes(outcome)) {
       assert.deepEqual(popups, ['popupConfirmReset', 'popupCompletedSuccessfully'])
+      assert.deepEqual(errors, [])
+      assert.deepEqual(closed, [])
     } else {
-      await assert.rejects(reset(), /Sync failed|proxySetupFailed/)
+      assert.deepEqual(errors, [outcome === 'sync failure' ? 'Sync failed' : 'proxySetupFailed'])
+      assert.deepEqual(closed, [['popupConfirmReset', 'popup-show']])
       assert.deepEqual(popups, [])
     }
   })
@@ -1373,7 +1386,7 @@ for (const firefox of [false, true]) {
 }
 
 for (const endpoint of ['config', 'domains']) {
-  for (const failure of ['404', 'network', 'json', 'invalid', 'timeout']) {
+  for (const failure of ['404', '410', 'network', 'json', 'invalid', 'timeout']) {
     test(`optional ${endpoint} ignores ${failure} and preserves its country cache`, async () => {
       let attempts = 0
       const state = fixture({ fastTimeout: failure === 'timeout', storage: {
@@ -1382,7 +1395,7 @@ for (const endpoint of ['config', 'domains']) {
       }, fetch: async (url, init) => {
         if (url.includes(`/api/${endpoint}/`)) {
           attempts++
-          if (failure === '404') return { ok: false, status: 404 }
+          if (['404', '410'].includes(failure)) return { ok: false, status: Number(failure) }
           if (failure === 'network') throw new Error('offline')
           if (failure === 'json') return { ok: true, json: async () => { throw new Error('Invalid JSON') } }
           if (failure === 'invalid') return response(endpoint === 'config' ? [] : {})
@@ -1398,7 +1411,7 @@ for (const endpoint of ['config', 'domains']) {
         return response(url.includes('ct-domains') ? ['primary.example', 'shared.example'] : [])
       } })
       await state.load('server').synchronizeInBackground({ syncProxy: false })
-      assert.equal(attempts, 2)
+      assert.equal(attempts, ['404', '410'].includes(failure) ? 1 : 2)
       assert.deepEqual(state.storage.domains, endpoint === 'config'
         ? ['primary.example', 'shared.example', 'old-custom.example', 'backend.example']
         : ['primary.example', 'shared.example', 'custom.example', 'old-backend.example'])
@@ -1583,4 +1596,31 @@ test('registry HEAD checks preserve domain storage and clear previous errors', a
   assert.equal(state.storage.registryStatus.error, '')
   assert.equal(calls.filter(([, method]) => method === 'HEAD').length, 3)
   assert.equal(calls.filter(([, method]) => method === 'GET').length, 2) // Config and ORI.
+})
+
+for (const status of [404, 410, 403, 500]) {
+  test(`HTTP ${status} controls proxy retry and preserves the original route`, async () => {
+    let calls = 0
+    const state = fixture({ fetch: async () => { calls++; return { ok: false, status } } })
+    const error = await state.load('service-request').requestService('https://api.example/list', Array.isArray)
+      .then(() => assert.fail('Expected HTTP error'), error => error)
+    assert.equal(state.load('request-diagnostics').requestFailure(error).httpStatus, status)
+    assert.equal(calls, [404, 410].includes(status) ? 1 : 2)
+    assert.deepEqual(state.settings().value, state.original)
+    assert.equal(state.storage.serviceRouteSnapshot, undefined)
+  })
+}
+
+test('a missing registry proceeds to its next mirror without a proxy retry', async () => {
+  const calls = []
+  const state = fixture({ fetch: async url => {
+    calls.push(url)
+    return url.includes('ctreserve') ? { ok: false, status: 404 } : response(['good.example'])
+  } })
+  const result = await state.load('service-mirrors').requestMirroredService({}, 'registry', Array.isArray, { countryCode: 'RU' })
+  assert.deepEqual(result.data, ['good.example'])
+  assert.equal(calls.length, 2)
+  assert.match(calls[1], /109\.61\.17\.39/)
+  assert.equal(state.events.includes('knock'), false)
+  assert.equal(state.storage.serviceRouteSnapshot, undefined)
 })
