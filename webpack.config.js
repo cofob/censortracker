@@ -23,7 +23,7 @@ const isFirefox = BROWSER === 'firefox'
 const isChromium = BROWSER === 'chrome'
 
 const contentSecurityPolicy = {
-  'Content-Security-Policy': `script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`,
+  'Content-Security-Policy': `script-src 'self'; object-src 'self'; style-src 'self'; font-src 'self'`,
 }
 
 const webWorkerConfig = {
@@ -124,6 +124,10 @@ const webConfig = {
                 ...assets.map(({ data }) => JSON.parse(data.toString())),
               ),
             ),
+        },
+        {
+          from: resolve('src/shared/fonts'),
+          to: 'fonts',
         },
         {
           from: resolve('src/shared/images'),
