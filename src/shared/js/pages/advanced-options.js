@@ -151,21 +151,33 @@ import { mountSiteRules } from './site-rules'
   })
 
   confirmResetBtn.addEventListener('click', async (event) => {
-    await Settings.importSettings({ enableExtension: true })
-    await ProxyManager.removeBadProxies()
-    await server.synchronize()
-    if (!await ProxyManager.setProxy()) {
-      throw new Error(getMessage('proxySetupFailed'))
-    }
-    const { serviceErrors = [] } = await browser.storage.local.get('serviceErrors')
+    confirmResetBtn.disabled = true
+    try {
+      await Settings.importSettings({ enableExtension: true })
+      await ProxyManager.removeBadProxies()
+      await server.synchronize()
+      const canSetProxy = await ProxyManager.requestIncognitoAccess()
 
-    if (serviceErrors.length > 0) {
-      throw new Error(serviceErrors.join('; '))
+      if (canSetProxy && !await ProxyManager.setProxy()) {
+        throw new Error(getMessage('proxySetupFailed'))
+      }
+      const { serviceErrors = [] } = await browser.storage.local.get('serviceErrors')
+
+      if (serviceErrors.length > 0) {
+        throw new Error(serviceErrors.join('; '))
+      }
+      if (canSetProxy) {
+        await ProxyManager.ping()
+      }
+      togglePopup('popupConfirmReset')
+      togglePopup('popupCompletedSuccessfully')
+      console.info('Censor Tracker has been reset to default settings.')
+    } catch (error) {
+      document.getElementById('popupConfirmReset').classList.remove('popup-show')
+      showPageError(error)
+    } finally {
+      confirmResetBtn.disabled = false
     }
-    await ProxyManager.ping()
-    togglePopup('popupConfirmReset')
-    togglePopup('popupCompletedSuccessfully')
-    console.info('Censor Tracker has been reset to default settings.')
   })
 
   const exportFile = async (button, read, filename) => {

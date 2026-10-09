@@ -182,3 +182,56 @@ test('proxy changes use the background action and restore saved state after erro
     assert.deepEqual(state.calls[1], ['setProxyAll', false])
   }
 })
+
+test('reset shows success or a visible error and restores its button', async () => {
+  for (const failure of [null, 'import', 'sync', 'proxy', 'services', 'ping', 'private-permission']) {
+    const button = { addEventListener(name, handler) { this.click = handler } }
+    const visible = new Set(['popupConfirmReset'])
+    const allowed = failure !== 'private-permission'
+    const failed = failure !== null && allowed
+    const errors = []
+    let finish
+    const reset = source.slice(source.indexOf('  confirmResetBtn.addEventListener'),
+      source.indexOf('  const exportFile'))
+    vm.runInNewContext(reset, {
+      confirmResetBtn: button,
+      Settings: { importSettings: async settings => {
+        assert.equal(settings.enableExtension, true)
+        await new Promise(resolve => { finish = resolve })
+        if (failure === 'import') throw new Error('Import failed')
+      } },
+      ProxyManager: { removeBadProxies: async () => {},
+        requestIncognitoAccess: async () => allowed,
+        setProxy: async () => {
+          assert.equal(allowed, true)
+          return failure !== 'proxy'
+        },
+        ping: async () => {
+          assert.equal(allowed, true)
+          if (failure === 'ping') throw new Error('Ping failed')
+        } },
+      server: { synchronize: async () => {
+        if (failure === 'sync') throw new Error('Download failed')
+      } },
+      browser: { storage: { local: { get: async () => ({
+        serviceErrors: failure === 'services' ? ['Service failed'] : [],
+      }) } } },
+      getMessage: key => key,
+      togglePopup: id => visible.has(id) ? visible.delete(id) : visible.add(id),
+      document: { getElementById: id => ({ classList: { remove: () => visible.delete(id) } }) },
+      showPageError: error => {
+        assert.equal(visible.has('popupConfirmReset'), false)
+        errors.push(error.message)
+      },
+      console: { info() {} },
+    })
+    const pending = button.click()
+    assert.equal(button.disabled, true)
+    finish()
+    await pending
+    assert.equal(button.disabled, false)
+    assert.equal(visible.has('popupConfirmReset'), false)
+    assert.equal(visible.has('popupCompletedSuccessfully'), !failed)
+    assert.equal(errors.length, failed ? 1 : 0)
+  }
+})
