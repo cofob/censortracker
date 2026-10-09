@@ -4,6 +4,7 @@ export const extensionNotices = [{
   id: 'release-21',
   title: 'release21Title',
   text: 'release21Text',
+  link: { label: 'noticeSupport', path: 'options.html#contacts' },
   events: ['install', 'update'],
 }]
 

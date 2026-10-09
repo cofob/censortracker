@@ -3,7 +3,10 @@
     "message": "CensorTracker is back!"
   },
   "release21Text": {
-    "message": "We updated the extension and made it more stable — it should work better than before. If you have any problems, contact support in the Support section."
+    "message": "We updated the extension and made it more stable — it should work better than before. If you have any problems or questions, contact"
+  },
+  "noticeSupport": {
+    "message": "support"
   },
   "noticeOkay": {
     "message": "Okay"

@@ -3,8 +3,6 @@ import browser from 'Background/browser-api'
 import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import { translateDocument } from 'Background/utilities'
 
-import { mountNotices } from './notice-panel'
-
 (async () => {
   await initializeLanguage()
   document.documentElement.lang = getUILanguage()
@@ -12,7 +10,6 @@ import { mountNotices } from './notice-panel'
   const buttons = [...document.querySelectorAll('button')]
   const error = document.getElementById('consentError')
 
-  await mountNotices(document.querySelector('.main-page__info'))
   const act = async (operation) => {
     buttons.forEach((button) => {
       button.disabled = true

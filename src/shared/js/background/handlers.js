@@ -1,7 +1,7 @@
 import browser from './browser-api'
 import { TaskType } from './constants'
 import { CONSENT_VERSION, getDataConsent, hasDataConsent, isConsentError } from './data-consent'
-import { activateNotices, openNotices } from './extension-notices'
+import { activateNotices, openNotices, pendingNotices } from './extension-notices'
 import { getMessage, initializeLanguage } from './i18n'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
@@ -305,16 +305,16 @@ export const handleInstalled = async ({ reason }) => {
   }
   const { consentPromptVersion } = await browser.storage.local.get('consentPromptVersion')
 
-  if (!await getDataConsent() && consentPromptVersion !== CONSENT_VERSION) {
+  if (newNotices) {
+    await openNotices()
+  } else if (!await getDataConsent() &&
+    consentPromptVersion !== CONSENT_VERSION &&
+    (await pendingNotices()).length === 0) {
     await openDataConsent()
     await browser.storage.local.set({ consentPromptVersion: CONSENT_VERSION })
-  } else {
-    if (newNotices) {
-      await openNotices()
-    }
-    if (await hasDataConsent()) {
-      await handleStartup()
-    }
+  }
+  if (await hasDataConsent()) {
+    await handleStartup()
   }
 }
 

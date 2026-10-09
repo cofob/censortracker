@@ -93,7 +93,7 @@ function view(f, closeWhenEmpty = false) {
     window: { close: () => { closed++ } },
   })
   return { host, closed: () => closed,
-    mount: () => mountNotices(host, closeWhenEmpty) }
+    mount: () => mountNotices(host, closeWhenEmpty ? () => { closed++ } : undefined) }
 }
 
 test('dismissal advances all views, persists, and closes only the dedicated page', async () => {
@@ -139,3 +139,28 @@ test('failed dismissal leaves the notice visible and permits retry', async () =>
   await button.listeners.click()
   assert.equal(section.hidden, true)
 })
+
+for (const accepted of [undefined, true, false]) {
+  test(`after notices, show consent only without a saved choice: ${accepted}`, async () => {
+    const state = {}
+    const navigations = []
+    let closed = false
+    load('pages/notifications', {
+      'browser-api': { default: { storage: { local: {
+        set: async values => Object.assign(state, values),
+      } } } },
+      'data-consent': { CONSENT_VERSION: 1,
+        getDataConsent: async () => accepted === undefined ? null : { version: 1, accepted } },
+      i18n: { initializeLanguage: async () => {}, getUILanguage: () => 'en' },
+      'notice-panel': { mountNotices: async (host, onEmpty) => onEmpty() },
+    }, {
+      document: { documentElement: {}, getElementById: () => ({}) },
+      window: { close: () => { closed = true },
+        location: { replace: path => navigations.push(path) } },
+    })
+    await flush()
+    assert.deepEqual(navigations, accepted === undefined ? ['consent.html'] : [])
+    assert.equal(state.consentPromptVersion, accepted === undefined ? 1 : undefined)
+    assert.equal(closed, accepted !== undefined)
+  })
+}

@@ -132,14 +132,15 @@ function lifecycle(values = {}, globals = {}) {
 }
 
 for (const reason of ['install', 'update']) {
-  test(`${reason} pauses network functions and shows consent only once`, async () => {
+  test(`${reason} pauses network functions and shows notices before consent`, async () => {
     const f = lifecycle(reason === 'update' ? { enableExtension: true, useProxy: true } : {})
     await f.handlers.handleInstalled({ reason })
     await f.handlers.handleInstalled({ reason })
     await f.handlers.handleStartup()
     await f.handlers.handleOnAlarm({ name: 'anything' })
     assert.equal(f.events.filter(event => Array.isArray(event)).length, 1)
-    assert.equal(f.events.find(event => Array.isArray(event))[1], 'moz-extension://test/consent.html')
+    assert.equal(f.events.find(event => Array.isArray(event))[1], 'moz-extension://test/notifications.html')
+    assert.equal(f.state.consentPromptVersion, undefined)
     assert.equal(f.state['noticeActive:release-21'], true)
     assert.equal(f.events.includes('sync'), false)
     assert.equal(f.events.includes('proxy'), false)

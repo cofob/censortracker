@@ -2,7 +2,7 @@ import browser from 'Background/browser-api'
 import { dismissNotice, pendingNotices } from 'Background/extension-notices'
 import { getMessage, initializeLanguage } from 'Background/i18n'
 
-export const mountNotices = async (host, closeWhenEmpty = false) => {
+export const mountNotices = async (host, onEmpty) => {
   await initializeLanguage()
   const section = document.createElement('section')
   const title = document.createElement('h2')
@@ -35,8 +35,17 @@ export const mountNotices = async (host, closeWhenEmpty = false) => {
     if (current) {
       title.textContent = getMessage(current.title)
       text.textContent = getMessage(current.text)
-    } else if (closeWhenEmpty) {
-      window.close()
+      if (current.link) {
+        const link = document.createElement('a')
+
+        link.className = 'notice-link'
+        link.textContent = getMessage(current.link.label)
+        link.href = browser.runtime.getURL(current.link.path)
+        link.target = '_blank'
+        text.append(' ', link)
+      }
+    } else if (onEmpty) {
+      await onEmpty()
     }
   }
 

@@ -50,9 +50,15 @@
 }
 
 .consent-actions button:focus-visible,
+.notice-link:focus-visible,
 .consent-status button:focus-visible {
   outline: 2px solid currentcolor;
   outline-offset: 3px;
+}
+
+.notice-link {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .consent-actions button:disabled {

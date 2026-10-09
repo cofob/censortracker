@@ -53,6 +53,19 @@ for (const firefox of [false, true]) {
         };
         (async () => {
           try {
+            if (!(await api.storage.local.get('ctTestUpdate')).ctTestUpdate) {
+              const noticeURL = api.runtime.getURL('notifications.html');
+              let tabs = [];
+              for (let i = 0; i < 50; i++) {
+                tabs = await api.tabs.query({});
+                if (tabs.some(tab => tab.url === noticeURL)) break;
+                await sleep();
+              }
+              check(tabs.some(tab => tab.url === noticeURL), 'notice page was not opened');
+              check(!tabs.some(tab => tab.url === api.runtime.getURL('consent.html')), 'consent opened before notices');
+              check(!(await api.storage.local.get('consentPromptVersion')).consentPromptVersion, 'consent marked shown before notices');
+              await api.storage.local.set({'noticeRead:release-21': true});
+            }
             for (let i = 0; i < 50; i++) {
               if ((await api.storage.local.get('consentPromptVersion')).consentPromptVersion === 1) break;
               await sleep();
