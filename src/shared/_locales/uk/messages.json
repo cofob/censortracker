@@ -1,13 +1,31 @@
 {
-  "animationDescription": {"message": "Анімація Bad Apple з логотипів Censor Tracker"},
-  "proxyAll": {"message": "Проксувати все"},
-  "uiLanguageTitle": {"message": "Мова"},
-  "uiLanguageAuto": {"message": "Мова браузера"},
-  "proxyAdd": { "message": "Додати проксі" },
-  "proxyEditTitle": { "message": "Редагувати проксі" },
-  "proxyNameOptional": { "message": "Назва (необов’язково)" },
-  "proxyProtocol": { "message": "Протокол" },
-  "proxyNoMatches": { "message": "Немає проксі, що відповідають цим фільтрам." },
+  "animationDescription": {
+    "message": "Анімація Bad Apple з логотипів Censor Tracker"
+  },
+  "proxyAll": {
+    "message": "Проксувати все"
+  },
+  "uiLanguageTitle": {
+    "message": "Мова"
+  },
+  "uiLanguageAuto": {
+    "message": "Мова браузера"
+  },
+  "proxyAdd": {
+    "message": "Додати проксі"
+  },
+  "proxyEditTitle": {
+    "message": "Редагувати проксі"
+  },
+  "proxyNameOptional": {
+    "message": "Назва (необов’язково)"
+  },
+  "proxyProtocol": {
+    "message": "Протокол"
+  },
+  "proxyNoMatches": {
+    "message": "Немає проксі, що відповідають цим фільтрам."
+  },
   "relatedDomainsSaveError": {
     "message": "Не вдалося зберегти або застосувати правила. Деякі домени вже могли зберегтися. Перевірте налаштування проксі перед повторною спробою."
   },
@@ -125,16 +143,36 @@
   "siteRuleError": {
     "message": "Не вдалося зберегти правило. Перевірте домен і коди країн та спробуйте знову."
   },
-"proxyFilters": {"message": "Фільтри, сортування та видалення"},
-"proxyFilterAny": {"message": "Усі країни"},
-"proxyFilterUnknown": {"message": "Невідомо"},
-"proxyFilteredCount": {"message": "Знайдено: $1 з $2."},
-"proxySort": {"message": "Сортувати за"},
-"proxySortDefault": {"message": "Початковий порядок"},
-"proxySortName": {"message": "Назва (А–Я)"},
-"proxySortLatency": {"message": "Затримка (спочатку швидкі)"},
-"proxyRemoveFiltered": {"message": "Видалити знайдені користувацькі проксі"},
-"proxyRemoveConfirm": {"message": "Видалити всі $1 знайдених користувацьких проксі на всіх сторінках, включно з вибраними? Вбудований проксі не буде видалено."},
+  "proxyFilters": {
+    "message": "Фільтри, сортування та видалення"
+  },
+  "proxyFilterAny": {
+    "message": "Усі країни"
+  },
+  "proxyFilterUnknown": {
+    "message": "Невідомо"
+  },
+  "proxyFilteredCount": {
+    "message": "Знайдено: $1 з $2."
+  },
+  "proxySort": {
+    "message": "Сортувати за"
+  },
+  "proxySortDefault": {
+    "message": "Початковий порядок"
+  },
+  "proxySortName": {
+    "message": "Назва (А–Я)"
+  },
+  "proxySortLatency": {
+    "message": "Затримка (спочатку швидкі)"
+  },
+  "proxyRemoveFiltered": {
+    "message": "Видалити знайдені користувацькі проксі"
+  },
+  "proxyRemoveConfirm": {
+    "message": "Видалити всі $1 знайдених користувацьких проксі на всіх сторінках, включно з вибраними? Вбудований проксі не буде видалено."
+  },
   "proxyRecoveryEnabled": {
     "message": "Дозволити фонові IP-перевірки несправних вибраних проксі (раз на п’ять хвилин). Проксі зі збереженими обліковими даними автоматично не перевіряються."
   },
@@ -240,11 +278,21 @@
   "proxyImportFailed": {
     "message": "Імпорт не виконано. Перевірте джерело, розмір файлу та формат адрес."
   },
-  "proxyAuthTitle": { "message": "Авторизація (необов’язково)" },
-  "proxyUsername": { "message": "Логін" },
-  "proxyPassword": { "message": "Пароль" },
-  "proxyAuthPrivacy": { "message": "Дані авторизації зберігаються на цьому пристрої та входять до резервних копій налаштувань. HTTP-проксі не шифрують з’єднання з проксі." },
-  "proxySocksUnsupported": { "message": "Для SOCKS-авторизації потрібен Firefox. Chromium її не підтримує." },
+  "proxyAuthTitle": {
+    "message": "Авторизація (необов’язково)"
+  },
+  "proxyUsername": {
+    "message": "Логін"
+  },
+  "proxyPassword": {
+    "message": "Пароль"
+  },
+  "proxyAuthPrivacy": {
+    "message": "Дані авторизації зберігаються на цьому пристрої та входять до резервних копій налаштувань. HTTP-проксі не шифрують з’єднання з проксі."
+  },
+  "proxySocksUnsupported": {
+    "message": "Для SOCKS-авторизації потрібен Firefox. Chromium її не підтримує."
+  },
   "proxyPoolHelp": {
     "message": "Вибрані проксі розподіляють сайти між собою та замінюють один одного в разі відмови. Це не multi-hop."
   },
@@ -935,5 +983,68 @@
   },
   "successDefaultProxySet": {
     "message": "Успішно перемкнено на стандартний проксі!"
+  },
+  "consentTitle": {
+    "message": "Censor Tracker: передавання даних"
+  },
+  "consentIntro": {
+    "message": "Згода стосується підключень нижче. Додаткові функції підключаються лише після ввімкнення або за запитом."
+  },
+  "consentTraffic": {
+    "message": "Вибраний проксі: ваша IP-адреса, домени призначення та спрямований через нього трафік. HTTPS залишається зашифрованим; вміст HTTP доступний проксі. Збережені облікові дані проксі передаються лише цьому серверу."
+  },
+  "consentServices": {
+    "message": "Сервіси CT: ваша IP-адреса та запити країни, списків проксі й реєстрів сайтів. Адреси: geo.ctreserve.de, registry.ctreserve.de, cozyquokka.net, censortracker.github.io та налаштовані дзеркала. raw.githubusercontent.com надає список дзеркал. Вбудований проксі також отримує перевірки доступності з вашої IP-адреси."
+  },
+  "consentChecks": {
+    "message": "Перевірки проксі: api.ipify.org, api.myip.com, ipwho.is та api.country.is бачать IP перевірочного з’єднання. cloudflare-dns.com отримує ім’я проксі, а api.country.is — IP сервера та виходу для визначення країн. Домени відвіданих сайтів під час цих перевірок не передаються."
+  },
+  "consentSources": {
+    "message": "Зовнішні списки: ваша IP-адреса та запитаний URL передаються вибраному джерелу. Вбудовані джерела: raw.githubusercontent.com/anticensority, p.thenewone.lol:8443 та antizapret.prostovpn.org. Увімкнені підписки оновлюються у фоні."
+  },
+  "consentLocal": {
+    "message": "Локальний проксі: команди перевірки стану, запуску й зупинки передаються на localhost:49490. У цьому режимі трафік обробляє локальний застосунок."
+  },
+  "consentRetention": {
+    "message": "За даними оператора, сервери CT не зберігають дані користувачів, проксі CT не ведуть журналів, а CT не використовує ID відстеження."
+  },
+  "consentThirdParties": {
+    "message": "Сторонні сервіси й ваші проксі мають власні правила обробки даних. Ці твердження на них не поширюються. Проксі не гарантує анонімність."
+  },
+  "consentPause": {
+    "message": "Відмова або відкликання згоди зупинить мережеві функції CT і зніме його налаштування проксі. Браузер може підключатися напряму або через інший проксі. Ваші налаштування та списки збережуться."
+  },
+  "consentControl": {
+    "message": "Згоду можна відкликати в налаштуваннях. Уже надіслані дані не можна повернути; відкриті з’єднання браузера можуть залишитися."
+  },
+  "consentAccept": {
+    "message": "Погодитися"
+  },
+  "consentDecline": {
+    "message": "Відмовитися"
+  },
+  "consentUninstall": {
+    "message": "Видалити розширення"
+  },
+  "consentReview": {
+    "message": "Умови згоди"
+  },
+  "consentRevoke": {
+    "message": "Відкликати згоду"
+  },
+  "consentGranted": {
+    "message": "Передавання даних дозволено. Відкликання зніме налаштування проксі CT; браузер може підключатися напряму або через інший проксі."
+  },
+  "consentSummary": {
+    "message": "Для обходу блокувань Censor Tracker передає трафік через проксі та оновлює списки у фоні. Сервери CT не зберігають дані користувачів і журнали проксі."
+  },
+  "consentSummaryDecline": {
+    "message": "Без згоди мережеві функції CT вимкнено. Браузер може підключатися напряму або через інший проксі. Вибір можна змінити в налаштуваннях."
+  },
+  "consentDetails": {
+    "message": "Які дані й кому передаються"
+  },
+  "consentPaused": {
+    "message": "Мережеві функції призупинено до згоди. CT не спрямовує трафік через проксі; браузер може підключатися напряму або через інший проксі."
   }
 }

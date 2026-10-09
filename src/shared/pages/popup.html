@@ -6,6 +6,7 @@
     <%= htmlWebpackPlugin.options.title %>
   </title>
   <link href="css/popup.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/consent.css"/>
 </head>
 
 <body>
@@ -20,6 +21,10 @@
       <a id="openOptionsPage" class="icon__settings" target="_blank"></a>
     </div>
     <div class="main-page__info">
+      <section class="consent-status" id="consentStatus" hidden aria-live="polite">
+        <p class="text-extension" id="consentStatusText"></p>
+        <button type="button" class="default-btn" id="reviewConsent" data-i18n-key="consentReview"></button>
+      </section>
 
       <div class="main-page__title title-domain">
         <div class="current-domain title-normal current-domain unselectable" id="currentDomainHeader"></div>

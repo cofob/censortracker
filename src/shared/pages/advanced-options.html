@@ -6,6 +6,7 @@
   <title data-i18n-key="advancedOptionsPageTitle"></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="css/options.css"/>
+  <link rel="stylesheet" href="css/consent.css"/>
 </head>
 
 <body class="settings-page">
@@ -28,6 +29,14 @@
         </a>
       </div>
       <div class="main-page__title page-main-title" data-i18n-key="advancedOptionsTitle"></div>
+
+      <section class="option settings-section consent-status" id="consentStatus" hidden aria-live="polite">
+        <p class="main-page__about" id="consentStatusText"></p>
+        <div class="settings-actions">
+          <button type="button" class="btn btn-dark" id="reviewConsent" data-i18n-key="consentReview"></button>
+          <button type="button" class="btn btn-light" id="revokeConsent" hidden data-i18n-key="consentRevoke"></button>
+        </div>
+      </section>
 
       <div class="option" id="extendedSettings" hidden>
         <label class="settings-check">

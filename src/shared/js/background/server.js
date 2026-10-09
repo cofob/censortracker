@@ -1,5 +1,6 @@
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { ConsentRequiredError, hasDataConsent, isConsentError } from './data-consent'
 import ProxyManager from './proxy'
 import { refreshRegistrySource } from './registry-source'
 import {
@@ -24,6 +25,9 @@ const fetchConfig = async (mirrors) => {
       countryCode = data.countryCode.toUpperCase()
       geoIPStatus = 'direct'
     } catch (error) {
+      if (isConsentError(error)) {
+        throw error
+      }
       console.warn(`[GeoIP] Using RU fallback: ${error.message}`)
       countryCode = 'RU'
       geoIPStatus = `RU fallback: ${error.message}`
@@ -148,7 +152,12 @@ const requestRegistry = async ({ registryUrl, countryCode }, mirrors) => {
 const requestCustomRegistry = async (config, mirrors) => {
   const result = await requestMirroredService(
     mirrors, 'config', validConfig, { countryCode: config.countryCode },
-  ).catch(() => null)
+  ).catch((error) => {
+    if (isConsentError(error)) {
+      throw error
+    }
+    return null
+  })
 
   if (!result) {
     return null
@@ -196,7 +205,12 @@ const fetchRegistry = async (config, mirrors) => {
     ['custom', () => requestCustomRegistry(config, mirrors)],
     ['backend', async () => (await requestMirroredService(
       mirrors, 'domains', validDomains, { countryCode, maxRedirects: 5 },
-    ).catch(() => null))?.data ?? null],
+    ).catch((error) => {
+      if (isConsentError(error)) {
+        throw error
+      }
+      return null
+    }))?.data ?? null],
   ]) {
     try {
       const data = await request()
@@ -207,6 +221,9 @@ const fetchRegistry = async (config, mirrors) => {
       cache[source] = data.filter(validDomain)
       skipped += data.length - cache[source].length
     } catch (error) {
+      if (isConsentError(error)) {
+        throw error
+      }
       errors.push(`${source}: ${error.message}`)
     }
   }
@@ -237,6 +254,9 @@ let syncQueue = Promise.resolve()
 
 export const synchronizeInBackground = (options = {}) => {
   const operation = async () => {
+    if (!await hasDataConsent()) {
+      throw new ConsentRequiredError()
+    }
     const { syncRegistry = true, syncProxy = true, region } = options
     const mirrors = await getServiceMirrors()
     const failures = []
@@ -244,6 +264,9 @@ export const synchronizeInBackground = (options = {}) => {
       try {
         await task()
       } catch (error) {
+        if (isConsentError(error)) {
+          throw error
+        }
         failures.push(`${name}: ${error.message}`)
         console.error(`[Service] ${name}: ${error.message}`)
       }

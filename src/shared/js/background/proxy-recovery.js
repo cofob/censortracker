@@ -133,7 +133,7 @@ const scheduleRecovery = () => withProxyLock(async () => {
 
 export const registerProxyRecovery = () => {
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && ['proxyRecoveryEnabled', 'enableExtension', 'useProxy']
+    if (area === 'local' && ['dataConsent', 'proxyRecoveryEnabled', 'enableExtension', 'useProxy']
       .some((key) => changes[key])) {
       scheduleRecovery().catch(() => console.warn('Could not schedule proxy recovery'))
     }

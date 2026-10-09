@@ -1,4 +1,5 @@
 import browser from './browser-api'
+import { hasDataConsent, isConsentError } from './data-consent'
 import {
   CONFIG_URL, DOMAINS_URL, GEOIP_URL, getRegionConfig, ORI_URL, PROXY_LIST_URL,
 } from './service-config'
@@ -102,6 +103,9 @@ export const requestMirroredService = async (
       }
       return result
     } catch (error) {
+      if (isConsentError(error)) {
+        throw error
+      }
       errors.push(error.message)
     }
   }
@@ -115,7 +119,7 @@ export const refreshServiceMirrors = () => {
     const { enableExtension = false } =
       await browser.storage.local.get('enableExtension')
 
-    if (!enableExtension) {
+    if (!enableExtension || !await hasDataConsent()) {
       return
     }
     const checkedAt = Date.now()
@@ -132,6 +136,9 @@ export const refreshServiceMirrors = () => {
         mirrorsError: '',
       })
     } catch (error) {
+      if (isConsentError(error)) {
+        throw error
+      }
       await browser.storage.local.set({ mirrorsError: error.message })
     }
   })().finally(() => {
@@ -152,7 +159,7 @@ export const scheduleServiceMirrors = async ({ refresh = true } = {}) => {
   const { enableExtension = false } =
     await browser.storage.local.get('enableExtension')
 
-  if (!enableExtension) {
+  if (!enableExtension || !await hasDataConsent()) {
     await browser.alarms.clear(MIRRORS_ALARM)
     return
   }
@@ -166,7 +173,7 @@ export const scheduleServiceMirrors = async ({ refresh = true } = {}) => {
 
 export const registerServiceMirrors = () => {
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.enableExtension) {
+    if (area === 'local' && (changes.enableExtension || changes.dataConsent)) {
       scheduleServiceMirrors().catch(() => {
         console.warn('Could not schedule service mirrors')
       })

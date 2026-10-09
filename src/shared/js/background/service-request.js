@@ -1,4 +1,5 @@
 import browser from './browser-api'
+import { isConsentError, withDataConsent } from './data-consent'
 import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
 import ProxyManager from './proxy'
@@ -35,14 +36,13 @@ const proxyRoute = async (hostname) => {
   return decision.route.split(';')[0].trim()
 }
 
-const attempt = async (
-  url, validate, viaProxy, allowRedirects, requireEnabled,
+const attemptRequest = async (
+  url, validate, viaProxy, allowRedirects, requireEnabled, controller,
 ) => {
   const parsed = new URL(url)
   const { hostname } = parsed
 
   parsed.hash = ''
-  const controller = new AbortController()
   let abortReason = ''
   let stage = 'route check'
   let redirectUrl
@@ -154,6 +154,12 @@ const attempt = async (
   }
 }
 
+const attempt = (...args) => {
+  const controller = new AbortController()
+
+  return withDataConsent(() => attemptRequest(...args, controller), controller)
+}
+
 const requestDirect = async (url, validate, allowRedirects, requireEnabled) => {
   const setting = browser.proxy.settings
   const { levelOfControl } = await setting.get({})
@@ -220,6 +226,9 @@ const requestHop = async (
     try {
       return await requestDirect(url, validate, allowRedirects, requireEnabled)
     } catch (error) {
+      if (isConsentError(error)) {
+        throw error
+      }
       directError = new Error(`DIRECT: ${error.message}`, { cause: error })
     }
     if (!allowProxyRetry) {

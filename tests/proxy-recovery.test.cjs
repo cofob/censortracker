@@ -141,7 +141,7 @@ test('extension updates and navigation keep disabled settings disabled', async (
   const calls = []
   const handlers = load('background/handlers', {
     'browser-api': { default: { runtime: { OnInstalledReason: { UPDATE: 'update', INSTALL: 'install' } },
-      storage: { local: { get: async () => ({ useLocalProxy: false }) } },
+      storage: { local: { get: async () => ({ useLocalProxy: false, dataConsent: { version: 1, accepted: true } }) } },
       alarms: { clear: async () => {} } } },
     settings: { default: { extensionEnabled: async () => false, enableExtension: async () => calls.push('enable') } },
     proxy: { default: { isEnabled: async () => true, syncLocalProxy: async () => {},

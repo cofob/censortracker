@@ -6,6 +6,7 @@
   <title data-i18n-key="optionsPageTitle"></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="css/options.css"/>
+  <link rel="stylesheet" href="css/consent.css"/>
 </head>
 <body class="options-body">
 <div class="main-container">
@@ -18,6 +19,10 @@
     </div>
 
     <div class="main-page__info">
+      <section class="consent-status options-page-card" id="consentStatus" hidden aria-live="polite">
+        <p class="disclaimer__text" id="consentStatusText"></p>
+        <button type="button" class="btn btn-dark" id="reviewConsent" data-i18n-key="consentReview"></button>
+      </section>
       <div class="main-page__title" data-i18n-key="optionsTitle"></div>
 
       <div id="updateAvailableAlert" class="update_available hidden">

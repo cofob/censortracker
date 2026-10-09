@@ -1,5 +1,6 @@
 import { parseAnticensority } from './anticensority'
 import browser from './browser-api'
+import { isConsentError } from './data-consent'
 import ProxyManager from './proxy'
 import { proxyAllowed, withProxyLock } from './proxy-route'
 import {
@@ -90,8 +91,13 @@ export const refreshRegistrySource = async ({ automatic = false } = {}) => {
       }
       return getRegistrySourceState()
     })
-  } catch {
+  } catch (error) {
+    if (isConsentError(error)) {
+      throw error
+    }
     // Do not put source URL tokens or downloaded text in logs or diagnostics.
+    // Do not retain the cause: it can contain a private source URL.
+    // eslint-disable-next-line preserve-caught-error
     throw new Error('External registry update failed')
   } finally {
     download = null
@@ -100,7 +106,7 @@ export const refreshRegistrySource = async ({ automatic = false } = {}) => {
 
 export const registerRegistrySource = () => {
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && (changes.registrySource ||
+    if (area === 'local' && (changes.dataConsent || changes.registrySource ||
       changes.enableExtension?.newValue === false ||
       changes.useProxy?.newValue === false)) {
       if (download) {

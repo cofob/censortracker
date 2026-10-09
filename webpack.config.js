@@ -71,6 +71,8 @@ const webConfig = {
   devtool: 'inline-nosources-cheap-module-source-map',
   entry: {
     popup: './src/shared/js/pages/popup.js',
+    consent: './src/shared/js/pages/consent.js',
+    'consent-status': './src/shared/js/pages/consent-status.js',
     options: './src/shared/js/pages/options.js',
     'advanced-options': './src/shared/js/pages/advanced-options.js',
     'proxy-options': './src/shared/js/pages/proxy-options.js',
@@ -110,6 +112,12 @@ const webConfig = {
   },
 
   plugins: [
+    new HTMLWebpackPlugin({
+      filename: 'consent.html',
+      template: 'src/shared/pages/consent.html',
+      chunks: ['consent'],
+      meta: contentSecurityPolicy,
+    }),
     new ESLintPlugin({ context: resolve('src'), failOnWarning: true }),
     ...(PRODUCTION ? [] : [new webpack.HotModuleReplacementPlugin()]),
     new CopyWebpackPlugin({
@@ -159,7 +167,7 @@ const webConfig = {
       filename: 'popup.html',
       template: 'src/shared/pages/popup.html',
       inject: true,
-      chunks: ['popup', 'translator'],
+      chunks: ['popup', 'translator', 'consent-status'],
       meta: contentSecurityPolicy,
     }),
     new HTMLWebpackPlugin({
@@ -188,14 +196,14 @@ const webConfig = {
       filename: 'options.html',
       template: 'src/shared/pages/options.html',
       inject: true,
-      chunks: ['options', 'translator'],
+      chunks: ['options', 'translator', 'consent-status'],
       meta: contentSecurityPolicy,
     }),
     new HTMLWebpackPlugin({
       filename: 'advanced-options.html',
       template: 'src/shared/pages/advanced-options.html',
       inject: true,
-      chunks: ['advanced-options', 'translator'],
+      chunks: ['advanced-options', 'translator', 'consent-status'],
       meta: contentSecurityPolicy,
     }),
     new HTMLWebpackPlugin({
@@ -273,7 +281,7 @@ if (isChromium) {
 
 for (const plugin of webConfig.plugins) {
   if (plugin instanceof HTMLWebpackPlugin &&
-    !['advanced-options.html', 'animation.html'].includes(plugin.userOptions.filename)) {
+    !['advanced-options.html', 'animation.html', 'consent.html'].includes(plugin.userOptions.filename)) {
     plugin.userOptions.chunks.push('easter-egg')
   }
 }

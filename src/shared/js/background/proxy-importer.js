@@ -1,4 +1,5 @@
 import browser from './browser-api'
+import { hasDataConsent } from './data-consent'
 import { MAX_IMPORT_BYTES, parseProxyImport } from './proxy-import'
 import { updateProxyList } from './proxy-list'
 import { newProxyId } from './proxy-record'
@@ -126,7 +127,7 @@ export const scheduleSubscriptions = () => withProxyLock(async () => {
   const state = await sourceState()
 
   for (const [id, { controller, source, automatic }] of downloads) {
-    if ((automatic &&
+    if (!await hasDataConsent() || (automatic &&
       (!state.proxySubscriptionsEnabled || !state.enableExtension)) ||
       !state.proxySubscriptions.some((entry) => entry.id === id &&
         entry.url === source.url && entry.protocol === source.protocol)) {
@@ -136,7 +137,8 @@ export const scheduleSubscriptions = () => withProxyLock(async () => {
   const count = state.proxySubscriptions.length
   const alarm = await browser.alarms.get(SUBSCRIPTION_ALARM)
 
-  if (!state.proxySubscriptionsEnabled || !state.enableExtension || !count) {
+  if (!await hasDataConsent() || !state.proxySubscriptionsEnabled ||
+    !state.enableExtension || !count) {
     await browser.alarms.clear(SUBSCRIPTION_ALARM)
   } else if (alarm?.periodInMinutes !== 60 / count) {
     browser.alarms.create(SUBSCRIPTION_ALARM, { periodInMinutes: 60 / count })

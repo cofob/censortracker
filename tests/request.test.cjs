@@ -3,7 +3,10 @@ const { test } = require('node:test')
 const http = require('node:http')
 const load = require('./load.cjs')
 
-const { requestText } = load('background/request')
+const { requestText } = load('background/request', { 'browser-api': { default: {
+  storage: { local: { get: async () => ({ dataConsent: { version: 1, accepted: true } }) },
+    onChanged: { addListener() {}, removeListener() {} } },
+} } })
 
 async function serverTest(handler, run) {
   const server = http.createServer(handler)

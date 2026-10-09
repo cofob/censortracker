@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+import { isConsentError, withDataConsent } from './data-consent'
+
 /**
  * ProxyClient handles API communication with the proxy server.
  */
@@ -25,7 +27,8 @@ class ProxyClient {
     }
 
     try {
-      const response = await axios(options)
+      const response = await withDataConsent((signal) =>
+        axios({ ...options, signal }))
 
       return response.data
     } catch (error) {
@@ -59,7 +62,10 @@ class ProxyClient {
       console.log(`${method} ${endpoint}: ${JSON.stringify(data)}`)
 
       return successCallback ? successCallback(data) : data
-    } catch {
+    } catch (error) {
+      if (isConsentError(error)) {
+        throw error
+      }
       console.error(`[ProxyClient]: ${method} ${endpoint}`)
       return successCallback ? successCallback({}) : null
     }

@@ -3,7 +3,7 @@ const { test } = require('node:test')
 const load = require('./load.cjs')
 
 const fixture = (request = async () => 'http://proxy.example:8080') => {
-  const storage = { enableExtension: true, proxies: [], selectedProxyIds: ['builtin'] }
+  const storage = { dataConsent: { version: 1, accepted: true }, enableExtension: true, proxies: [], selectedProxyIds: ['builtin'] }
   const alarms = new Map()
   const calls = []
   let lock = Promise.resolve()

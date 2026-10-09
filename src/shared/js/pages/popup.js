@@ -2,6 +2,7 @@ import './page-errors'
 
 import { callBackground } from 'Background/background-rpc'
 import browser from 'Background/browser-api'
+import { hasDataConsent } from 'Background/data-consent'
 import { getMessage, getUILanguage, initializeLanguage } from 'Background/i18n'
 import Ignore from 'Background/ignore'
 import ProxyManager from 'Background/proxy'
@@ -51,7 +52,7 @@ import { mountRelatedDomains } from './related-domains'
   const popupLocalProxyName = document.getElementById('popupLocalProxyName')
 
   browser.storage.onChanged.addListener((changes, area) => {
-    const keys = ['useLocalProxy', 'localProxyAlive', 'useProxy']
+    const keys = ['useLocalProxy', 'localProxyAlive', 'useProxy', 'dataConsent']
 
     if (area === 'local' && keys.some((key) => changes[key] &&
       changes[key].newValue !== changes[key].oldValue)) {
@@ -67,6 +68,10 @@ import { mountRelatedDomains } from './related-domains'
     const targetId = event.target.id
 
     if (targetId === 'enableExtension') {
+      if (!await hasDataConsent()) {
+        await callBackground('openDataConsent')
+        return
+      }
       await Settings.enableExtension()
       await Settings.enableNotifications()
       await ProxyManager.enableProxy()
@@ -83,6 +88,15 @@ import { mountRelatedDomains } from './related-domains'
   openOptionsPage.addEventListener('click', async (target) => {
     await browser.runtime.openOptionsPage()
   })
+
+  if (!await hasDataConsent()) {
+    statusImage.setAttribute('src', 'images/popup/disabled.png')
+    currentDomainHeader.parentElement.hidden = true
+    mainPageInfoBlocks.forEach((element) => {
+      element.hidden = true
+    })
+    return
+  }
 
   // Highlight settings button when update is available.
   browser.storage.local.get({ updateAvailable: false })

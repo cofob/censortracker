@@ -1,4 +1,5 @@
 import browser from './browser-api'
+import { consentAccepted, ConsentRequiredError, hasDataConsent } from './data-consent'
 import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
 import { isPrivateHost } from './private-host'
@@ -10,7 +11,7 @@ const probes = new Map()
 let permissionCache
 let watchingControl = false
 const routeKeys = new Set([
-  'enableExtension', 'useProxy', 'domains', 'useRegistry', 'ignoredHosts',
+  'dataConsent', 'enableExtension', 'useProxy', 'domains', 'useRegistry', 'ignoredHosts',
   'customProxiedDomains', 'proxyServerURI', 'customProxyProtocol',
   'customProxyServerURI', 'localProxyURI', 'useLocalProxy', 'localProxyAlive',
   'proxies', 'selectedProxyIds', 'proxyAll', 'proxyFailures',
@@ -63,8 +64,11 @@ export const withProxyLock = (operation) => {
 }
 
 export const proxyAllowed = async () => {
-  const { enableExtension, useProxy, useLocalProxy, localProxyAlive } =
+  const {
+    dataConsent, enableExtension, useProxy, useLocalProxy, localProxyAlive,
+  } =
     await browser.storage.local.get({
+      dataConsent: null,
       enableExtension: false,
       useProxy: true,
       useLocalProxy: false,
@@ -72,7 +76,8 @@ export const proxyAllowed = async () => {
     })
   const { levelOfControl } = await browser.proxy.settings.get({})
 
-  return enableExtension && useProxy && (!useLocalProxy || localProxyAlive) &&
+  return consentAccepted(dataConsent) && enableExtension && useProxy &&
+    (!useLocalProxy || localProxyAlive) &&
     ['controllable_by_this_extension', 'controlled_by_this_extension']
       .includes(levelOfControl)
 }
@@ -108,6 +113,9 @@ export const proxyRequestAllowed = async () => {
 }
 
 export const applyPac = async (data, mandatory = false) => {
+  if (!await hasDataConsent()) {
+    throw new ConsentRequiredError()
+  }
   const value = browser.isFirefox
     ? {
       proxyType: 'autoConfig',
@@ -117,6 +125,10 @@ export const applyPac = async (data, mandatory = false) => {
 
   await browser.proxy.settings.set(browser.isFirefox
     ? { value } : { value, scope: 'regular' })
+  if (!await hasDataConsent()) {
+    await browser.proxy.settings.clear({})
+    throw new ConsentRequiredError()
+  }
 }
 
 export const restoreServiceRoute = async () => {
@@ -136,6 +148,9 @@ export const restoreServiceRoute = async () => {
 
     await browser.proxy.settings.set(browser.isFirefox
       ? { value } : { value, scope: 'regular' })
+    if (!await hasDataConsent()) {
+      await browser.proxy.settings.clear({})
+    }
   } else {
     // Clear only CT's setting, not the other extension's setting.
     await browser.proxy.settings.clear({})

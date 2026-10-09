@@ -2,6 +2,7 @@ import { getPacScript } from 'Background/pac'
 
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
+import { hasDataConsent, isConsentError, withDataConsent } from './data-consent'
 import { buildDomainIndex } from './domain-index'
 import { findHostMatch } from './host-match'
 import { getMessage, initializeLanguage } from './i18n'
@@ -221,6 +222,10 @@ class ProxyManager {
   }
 
   async setProxyInBackground ({ ping = true } = {}) {
+    if (!await hasDataConsent()) {
+      await this.removeProxyInBackground()
+      return false
+    }
     const revision = getRouteRevision()
 
     const { useLocalProxy, localProxyAlive } = await browser.storage.local.get({
@@ -280,6 +285,10 @@ class ProxyManager {
       console.info('PAC has been set successfully!')
       return true
     } catch (error) {
+      if (isConsentError(error)) {
+        await this.removeProxyInBackground()
+        return false
+      }
       console.error(`PAC could not be set: ${error}`)
       await browser.storage.local.set({
         proxyIsAlive: false, proxySetupError: error.message,
@@ -352,7 +361,7 @@ class ProxyManager {
         return undefined
       }
       timeout = setTimeout(() => controller.abort(), 1000)
-      await fetch(`https://${host}:${port}`, {
+      await withDataConsent(() => fetch(`https://${host}:${port}`, {
         method: 'POST',
         signal: controller.signal,
         redirect: 'error',
@@ -363,8 +372,11 @@ class ProxyManager {
         body: JSON.stringify({
           type: 'ping',
         }),
-      })
+      }), controller)
     } catch (error) {
+      if (isConsentError(error)) {
+        return undefined
+      }
       // The knock port can reject the connection after it receives the packet.
     } finally {
       clearTimeout(timeout)
@@ -438,7 +450,7 @@ class ProxyManager {
       await this.removeProxyInBackground()
       await this.syncLocalProxyInBackground({ startIfMissing: true })
     } else {
-      if (useLocalProxy) {
+      if (useLocalProxy && await hasDataConsent()) {
         await ProxyClient.stop()
       }
       await this.setProxyInBackground()
@@ -452,7 +464,8 @@ class ProxyManager {
   async usingLocalProxy () {
     const { useLocalProxy } = await browser.storage.local.get('useLocalProxy')
 
-    return Boolean(useLocalProxy) && await this.isEnabled() &&
+    return await hasDataConsent() && Boolean(useLocalProxy) &&
+      await this.isEnabled() &&
       await Settings.extensionEnabled()
   }
 

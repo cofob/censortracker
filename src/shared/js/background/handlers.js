@@ -1,8 +1,10 @@
 import browser from './browser-api'
 import { TaskType } from './constants'
+import { CONSENT_VERSION, getDataConsent, hasDataConsent, isConsentError } from './data-consent'
 import { getMessage, initializeLanguage } from './i18n'
 import Ignore from './ignore'
 import ProxyManager from './proxy'
+import { stopProxyChecks } from './proxy-check'
 import { refreshNextSubscription, SUBSCRIPTION_ALARM } from './proxy-importer'
 import { recoverProxy, RECOVERY_ALARM, retryFailedProxies } from './proxy-recovery'
 import { withProxyLock } from './proxy-route'
@@ -44,6 +46,9 @@ export const showDisseminatorWarning = async (url) => {
 }
 
 export const handleOnAlarm = async ({ name }) => {
+  if (!await hasDataConsent()) {
+    return
+  }
   console.log(`Task received: ${name}`)
 
   if (name === 'checkLocalProxy') {
@@ -79,7 +84,8 @@ export const handleOnAlarm = async ({ name }) => {
 }
 
 export const handleBeforeRequest = async (_details) => {
-  if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+  if (await hasDataConsent() && await Settings.extensionEnabled() &&
+      await ProxyManager.isEnabled()) {
     const now = performance.now()
 
     if (now - lastNavigationPing >= 30000) {
@@ -91,6 +97,10 @@ export const handleBeforeRequest = async (_details) => {
 }
 
 export const handleStartup = async () => {
+  if (!await hasDataConsent()) {
+    await pauseDataTransmission()
+    return
+  }
   console.groupCollapsed('onStartup')
 
   await scheduleLocalProxyCheck()
@@ -113,7 +123,7 @@ export const handleStartup = async () => {
 export const scheduleLocalProxyCheck = () => withProxyLock(async () => {
   const { useLocalProxy } = await browser.storage.local.get('useLocalProxy')
 
-  if (useLocalProxy) {
+  if (useLocalProxy && await hasDataConsent()) {
     await browser.alarms.create('checkLocalProxy', { periodInMinutes: 1 })
   } else {
     await browser.alarms.clear('checkLocalProxy')
@@ -127,7 +137,8 @@ export const handleIgnoredHostsChange = async (
   if ((areaName && areaName !== 'local') || !ignoredHosts) {
     return
   }
-  if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+  if (await hasDataConsent() && await Settings.extensionEnabled() &&
+      await ProxyManager.isEnabled()) {
     await ProxyManager.setProxy()
   }
 }
@@ -139,7 +150,8 @@ export const handleCustomProxiedDomainsChange = async (
   if ((areaName && areaName !== 'local') || !customProxiedDomains) {
     return
   }
-  if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+  if (await hasDataConsent() && await Settings.extensionEnabled() &&
+      await ProxyManager.isEnabled()) {
     await ProxyManager.setProxy()
   }
 }
@@ -158,7 +170,8 @@ export const handleStorageChanged = async (
   }
   // Read current choices inside the queue; old events must not undo new choices.
   await withProxyLock(async () => {
-    if (await Settings.extensionEnabled() && await ProxyManager.isEnabled()) {
+    if (await hasDataConsent() && await Settings.extensionEnabled() &&
+      await ProxyManager.isEnabled()) {
       await ProxyManager.setProxyInBackground()
     } else {
       await ProxyManager.removeProxyInBackground()
@@ -185,29 +198,109 @@ export const handleStorageChanged = async (
  * @param reason The reason that the runtime.onInstalled event is being dispatched.
  * @returns {Promise<void>}
  */
+export const pauseDataTransmission = async () => {
+  // Clear CT's setting immediately; an active request can hold the route lock.
+  await ProxyManager.removeProxyInBackground()
+  await stopProxyChecks()
+  await withProxyLock(() => ProxyManager.removeProxyInBackground())
+}
+
+export const openDataConsent = async () => {
+  const url = browser.runtime.getURL('consent.html')
+  const tabs = await browser.tabs.query({})
+  const existing = tabs.find((tab) => tab.url === url)
+
+  if (existing) {
+    await browser.tabs.update(existing.id, { active: true })
+    await browser.windows.update(existing.windowId, { focused: true })
+  } else {
+    await browser.tabs.create({ url, active: true })
+  }
+}
+
+let consentWrites = Promise.resolve()
+let consentWork = Promise.resolve()
+
+export const setDataConsent = (accepted) => {
+  if (typeof accepted !== 'boolean') {
+    throw new TypeError('Invalid consent choice')
+  }
+  // Serialize writes, but let revocation cancel an earlier network operation.
+  const write = consentWrites.then(async () => {
+    const previous = await getDataConsent()
+
+    if (previous?.accepted === accepted) {
+      return false
+    }
+    await browser.storage.local.set({
+      dataConsent: { version: CONSENT_VERSION, accepted },
+    })
+    return true
+  })
+
+  consentWrites = write.catch(() => {})
+  return write.then((changed) => {
+    if (!changed) {
+      return consentWork
+    }
+    const work = async () => {
+      if (!await hasDataConsent()) {
+        await pauseDataTransmission()
+        return
+      }
+      const state = await browser.storage.local.get([
+        'consentInstallPending', 'enableExtension', 'useProxy', 'useRegistry', 'showNotifications',
+      ])
+
+      if (state.consentInstallPending) {
+        await browser.storage.local.set({
+          enableExtension: state.enableExtension ?? true,
+          useProxy: state.useProxy ?? true,
+          useRegistry: state.useRegistry ?? true,
+          showNotifications: state.showNotifications ?? true,
+        })
+        await browser.storage.local.remove('consentInstallPending')
+      }
+      await handleStartup()
+      if (await hasDataConsent() && await Settings.extensionEnabled()) {
+        await server.synchronize()
+        await ProxyManager.setProxy()
+      }
+    }
+
+    if (!accepted) {
+      // Do not wait for the serialized resume operation to release the proxy.
+      ProxyManager.removeProxyInBackground().catch(() => {})
+    }
+    consentWork = consentWork.catch(() => {}).then(work).catch((error) => {
+      if (!isConsentError(error)) {
+        throw error
+      }
+    })
+    return consentWork
+  })
+}
+
 export const handleInstalled = async ({ reason }) => {
-  const UPDATED = reason === browser.runtime.OnInstalledReason.UPDATE
-  const INSTALLED = reason === browser.runtime.OnInstalledReason.INSTALL
+  const installed = reason === browser.runtime.OnInstalledReason.INSTALL
+  const updated = reason === browser.runtime.OnInstalledReason.UPDATE
 
-  if (UPDATED) {
+  if (!installed && !updated) {
+    return
+  }
+  if (installed) {
+    await browser.storage.local.set({ consentInstallPending: true })
+  }
+  if (!await hasDataConsent()) {
+    await pauseDataTransmission()
+  }
+  const { consentPromptVersion } = await browser.storage.local.get('consentPromptVersion')
+
+  if (!await getDataConsent() && consentPromptVersion !== CONSENT_VERSION) {
+    await openDataConsent()
+    await browser.storage.local.set({ consentPromptVersion: CONSENT_VERSION })
+  } else if (await hasDataConsent()) {
     await handleStartup()
-  } else if (INSTALLED) {
-    await Registry.enableRegistry()
-    await Settings.enableExtension()
-    await Settings.enableNotifications()
-    await scheduleServiceMirrors()
-
-    await server.synchronize()
-    await ProxyManager.enableProxy()
-    await ProxyManager.requestIncognitoAccess()
-    await ProxyManager.setProxy()
-    await ProxyManager.ping()
-
-    // Schedule tasks to run in the background.
-    await Task.schedule([
-      { name: TaskType.SET_PROXY, minutes: 15 },
-      { name: TaskType.REMOVE_BAD_PROXIES, minutes: 5 },
-    ])
   }
 }
 

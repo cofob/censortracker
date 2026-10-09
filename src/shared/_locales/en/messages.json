@@ -1,13 +1,31 @@
 {
-  "animationDescription": {"message": "Bad Apple animation made from Censor Tracker logos"},
-  "proxyAll": {"message": "Proxy everything"},
-  "uiLanguageTitle": {"message": "Language"},
-  "uiLanguageAuto": {"message": "Browser language"},
-  "proxyAdd": { "message": "Add a proxy" },
-  "proxyEditTitle": { "message": "Edit proxy" },
-  "proxyNameOptional": { "message": "Name (optional)" },
-  "proxyProtocol": { "message": "Protocol" },
-  "proxyNoMatches": { "message": "No proxies match these filters." },
+  "animationDescription": {
+    "message": "Bad Apple animation made from Censor Tracker logos"
+  },
+  "proxyAll": {
+    "message": "Proxy everything"
+  },
+  "uiLanguageTitle": {
+    "message": "Language"
+  },
+  "uiLanguageAuto": {
+    "message": "Browser language"
+  },
+  "proxyAdd": {
+    "message": "Add a proxy"
+  },
+  "proxyEditTitle": {
+    "message": "Edit proxy"
+  },
+  "proxyNameOptional": {
+    "message": "Name (optional)"
+  },
+  "proxyProtocol": {
+    "message": "Protocol"
+  },
+  "proxyNoMatches": {
+    "message": "No proxies match these filters."
+  },
   "relatedDomainsSaveError": {
     "message": "Could not save or apply the rules. Some domains may already be saved. Check proxy settings before retrying."
   },
@@ -125,16 +143,36 @@
   "siteRuleError": {
     "message": "Cannot save the rule. Check the hostname and country codes, then try again."
   },
-"proxyFilters": {"message": "Filter, sort and delete"},
-"proxyFilterAny": {"message": "All countries"},
-"proxyFilterUnknown": {"message": "Unknown"},
-"proxyFilteredCount": {"message": "Matches: $1 of $2."},
-"proxySort": {"message": "Sort by"},
-"proxySortDefault": {"message": "Original order"},
-"proxySortName": {"message": "Name (A–Z)"},
-"proxySortLatency": {"message": "Delay (fastest first)"},
-"proxyRemoveFiltered": {"message": "Delete matching custom proxies"},
-"proxyRemoveConfirm": {"message": "Delete all $1 matching custom proxies on all pages, including selected proxies? The built-in proxy will not be deleted."},
+  "proxyFilters": {
+    "message": "Filter, sort and delete"
+  },
+  "proxyFilterAny": {
+    "message": "All countries"
+  },
+  "proxyFilterUnknown": {
+    "message": "Unknown"
+  },
+  "proxyFilteredCount": {
+    "message": "Matches: $1 of $2."
+  },
+  "proxySort": {
+    "message": "Sort by"
+  },
+  "proxySortDefault": {
+    "message": "Original order"
+  },
+  "proxySortName": {
+    "message": "Name (A–Z)"
+  },
+  "proxySortLatency": {
+    "message": "Delay (fastest first)"
+  },
+  "proxyRemoveFiltered": {
+    "message": "Delete matching custom proxies"
+  },
+  "proxyRemoveConfirm": {
+    "message": "Delete all $1 matching custom proxies on all pages, including selected proxies? The built-in proxy will not be deleted."
+  },
   "proxyRecoveryEnabled": {
     "message": "Allow background IP checks for failed selected proxies (every five minutes). Proxies with saved credentials are not retried automatically."
   },
@@ -240,11 +278,21 @@
   "proxyImportFailed": {
     "message": "Import failed. Check the source, file size, and address format."
   },
-  "proxyAuthTitle": { "message": "Authentication (optional)" },
-  "proxyUsername": { "message": "Username" },
-  "proxyPassword": { "message": "Password" },
-  "proxyAuthPrivacy": { "message": "Credentials are stored on this device and included in settings backups. HTTP proxies do not encrypt the connection to the proxy." },
-  "proxySocksUnsupported": { "message": "SOCKS authentication requires Firefox. Chromium does not support it." },
+  "proxyAuthTitle": {
+    "message": "Authentication (optional)"
+  },
+  "proxyUsername": {
+    "message": "Username"
+  },
+  "proxyPassword": {
+    "message": "Password"
+  },
+  "proxyAuthPrivacy": {
+    "message": "Credentials are stored on this device and included in settings backups. HTTP proxies do not encrypt the connection to the proxy."
+  },
+  "proxySocksUnsupported": {
+    "message": "SOCKS authentication requires Firefox. Chromium does not support it."
+  },
   "proxyPoolHelp": {
     "message": "Selected proxies share sites and provide backup routes. They do not form a multi-hop chain."
   },
@@ -935,5 +983,68 @@
   },
   "successDefaultProxySet": {
     "message": "Successfully switched to default proxy!"
+  },
+  "consentTitle": {
+    "message": "Censor Tracker: data transmission"
+  },
+  "consentIntro": {
+    "message": "Consent covers the connections below. Optional features connect only when enabled or requested."
+  },
+  "consentTraffic": {
+    "message": "Selected proxy: your IP, destination domains and routed traffic. HTTPS content stays encrypted; HTTP content is visible to the proxy. Saved proxy credentials go only to that proxy."
+  },
+  "consentServices": {
+    "message": "CT services: your IP and requests for your country, proxy lists and site registries. Hosts: geo.ctreserve.de, registry.ctreserve.de, cozyquokka.net, censortracker.github.io and configured mirrors. raw.githubusercontent.com supplies the mirror list. The built-in proxy also receives availability checks from your IP."
+  },
+  "consentChecks": {
+    "message": "Proxy checks: api.ipify.org, api.myip.com, ipwho.is and api.country.is see the test connection IP. cloudflare-dns.com receives the proxy hostname; api.country.is receives its server and exit IPs to identify countries. These lookups do not send visited site domains."
+  },
+  "consentSources": {
+    "message": "External lists: your IP and the requested URL go to your selected source. Built-in sources: raw.githubusercontent.com/anticensority, p.thenewone.lol:8443 and antizapret.prostovpn.org. Enabled subscriptions update in the background."
+  },
+  "consentLocal": {
+    "message": "Local proxy: status, start and stop commands go to localhost:49490. The local app handles traffic in this mode."
+  },
+  "consentRetention": {
+    "message": "The operator states that CT servers store no user data, CT proxies keep no logs, and CT uses no tracking IDs."
+  },
+  "consentThirdParties": {
+    "message": "Third-party services and custom proxies have their own data practices. These statements do not cover them. A proxy does not guarantee anonymity."
+  },
+  "consentPause": {
+    "message": "Declining or withdrawing consent stops CT network functions and removes its proxy setting. The browser may connect directly or use another proxy. Your settings and lists stay saved."
+  },
+  "consentControl": {
+    "message": "You can withdraw consent in Settings. Requests already sent cannot be undone; existing browser connections may remain open."
+  },
+  "consentAccept": {
+    "message": "Agree"
+  },
+  "consentDecline": {
+    "message": "Decline"
+  },
+  "consentUninstall": {
+    "message": "Uninstall extension"
+  },
+  "consentReview": {
+    "message": "Review consent"
+  },
+  "consentRevoke": {
+    "message": "Withdraw consent"
+  },
+  "consentGranted": {
+    "message": "Data transmission is allowed. Withdrawal removes CT’s proxy setting; your browser may connect directly or use another proxy."
+  },
+  "consentSummary": {
+    "message": "Censor Tracker sends traffic through a proxy to bypass blocks and updates lists in the background. CT servers do not store user data or proxy logs."
+  },
+  "consentSummaryDecline": {
+    "message": "Without consent, CT network functions are off. Your browser may connect directly or use another proxy. You can change your choice in settings."
+  },
+  "consentDetails": {
+    "message": "What is sent and where"
+  },
+  "consentPaused": {
+    "message": "Network functions are paused until you agree. CT is not routing traffic; your browser may connect directly or use another proxy."
   }
 }

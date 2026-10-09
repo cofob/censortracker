@@ -133,7 +133,7 @@ test('Firefox routes a large registry, authenticates proxies, and inspects page 
         const errors = [];
         console.error = (...args) => errors.push(args.join(' '));
         try {
-          await browser.storage.local.set({ enableExtension: true, useProxy: true, proxyAll: true,
+          await browser.storage.local.set({ dataConsent: { version: 1, accepted: true }, enableExtension: true, useProxy: true, proxyAll: true,
             selectedProxyIds: ['test'], proxies: [{ id: 'test', protocol: 'HTTP', host: '127.0.0.1',
               port: ${httpProxy.address().port}, username: 'alice', password: 'secret' }] });
           await manager.setProxyInBackground({ ping: false });

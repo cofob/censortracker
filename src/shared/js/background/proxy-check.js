@@ -246,7 +246,7 @@ export const registerProxyChecks = async () => {
       changes.proxyRecoveryEnabled?.newValue === false) {
       job.controller.abort()
     }
-    if (area === 'local' && ['enableExtension', 'useProxy', 'proxies',
+    if (area === 'local' && ['dataConsent', 'enableExtension', 'useProxy', 'proxies',
       'selectedProxyIds', 'ignoredHosts', 'localProxyURI',
       'siteCountryRules'].some((key) => changes[key])) {
       if (job) {

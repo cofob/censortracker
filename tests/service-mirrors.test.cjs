@@ -5,7 +5,7 @@ const plain = value => JSON.parse(JSON.stringify(value))
 const config = mirrors => ({ formatVersion: 1, mirrors })
 
 function fixture(options = {}) {
-  const storage = { enableExtension: true, ...options.storage }
+  const storage = { dataConsent: { version: 1, accepted: true }, enableExtension: true, ...options.storage }
   const listeners = new Set()
   const alarms = new Map()
   const requests = []

@@ -56,7 +56,7 @@ for (const firefox of [false, true]) {
         (async () => {
           const results = [];
           try {
-            await browser.storage.local.set({ enableExtension: true, useProxy: true,
+            await browser.storage.local.set({ dataConsent: { version: 1, accepted: true }, enableExtension: true, useProxy: true,
               proxies: [{ id: 'test', protocol: 'HTTP', host: '127.0.0.1', port: ${proxy.address().port} }],
               selectedProxyIds: ['test'], customProxiedDomains: [] });
             await browser.proxy.settings.set({value: ${JSON.stringify(firefox

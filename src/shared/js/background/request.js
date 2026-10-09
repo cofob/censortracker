@@ -1,8 +1,9 @@
+import { withDataConsent } from './data-consent'
+
 // Keep the deadline active until the entire response has been read.
-export const requestText = async (url, {
+const readText = async (url, {
   timeout = 15000, signal, maxBytes = 32 * 1024 * 1024, ...options
-} = {}) => {
-  const controller = new AbortController()
+} = {}, controller) => {
   const abort = () => controller.abort()
   const timer = setTimeout(abort, timeout)
 
@@ -47,4 +48,10 @@ export const requestText = async (url, {
     }
     abort()
   }
+}
+
+export const requestText = (url, options) => {
+  const controller = new AbortController()
+
+  return withDataConsent(() => readText(url, options, controller), controller)
 }

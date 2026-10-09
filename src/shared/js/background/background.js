@@ -10,12 +10,16 @@ import {
   handleStorageChanged,
   handleTabCreate,
   handleTabState,
+  openDataConsent,
+  pauseDataTransmission,
   scheduleLocalProxyCheck,
+  setDataConsent,
 } from 'Background/handlers'
 
 import { importAntizapret } from './antizapret'
 import { registerBackground } from './background-rpc'
 import browser from './browser-api'
+import { consentAccepted, getDataConsent, hasDataConsent } from './data-consent'
 import { getDiagnosticInfo } from './diagnostics'
 import { normalizeHostname } from './hostname'
 import { initializeLanguage } from './i18n'
@@ -39,26 +43,33 @@ import { changeSiteRule } from './site-rules'
 registerProxyAuth()
 initializeLanguage()
 registerRegistrySource()
-registerServiceMirrors().catch(() => console.warn('Could not schedule service mirrors'))
-registerProxyChecks().catch(() => console.warn('Could not recover proxy checks'))
-registerProxyRecovery().catch(() => console.warn('Could not schedule proxy recovery'))
+const consentReady = hasDataConsent()
+  .then((accepted) => accepted || pauseDataTransmission())
+
+consentReady.then(() => registerServiceMirrors())
+  .catch(() => console.warn('Could not schedule service mirrors'))
+consentReady.then(() => registerProxyChecks()).catch(() => console.warn('Could not recover proxy checks'))
+consentReady.then(() => registerProxyRecovery()).catch(() => console.warn('Could not schedule proxy recovery'))
 
 const rescheduleSubscriptions = () => scheduleSubscriptions().catch(() => {
   console.warn('Could not schedule proxy subscriptions')
 })
 
-rescheduleSubscriptions()
+consentReady.then(rescheduleSubscriptions).catch(() => {})
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (changes.proxySubscriptions || changes.proxySubscriptionsEnabled || changes.enableExtension)) {
+  if (area === 'local' && (changes.dataConsent || changes.proxySubscriptions || changes.proxySubscriptionsEnabled || changes.enableExtension)) {
     rescheduleSubscriptions()
   }
 })
 
-withProxyLock(() => {}).catch((error) => {
+consentReady.then(() => withProxyLock(() => {})).catch((error) => {
   console.error('[Service] Route recovery failed', error)
 })
 
 registerBackground({
+  dataConsent: getDataConsent,
+  setDataConsent,
+  openDataConsent,
   diagnosticInfo: getDiagnosticInfo,
   setLocalProxy: (enabled) => withProxyLock(
     () => ProxyManager.setLocalProxyInBackground(enabled),
@@ -139,7 +150,7 @@ registerBackground({
   }).then(async () => {
     const { source } = await getRegistrySourceState()
 
-    if (source.enabled) {
+    if (source.enabled && await hasDataConsent()) {
       await refreshRegistrySource()
     }
   }),
@@ -248,9 +259,16 @@ const checkLocalProxy = () => scheduleLocalProxyCheck()
     console.warn('Local proxy check failed')
   })
 
-checkLocalProxy()
+consentReady.then(checkLocalProxy).catch(() => {})
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (changes.useLocalProxy || changes.useProxy || changes.enableExtension)) {
+  if (area === 'local' && (changes.dataConsent || changes.useLocalProxy || changes.useProxy || changes.enableExtension)) {
     checkLocalProxy()
+  }
+})
+
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.dataConsent &&
+    !consentAccepted(changes.dataConsent.newValue)) {
+    pauseDataTransmission().catch(() => console.warn('Could not clear CT proxy settings'))
   }
 })

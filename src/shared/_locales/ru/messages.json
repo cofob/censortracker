@@ -1,13 +1,31 @@
 {
-  "animationDescription": {"message": "Анимация Bad Apple из логотипов Censor Tracker"},
-  "proxyAll": {"message": "Проксировать всё"},
-  "uiLanguageTitle": {"message": "Язык"},
-  "uiLanguageAuto": {"message": "Язык браузера"},
-  "proxyAdd": { "message": "Добавить прокси" },
-  "proxyEditTitle": { "message": "Редактировать прокси" },
-  "proxyNameOptional": { "message": "Название (необязательно)" },
-  "proxyProtocol": { "message": "Протокол" },
-  "proxyNoMatches": { "message": "Нет прокси, подходящих под эти фильтры." },
+  "animationDescription": {
+    "message": "Анимация Bad Apple из логотипов Censor Tracker"
+  },
+  "proxyAll": {
+    "message": "Проксировать всё"
+  },
+  "uiLanguageTitle": {
+    "message": "Язык"
+  },
+  "uiLanguageAuto": {
+    "message": "Язык браузера"
+  },
+  "proxyAdd": {
+    "message": "Добавить прокси"
+  },
+  "proxyEditTitle": {
+    "message": "Редактировать прокси"
+  },
+  "proxyNameOptional": {
+    "message": "Название (необязательно)"
+  },
+  "proxyProtocol": {
+    "message": "Протокол"
+  },
+  "proxyNoMatches": {
+    "message": "Нет прокси, подходящих под эти фильтры."
+  },
   "relatedDomainsSaveError": {
     "message": "Не удалось сохранить или применить правила. Некоторые домены уже могли сохраниться. Проверьте настройки прокси перед повторной попыткой."
   },
@@ -125,16 +143,36 @@
   "siteRuleError": {
     "message": "Не удалось сохранить правило. Проверьте домен и коды стран и повторите попытку."
   },
-"proxyFilters": {"message": "Фильтры, сортировка и удаление"},
-"proxyFilterAny": {"message": "Все страны"},
-"proxyFilterUnknown": {"message": "Неизвестно"},
-"proxyFilteredCount": {"message": "Найдено: $1 из $2."},
-"proxySort": {"message": "Сортировать по"},
-"proxySortDefault": {"message": "Исходный порядок"},
-"proxySortName": {"message": "Название (А–Я)"},
-"proxySortLatency": {"message": "Задержка (сначала быстрые)"},
-"proxyRemoveFiltered": {"message": "Удалить найденные пользовательские прокси"},
-"proxyRemoveConfirm": {"message": "Удалить все $1 найденных пользовательских прокси на всех страницах, включая выбранные? Встроенный прокси не будет удалён."},
+  "proxyFilters": {
+    "message": "Фильтры, сортировка и удаление"
+  },
+  "proxyFilterAny": {
+    "message": "Все страны"
+  },
+  "proxyFilterUnknown": {
+    "message": "Неизвестно"
+  },
+  "proxyFilteredCount": {
+    "message": "Найдено: $1 из $2."
+  },
+  "proxySort": {
+    "message": "Сортировать по"
+  },
+  "proxySortDefault": {
+    "message": "Исходный порядок"
+  },
+  "proxySortName": {
+    "message": "Название (А–Я)"
+  },
+  "proxySortLatency": {
+    "message": "Задержка (сначала быстрые)"
+  },
+  "proxyRemoveFiltered": {
+    "message": "Удалить найденные пользовательские прокси"
+  },
+  "proxyRemoveConfirm": {
+    "message": "Удалить все $1 найденных пользовательских прокси на всех страницах, включая выбранные? Встроенный прокси не будет удалён."
+  },
   "proxyRecoveryEnabled": {
     "message": "Разрешить фоновые IP-проверки отказавших выбранных прокси (раз в пять минут). Прокси с сохранёнными учётными данными автоматически не проверяются."
   },
@@ -240,11 +278,21 @@
   "proxyImportFailed": {
     "message": "Импорт не выполнен. Проверьте источник, размер файла и формат адресов."
   },
-  "proxyAuthTitle": { "message": "Авторизация (необязательно)" },
-  "proxyUsername": { "message": "Логин" },
-  "proxyPassword": { "message": "Пароль" },
-  "proxyAuthPrivacy": { "message": "Данные авторизации хранятся на этом устройстве и входят в резервные копии настроек. HTTP-прокси не шифруют соединение с прокси." },
-  "proxySocksUnsupported": { "message": "Для SOCKS-авторизации нужен Firefox. Chromium её не поддерживает." },
+  "proxyAuthTitle": {
+    "message": "Авторизация (необязательно)"
+  },
+  "proxyUsername": {
+    "message": "Логин"
+  },
+  "proxyPassword": {
+    "message": "Пароль"
+  },
+  "proxyAuthPrivacy": {
+    "message": "Данные авторизации хранятся на этом устройстве и входят в резервные копии настроек. HTTP-прокси не шифруют соединение с прокси."
+  },
+  "proxySocksUnsupported": {
+    "message": "Для SOCKS-авторизации нужен Firefox. Chromium её не поддерживает."
+  },
   "proxyPoolHelp": {
     "message": "Выбранные прокси распределяют сайты между собой и заменяют друг друга при отказе. Это не multi-hop."
   },
@@ -935,5 +983,68 @@
   },
   "successDefaultProxySet": {
     "message": "Используется стандартный прокси CensorTracker!"
+  },
+  "consentTitle": {
+    "message": "Censor Tracker: передача данных"
+  },
+  "consentIntro": {
+    "message": "Согласие относится к подключениям ниже. Дополнительные функции подключаются только при включении или по запросу."
+  },
+  "consentTraffic": {
+    "message": "Выбранный прокси: ваш IP, домены назначения и направленный через него трафик. HTTPS остаётся зашифрованным; содержимое HTTP доступно прокси. Сохранённые учётные данные прокси передаются только этому серверу."
+  },
+  "consentServices": {
+    "message": "Сервисы CT: ваш IP и запросы страны, списков прокси и реестров сайтов. Адреса: geo.ctreserve.de, registry.ctreserve.de, cozyquokka.net, censortracker.github.io и настроенные зеркала. raw.githubusercontent.com предоставляет список зеркал. Встроенный прокси также получает проверки доступности с вашего IP."
+  },
+  "consentChecks": {
+    "message": "Проверки прокси: api.ipify.org, api.myip.com, ipwho.is и api.country.is видят IP проверочного соединения. cloudflare-dns.com получает имя прокси, а api.country.is — IP сервера и выхода для определения стран. Домены посещаемых сайтов при этих проверках не передаются."
+  },
+  "consentSources": {
+    "message": "Внешние списки: ваш IP и запрошенный URL передаются выбранному источнику. Встроенные источники: raw.githubusercontent.com/anticensority, p.thenewone.lol:8443 и antizapret.prostovpn.org. Включённые подписки обновляются в фоне."
+  },
+  "consentLocal": {
+    "message": "Локальный прокси: команды проверки состояния, запуска и остановки передаются на localhost:49490. В этом режиме трафик обрабатывает локальное приложение."
+  },
+  "consentRetention": {
+    "message": "По сведениям оператора, серверы CT не сохраняют данные пользователей, прокси CT не ведут журналы, а CT не использует отслеживающие ID."
+  },
+  "consentThirdParties": {
+    "message": "У сторонних сервисов и ваших прокси свои правила обработки данных. Эти утверждения на них не распространяются. Прокси не гарантирует анонимность."
+  },
+  "consentPause": {
+    "message": "Отказ или отзыв согласия остановит сетевые функции CT и снимет его настройку прокси. Браузер может подключаться напрямую или через другой прокси. Ваши настройки и списки сохранятся."
+  },
+  "consentControl": {
+    "message": "Согласие можно отозвать в настройках. Уже отправленные данные нельзя вернуть; открытые соединения браузера могут сохраниться."
+  },
+  "consentAccept": {
+    "message": "Согласиться"
+  },
+  "consentDecline": {
+    "message": "Отказаться"
+  },
+  "consentUninstall": {
+    "message": "Удалить расширение"
+  },
+  "consentReview": {
+    "message": "Условия согласия"
+  },
+  "consentRevoke": {
+    "message": "Отозвать согласие"
+  },
+  "consentGranted": {
+    "message": "Передача данных разрешена. Отзыв снимет настройку прокси CT; браузер может подключаться напрямую или через другой прокси."
+  },
+  "consentSummary": {
+    "message": "Для обхода блокировок Censor Tracker передаёт трафик через прокси и обновляет списки в фоне. Серверы CT не сохраняют данные пользователей и журналы прокси."
+  },
+  "consentSummaryDecline": {
+    "message": "Без согласия сетевые функции CT отключены. Браузер может подключаться напрямую или через другой прокси. Выбор можно изменить в настройках."
+  },
+  "consentDetails": {
+    "message": "Какие данные и кому передаются"
+  },
+  "consentPaused": {
+    "message": "Сетевые функции приостановлены до согласия. CT не направляет трафик через прокси; браузер может подключаться напрямую или через другой прокси."
   }
 }

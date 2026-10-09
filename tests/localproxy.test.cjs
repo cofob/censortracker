@@ -3,7 +3,7 @@ const { test } = require('node:test')
 const load = require('./load.cjs')
 
 test('local API accepts only successful replies with valid numeric ports', async () => {
-  const client = load('background/localproxy').default
+  const client = load('background/localproxy', { 'browser-api': { default: {} } }).default
   for (const method of ['ping', 'start']) {
     for (const proxyPort of [1, 10808, 23456, 65535]) {
       client.request = async () => ({ status: 'ok', proxyPort })
@@ -23,7 +23,7 @@ test('local API accepts only successful replies with valid numeric ports', async
 })
 
 function fixture(values = {}) {
-  const storage = { useLocalProxy: true, useProxy: true, enableExtension: true, ...values }
+  const storage = { dataConsent: { version: 1, accepted: true }, useLocalProxy: true, useProxy: true, enableExtension: true, ...values }
   const events = []
   const client = { ping: async () => 23456, start: async () => 34567,
     stop: async () => { events.push('stop') } }

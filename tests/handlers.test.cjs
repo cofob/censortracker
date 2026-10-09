@@ -3,7 +3,7 @@ const { test } = require('node:test')
 const load = require('./load.cjs')
 
 function fixture(values = {}, globals = {}, mocks = {}) {
-  const storage = { enableExtension: true, useProxy: true, ...values }
+  const storage = { dataConsent: { version: 1, accepted: true }, enableExtension: true, useProxy: true, ...values }
   const events = []
   let queue = Promise.resolve()
   const withProxyLock = operation => {
@@ -23,7 +23,8 @@ function fixture(values = {}, globals = {}, mocks = {}) {
     disableProxy: async () => { storage.useProxy = false; events.push('preference changed') },
   }
   const browser = { tabs: { query: async () => [{ id: 1 }] },
-    storage: { local: { get: async () => ({ ...storage }) } },
+    storage: { local: { get: async () => ({ ...storage }),
+      set: async values => Object.assign(storage, values) } },
     alarms: {
       create: async (name, options) => events.push(['create', name, { ...options }]),
       clear: async name => events.push(['clear', name]),
@@ -76,21 +77,9 @@ test('the mirror alarm starts a refresh', async () => {
   assert.deepEqual(state.events, ['refresh mirrors'])
 })
 
-test('installation loads mirrors before API sync, and updates load them through startup', async () => {
-  const state = fixture({}, {}, {
-    settings: { default: {
-      enableExtension: async () => { state.storage.enableExtension = true },
-      enableNotifications: async () => {},
-      extensionEnabled: async () => state.storage.enableExtension,
-    } },
-    registry: { default: { enableRegistry: async () => {} } },
-    server: { synchronize: async () => state.events.push('sync') },
-  })
+test('updates with consent load mirrors through startup', async () => {
+  const state = fixture()
   state.browser.runtime = { OnInstalledReason: { INSTALL: 'install', UPDATE: 'update' } }
-  state.proxy.enableProxy = async () => { state.storage.useProxy = true }
-  await state.handlers.handleInstalled({ reason: 'install' })
-  assert.deepEqual(state.events, ['schedule mirrors', 'sync', 'permissions', 'apply', 'knock'])
-  state.events.length = 0
   await state.handlers.handleInstalled({ reason: 'update' })
   assert.deepEqual(state.events, [
     ['clear', 'checkLocalProxy'], 'check local', 'schedule mirrors', 'apply',

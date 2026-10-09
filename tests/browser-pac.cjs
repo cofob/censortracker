@@ -201,7 +201,7 @@ test('Chromium applies PAC rules and manages proxies', { timeout: 60000 }, async
     const install = async data => evaluate(`chrome.proxy.settings.set(${JSON.stringify({
       value: { mode: 'pac_script', pacScript: { data, mandatory: true } }, scope: 'regular',
     })})`)
-    await evaluate(`chrome.storage.local.set({ enableExtension: true, useProxy: true,
+    await evaluate(`chrome.storage.local.set({ dataConsent: { version: 1, accepted: true }, enableExtension: true, useProxy: true,
       proxyAll: true, selectedProxyIds: ['builtin'],
       proxyServerURI: '127.0.0.1:${secureProxy.address().port}' })`)
     await evaluate("chrome.runtime.sendMessage({type: 'ct-background', action: 'setProxy'})")
