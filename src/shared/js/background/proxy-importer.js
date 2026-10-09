@@ -140,8 +140,8 @@ export const scheduleSubscriptions = () => withProxyLock(async () => {
   if (!await hasDataConsent() || !state.proxySubscriptionsEnabled ||
     !state.enableExtension || !count) {
     await browser.alarms.clear(SUBSCRIPTION_ALARM)
-  } else if (alarm?.periodInMinutes !== 60 / count) {
-    browser.alarms.create(SUBSCRIPTION_ALARM, { periodInMinutes: 60 / count })
+  } else if (alarm?.periodInMinutes !== 60) {
+    browser.alarms.create(SUBSCRIPTION_ALARM, { periodInMinutes: 60 })
   }
 })
 

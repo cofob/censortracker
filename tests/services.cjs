@@ -1038,7 +1038,7 @@ for (const outcome of ['enabled', 'disabled', 'failed']) {
         assert.equal(url, source.url)
         downloads++
         if (outcome === 'failed') throw new Error('Download failed')
-        return 'external.example'
+        return { data: 'external.example' }
       } },
     } })
     state.load('background')
@@ -1252,7 +1252,7 @@ for (const failure of ['', 'primary', 'custom', 'config', 'both']) {
     const custom = ['custom', 'config', 'both'].includes(failure)
       ? ['old-custom.example'] : ['custom.example', 'shared.example', 'other.example']
     assert.deepEqual(state.storage.domains, [...new Set([...primary, ...custom])])
-    const { updatedAt, ...cache } = state.storage.registryCache
+    const { updatedAt, validators, ...cache } = state.storage.registryCache
     assert.deepEqual(cache, { countryCode: 'RU', primary, custom, backend: [] })
     assert.equal(Boolean(updatedAt), !failure || failure === 'config')
     assert.equal(state.storage.registryStatus.state, failure && failure !== 'config' ? 'unavailable' : 'ready')
@@ -1525,3 +1525,36 @@ for (const failure of ['timeout', 'cancel', 'exclusion']) {
     assert.equal(state.storage.serviceRouteSnapshot, undefined)
   })
 }
+
+test('registry HEAD checks preserve domain storage and clear previous errors', async () => {
+  const calls = []
+  const custom = 'https://custom.example/list'
+  const state = fixture({ storage: { currentRegionCode: 'RU' }, fetch: async (url, init) => {
+    calls.push([url, init.method])
+    return { ok: true, headers: { get: () => '"1"' }, json: async () => {
+      assert.notEqual(init.method, 'HEAD')
+      if (url.includes('/api/config/')) return { customRegistryUrl: custom }
+      if (url.includes('disseminators')) return []
+      return url === custom ? [{ domains: ['custom.example'] }] : ['primary.example']
+    } }
+  } })
+  const sync = () => state.load('server').synchronizeInBackground({ syncProxy: false })
+  await sync()
+  const domains = state.storage.domains
+  const validators = clone(state.storage.registryCache.validators)
+  let writes = 0
+  const set = state.browser.storage.local.set
+  state.browser.storage.local.set = async values => {
+    if ('domains' in values || 'registryCache' in values) writes++
+    await set(values)
+  }
+  state.storage.registryStatus = { state: 'unavailable', error: 'old failure' }
+  calls.length = 0
+  await sync()
+  assert.equal(writes, 0)
+  assert.equal(state.storage.domains, domains)
+  assert.deepEqual(state.storage.registryCache.validators, validators)
+  assert.equal(state.storage.registryStatus.error, '')
+  assert.equal(calls.filter(([, method]) => method === 'HEAD').length, 3)
+  assert.equal(calls.filter(([, method]) => method === 'GET').length, 2) // Config and ORI.
+})

@@ -58,3 +58,18 @@ test('an already cancelled request never reaches the server', async () => {
   await serverTest(() => assert.fail('unexpected request'),
     url => assert.rejects(requestText(url, { signal: controller.signal }), /abort/i))
 })
+
+test('HEAD returns metadata without reading a body; GET can return metadata', async () => {
+  const methods = []
+  await serverTest((req, res) => {
+    methods.push(req.method)
+    res.setHeader('ETag', '"v1"')
+    res.end('example.com')
+  }, async url => {
+    assert.deepEqual(JSON.parse(JSON.stringify(await requestText(url, { method: 'HEAD' }))),
+      { etag: '"v1"', finalUrl: url + '/' })
+    assert.deepEqual(JSON.parse(JSON.stringify(await requestText(url, { metadata: true }))),
+      { data: 'example.com', etag: '"v1"', finalUrl: url + '/' })
+  })
+  assert.deepEqual(methods, ['HEAD', 'GET'])
+})

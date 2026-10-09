@@ -133,8 +133,9 @@ test('automatic recovery is opt-in, checks at most four due selected proxies, an
   state.setChecking(true)
   await state.retryFailedProxies()
   assert.equal(state.events.length, 1)
+  state.alarms.set(state.RECOVERY_ALARM, { periodInMinutes: 5 })
   await state.registerProxyRecovery()
-  assert.equal(state.alarms.get(state.RECOVERY_ALARM).periodInMinutes, 5)
+  assert.equal(state.alarms.get(state.RECOVERY_ALARM).periodInMinutes, 60)
 })
 
 test('extension updates and navigation keep disabled settings disabled', async () => {

@@ -1,7 +1,8 @@
 import { callBackground } from './background-rpc'
 import browser from './browser-api'
-import { ConsentRequiredError, hasDataConsent, isConsentError } from './data-consent'
+import { ConsentRequiredError, hasDataConsent } from './data-consent'
 import ProxyManager from './proxy'
+import { isRegistryCancellation } from './registry-request'
 import { refreshRegistrySource } from './registry-source'
 import {
   getRegionConfig,
@@ -25,7 +26,7 @@ const fetchConfig = async (mirrors) => {
       countryCode = data.countryCode.toUpperCase()
       geoIPStatus = 'direct'
     } catch (error) {
-      if (isConsentError(error)) {
+      if (isRegistryCancellation(error)) {
         throw error
       }
       console.warn(`[GeoIP] Using RU fallback: ${error.message}`)
@@ -138,22 +139,22 @@ const fetchProxy = async (mirrors) => {
   }
 }
 
-const requestRegistry = async ({ registryUrl, countryCode }, mirrors) => {
-  if (!registryUrl) {
-    return []
-  }
-  const { data } = await requestMirroredService(
-    mirrors, 'registry', validDomains, { countryCode },
-  )
+const requestRegistry = async (config, mirrors, cache) => {
+  const { registryUrl, countryCode } = config
 
-  return data
+  if (!registryUrl) {
+    return { data: [] }
+  }
+  return requestMirroredService(
+    mirrors, 'registry', validDomains, { countryCode, cache },
+  )
 }
 
-const requestCustomRegistry = async (config, mirrors) => {
+const requestCustomRegistry = async (config, mirrors, cache) => {
   const result = await requestMirroredService(
     mirrors, 'config', validConfig, { countryCode: config.countryCode },
   ).catch((error) => {
-    if (isConsentError(error)) {
+    if (isRegistryCancellation(error)) {
       throw error
     }
     return null
@@ -166,13 +167,15 @@ const requestCustomRegistry = async (config, mirrors) => {
   config.customRegistryUrl = result.data.customRegistryUrl || null
   await browser.storage.local.set({ localConfig: config })
   if (!config.customRegistryUrl) {
-    return []
+    return { data: [] }
   }
-  const { data: records } = await requestService(
-    config.customRegistryUrl, validCustomRegistry,
+  const records = await requestService(
+    config.customRegistryUrl, validCustomRegistry, { cache },
   )
 
-  return records.flatMap((record) => record.domains)
+  return records.unchanged ? records : {
+    ...records, data: records.data.flatMap((record) => record.domains),
+  }
 }
 
 const fetchRegistry = async (config, mirrors) => {
@@ -188,6 +191,11 @@ const fetchRegistry = async (config, mirrors) => {
   }
 
   cache.backend ||= []
+  let changed = registryRegionCode !== countryCode || !cache.validators
+  let cacheChanged = changed
+
+  cache.validators ||= {}
+
   if (registryRegionCode !== countryCode) {
     await browser.storage.local.set({
       domains: [], registryRegionCode: countryCode,
@@ -201,43 +209,55 @@ const fetchRegistry = async (config, mirrors) => {
   let skipped = 0
 
   for (const [source, request] of [
-    ['primary', () => requestRegistry(config, mirrors)],
-    ['custom', () => requestCustomRegistry(config, mirrors)],
-    ['backend', async () => (await requestMirroredService(
-      mirrors, 'domains', validDomains, { countryCode, maxRedirects: 5 },
+    ['primary', () => requestRegistry(config, mirrors, cache.validators.primary || {})],
+    ['custom', () => requestCustomRegistry(config, mirrors, cache.validators.custom || {})],
+    ['backend', () => requestMirroredService(
+      mirrors, 'domains', validDomains, { countryCode, maxRedirects: 5, cache: cache.validators.backend || {} },
     ).catch((error) => {
-      if (isConsentError(error)) {
+      if (isRegistryCancellation(error)) {
         throw error
       }
       return null
-    }))?.data ?? null],
+    })],
   ]) {
     try {
-      const data = await request()
+      const result = await request()
 
-      if (data === null) {
+      if (result === null || result.unchanged) {
+        skipped += cache.validators[source]?.skipped || 0
         continue
       }
-      cache[source] = data.filter(validDomain)
-      skipped += data.length - cache[source].length
+      const { data } = result
+      const filtered = data.filter(validDomain)
+
+      changed ||= JSON.stringify(cache[source]) !== JSON.stringify(filtered)
+      cache[source] = filtered
+      const omitted = data.length - filtered.length
+
+      const validator = { ...result.cache, skipped: omitted }
+
+      cacheChanged ||= changed || JSON.stringify(cache.validators[source]) !==
+        JSON.stringify(validator)
+      cache.validators[source] = validator
+      skipped += omitted
     } catch (error) {
-      if (isConsentError(error)) {
+      if (isRegistryCancellation(error)) {
         throw error
       }
       errors.push(`${source}: ${error.message}`)
     }
   }
-  const domains = [...new Set([
+  const domains = changed ? [...new Set([
     ...cache.primary, ...cache.custom, ...cache.backend,
-  ])]
+  ])] : previousDomains
   const state = domains.length > 0 ? 'ready' : 'empty'
 
-  if (errors.length === 0) {
+  if (errors.length === 0 && cacheChanged) {
     cache.updatedAt = Date.now()
   }
   await browser.storage.local.set({
-    domains,
-    registryCache: cache,
+    ...(changed ? { domains } : {}),
+    ...(cacheChanged ? { registryCache: cache } : {}),
     registryRegionCode: countryCode,
     registryStatus: {
       state: errors.length > 0 ? 'unavailable' : state,
@@ -264,7 +284,7 @@ export const synchronizeInBackground = (options = {}) => {
       try {
         await task()
       } catch (error) {
-        if (isConsentError(error)) {
+        if (isRegistryCancellation(error)) {
           throw error
         }
         failures.push(`${name}: ${error.message}`)

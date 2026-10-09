@@ -1,5 +1,5 @@
 import browser from './browser-api'
-import { isConsentError, withDataConsent } from './data-consent'
+import { withDataConsent } from './data-consent'
 import { findHostMatch } from './host-match'
 import { normalizeHostname } from './hostname'
 import ProxyManager from './proxy'
@@ -7,6 +7,7 @@ import {
   getServiceRoute, mustUseDirect, proxyAllowed, restoreServiceRoute,
   setServiceRoute, withProxyLock,
 } from './proxy-route'
+import { isRegistryCancellation, requestRegistry } from './registry-request'
 
 const siteChoice = async (hostname) => {
   if (await mustUseDirect(hostname)) {
@@ -37,7 +38,8 @@ const proxyRoute = async (hostname) => {
 }
 
 const attemptRequest = async (
-  url, validate, viaProxy, allowRedirects, requireEnabled, controller,
+  url, validate, viaProxy, allowRedirects, requireEnabled, method, metadata,
+  controller,
 ) => {
   const parsed = new URL(url)
   const { hostname } = parsed
@@ -112,6 +114,7 @@ const attemptRequest = async (
       }, ['responseHeaders'])
     }
     const response = await fetch(url, {
+      method,
       signal: controller.signal,
       cache: 'no-store',
       redirect: allowRedirects ? 'manual' : 'error',
@@ -131,6 +134,13 @@ const attemptRequest = async (
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
+    const headers = metadata || method === 'HEAD' ? {
+      etag: response.headers?.get('etag') || '', finalUrl: url,
+    } : {}
+
+    if (method === 'HEAD') {
+      return headers
+    }
     stage = 'JSON parsing'
     const data = await response.json()
 
@@ -141,9 +151,17 @@ const attemptRequest = async (
     if (!validate(data)) {
       throw new Error('Response does not match the expected service data')
     }
-    return { data }
+    return { data, ...headers }
   } catch (error) {
-    throw new Error(`${stage}: ${abortReason || error.message}`, { cause: error })
+    const failure = new Error(`${stage}: ${abortReason || error.message}`, { cause: error })
+
+    if (abortReason.startsWith('Timeout')) {
+      failure.name = 'TimeoutError'
+    }
+    if (abortReason.startsWith('Cancelled')) {
+      failure.name = 'AbortError'
+    }
+    throw failure
   } finally {
     clearTimeout(timeout)
     browser.storage.onChanged.removeListener(onSettingsChanged)
@@ -160,7 +178,9 @@ const attempt = (...args) => {
   return withDataConsent(() => attemptRequest(...args, controller), controller)
 }
 
-const requestDirect = async (url, validate, allowRedirects, requireEnabled) => {
+const requestDirect = async (
+  url, validate, allowRedirects, requireEnabled, method, metadata,
+) => {
   const setting = browser.proxy.settings
   const { levelOfControl } = await setting.get({})
   let direct = false
@@ -179,7 +199,7 @@ const requestDirect = async (url, validate, allowRedirects, requireEnabled) => {
   try {
     const before = await setting.get({})
     const result = await attempt(
-      url, validate, false, allowRedirects, requireEnabled,
+      url, validate, false, allowRedirects, requireEnabled, method, metadata,
     )
     const after = await setting.get({})
     const knownDirect = ['direct', 'none'].includes(
@@ -197,7 +217,9 @@ const requestDirect = async (url, validate, allowRedirects, requireEnabled) => {
   }
 }
 
-const requestProxy = async (url, validate, allowRedirects, requireEnabled) => {
+const requestProxy = async (
+  url, validate, allowRedirects, requireEnabled, method, metadata,
+) => {
   const hostname = new URL(url).hostname
 
   await proxyRoute(hostname)
@@ -208,13 +230,16 @@ const requestProxy = async (url, validate, allowRedirects, requireEnabled) => {
     throw new Error('Proxy request cannot preserve existing browser routes')
   }
   return {
-    ...await attempt(url, validate, true, allowRedirects, requireEnabled),
+    ...await attempt(
+      url, validate, true, allowRedirects, requireEnabled, method, metadata,
+    ),
     viaProxy: true,
   }
 }
 
 const requestHop = async (
   url, validate, allowProxyRetry, allowRedirects, requireEnabled,
+  method, metadata,
 ) => {
   let directError
   const choice = await siteChoice(new URL(url).hostname)
@@ -224,9 +249,11 @@ const requestHop = async (
   }
   if (choice !== 'always') {
     try {
-      return await requestDirect(url, validate, allowRedirects, requireEnabled)
+      return await requestDirect(
+        url, validate, allowRedirects, requireEnabled, method, metadata,
+      )
     } catch (error) {
-      if (isConsentError(error)) {
+      if (isRegistryCancellation(error)) {
         throw error
       }
       directError = new Error(`DIRECT: ${error.message}`, { cause: error })
@@ -241,7 +268,9 @@ const requestHop = async (
     }
   }
   try {
-    return await requestProxy(url, validate, allowRedirects, requireEnabled)
+    return await requestProxy(
+      url, validate, allowRedirects, requireEnabled, method, metadata,
+    )
   } catch (error) {
     const errors = [directError?.message, `PROXY: ${error.message}`]
 
@@ -252,8 +281,18 @@ const requestHop = async (
 export const requestService = (
   url, validate, {
     allowProxyRetry = true, maxRedirects = 0, requireEnabled = false,
+    method = 'GET', metadata = false, cache,
   } = {},
 ) => {
+  if (cache) {
+    return requestRegistry(url, cache, (verb) => requestService(url, validate, {
+      allowProxyRetry,
+      maxRedirects,
+      requireEnabled,
+      method: verb,
+      metadata: true,
+    }))
+  }
   const parsed = new URL(url)
   const endpoint = `${parsed.origin}${parsed.pathname}`
 
@@ -275,11 +314,12 @@ export const requestService = (
         visited.add(current.href)
         const result = await requestHop(
           url, validate, allowProxyRetry, maxRedirects > 0, requireEnabled,
+          method, metadata,
         )
 
         viaProxy ||= result.viaProxy
         if (!('redirectUrl' in result)) {
-          return { data: result.data, viaProxy }
+          return { ...result, viaProxy }
         }
         if (hops >= maxRedirects) {
           throw new Error(`Redirect limit exceeded: maximum ${maxRedirects} hops`)

@@ -126,8 +126,8 @@ const scheduleRecovery = () => withProxyLock(async () => {
 
   if (!proxyRecoveryEnabled || !await proxyAllowed()) {
     await browser.alarms.clear(RECOVERY_ALARM)
-  } else if (!alarm) {
-    browser.alarms.create(RECOVERY_ALARM, { periodInMinutes: 5 })
+  } else if (alarm?.periodInMinutes !== 60) {
+    browser.alarms.create(RECOVERY_ALARM, { periodInMinutes: 60 })
   }
 })
 

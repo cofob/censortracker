@@ -114,9 +114,9 @@ export const handleStartup = async () => {
   }
 
   await Task.schedule([
-    { name: TaskType.PING, minutes: 10 },
-    { name: TaskType.SET_PROXY, minutes: 15 },
-    { name: TaskType.REMOVE_BAD_PROXIES, minutes: 20 },
+    { name: TaskType.PING, minutes: 60 },
+    { name: TaskType.SET_PROXY, minutes: 60 },
+    { name: TaskType.REMOVE_BAD_PROXIES, minutes: 60 },
   ])
   console.groupEnd()
 }

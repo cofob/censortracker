@@ -3,6 +3,7 @@ import browser from './browser-api'
 import { isConsentError } from './data-consent'
 import ProxyManager from './proxy'
 import { proxyAllowed, withProxyLock } from './proxy-route'
+import { requestRegistry } from './registry-request'
 import {
   MAX_REGISTRY_BYTES, parseRegistryList, registrySourceDefaults,
   registrySourceKey, validateRegistrySource,
@@ -59,15 +60,28 @@ export const refreshRegistrySource = async ({ automatic = false } = {}) => {
     if (!source.url) {
       throw new Error('No registry source URL')
     }
-    const text = await requestText(source.url, {
-      timeout: 30000,
-      maxBytes: MAX_REGISTRY_BYTES,
-      redirect: 'error',
-      signal: controller.signal,
-    })
+    const { externalRegistry } = await browser.storage.local.get('externalRegistry')
+    const cache = externalRegistry?.source === registrySourceKey(source)
+      ? externalRegistry.cache : null
+    const result = await requestRegistry(source.url, cache,
+      (method) => requestText(source.url, {
+        method,
+        metadata: true,
+        timeout: 30000,
+        maxBytes: MAX_REGISTRY_BYTES,
+        redirect: 'error',
+        signal: controller.signal,
+      }), controller.signal)
+
+    if (controller.signal.aborted) {
+      throw new Error('Request cancelled')
+    }
+    if (result.unchanged) {
+      return getRegistrySourceState()
+    }
     const parse = source.kind === 'anticensority'
       ? parseAnticensority : parseRegistryList
-    const domains = await parse(text, controller.signal)
+    const domains = await parse(result.data, controller.signal)
 
     return await withProxyLock(async () => {
       const current = await readState()
@@ -82,7 +96,10 @@ export const refreshRegistrySource = async ({ automatic = false } = {}) => {
       }
       await browser.storage.local.set({
         externalRegistry: {
-          source: registrySourceKey(source), domains, updatedAt: Date.now(),
+          source: registrySourceKey(source),
+          domains,
+          updatedAt: Date.now(),
+          cache: result.cache,
         },
       })
       if (!await ProxyManager.setProxyInBackground({ ping: false }) &&

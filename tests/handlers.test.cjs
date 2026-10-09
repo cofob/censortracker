@@ -260,3 +260,17 @@ test('disabled notifications do not save hosts', async () => {
   assert.deepEqual(state.writes, [])
   assert.deepEqual(state.storage.notifiedHosts, ['previous.example'])
 })
+
+test('startup schedules hourly tasks and replaces old persisted periods', async () => {
+  const alarms = new Map(['ping', 'setProxy', 'removeBadProxies'].map(name => [name, { periodInMinutes: 10 }]))
+  const created = []
+  const task = load('background/task', { 'browser-api': { default: { alarms: {
+    get: async name => alarms.get(name),
+    create: (name, options) => { alarms.set(name, options); created.push(name) },
+  } } } }).default
+  const state = fixture({}, {}, { task: { default: task } })
+  await state.handlers.handleStartup()
+  await state.handlers.handleStartup()
+  assert.deepEqual(created, ['ping', 'setProxy', 'removeBadProxies'])
+  assert.ok([...alarms.values()].every(alarm => alarm.periodInMinutes === 60))
+})

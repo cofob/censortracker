@@ -2,10 +2,15 @@ import { withDataConsent } from './data-consent'
 
 // Keep the deadline active until the entire response has been read.
 const readText = async (url, {
-  timeout = 15000, signal, maxBytes = 32 * 1024 * 1024, ...options
+  timeout = 15000, signal, maxBytes = 32 * 1024 * 1024,
+  metadata = false, ...options
 } = {}, controller) => {
   const abort = () => controller.abort()
-  const timer = setTimeout(abort, timeout)
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    abort()
+  }, timeout)
 
   if (signal) {
     signal.addEventListener('abort', abort, { once: true })
@@ -24,6 +29,11 @@ const readText = async (url, {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
+    const headers = { etag: response.headers?.get('etag') || '', finalUrl: response.url || url }
+
+    if (options.method === 'HEAD') {
+      return headers
+    }
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let size = 0
@@ -33,7 +43,8 @@ const readText = async (url, {
       const { done, value } = await reader.read()
 
       if (done) {
-        return text + decoder.decode()
+        text += decoder.decode()
+        return metadata ? { data: text, ...headers } : text
       }
       size += value.byteLength
       if (size > maxBytes) {
@@ -41,6 +52,13 @@ const readText = async (url, {
       }
       text += decoder.decode(value, { stream: true })
     }
+  } catch (error) {
+    if (timedOut) {
+      throw Object.assign(new Error('Request aborted by timeout'), {
+        name: 'TimeoutError',
+      })
+    }
+    throw error
   } finally {
     clearTimeout(timer)
     if (signal) {

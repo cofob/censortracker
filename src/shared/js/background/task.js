@@ -21,7 +21,7 @@ class Task {
     for (const { name, minutes } of tasks) {
       const alarm = await browser.alarms.get(name)
 
-      if (alarm) {
+      if (alarm?.periodInMinutes === minutes) {
         console.debug(`Task «${name}» already scheduled!`)
       } else {
         browser.alarms.create(name, { periodInMinutes: minutes })

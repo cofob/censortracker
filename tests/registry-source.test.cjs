@@ -24,7 +24,7 @@ const fixture = (request = async () => 'external.example\ncdn.example.co.uk') =>
     'proxy-route': { proxyAllowed: async () => storage.enableExtension && storage.useProxy,
       withProxyLock: work => { const result = queue.then(work); queue = result.catch(() => {}); return result } },
     proxy: { default: { setProxyInBackground: async () => storage.applyResult !== false } },
-    request: { requestText: async (url, options) => { calls.push({ url, options }); return request(url, options) } },
+    request: { requestText: async (url, options) => { calls.push({ url, options }); const data = await request(url, options); return typeof data === 'string' && options.metadata ? { data } : data } },
   }
   const api = load('background/registry-source', mocks)
   api.registerRegistrySource()
@@ -149,4 +149,30 @@ test('the Anticensority source uses static data parsing and the same opt-in cach
   assert.equal(state.storage.registrySource.enabled, false)
   assert.equal(state.storage.useProxy, false)
   assert.deepEqual(state.storage.externalRegistry.domains, ['example.com'])
+})
+
+test('external ETag checks skip parsing, storage writes, and proxy application', async () => {
+  for (const kind of ['custom', 'anticensority']) {
+    let etag = '"1"'
+    const state = fixture(async (url, options) => ({ etag, finalUrl: url,
+      data: options.method === 'HEAD' ? undefined : kind === 'custom'
+        ? 'example.com' : 'const inputs = {"HOSTNAMES":{"11":"example.com"}};',
+    }))
+    state.storage.registrySource.kind = kind
+    if (kind === 'anticensority') state.storage.registrySource.url =
+      load('background/registry-source-data').registrySourceUrls.anticensority
+    await state.refreshRegistrySource()
+    const saved = plain(state.storage.externalRegistry)
+    state.storage.enableExtension = true
+    state.storage.useProxy = true
+    state.storage.applyResult = false // A repeated proxy application would fail.
+    await state.refreshRegistrySource()
+    assert.deepEqual(state.storage.externalRegistry, saved)
+    assert.deepEqual(state.calls.map(call => call.options.method), ['GET', 'HEAD'])
+    etag = '"2"'
+    state.storage.applyResult = true
+    await state.refreshRegistrySource()
+    assert.deepEqual(state.calls.map(call => call.options.method), ['GET', 'HEAD', 'HEAD', 'GET'])
+    assert.equal(state.storage.externalRegistry.cache.etag, etag)
+  }
 })
