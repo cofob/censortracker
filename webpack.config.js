@@ -27,6 +27,7 @@ const contentSecurityPolicy = {
 }
 
 const webWorkerConfig = {
+  dependencies: ['pages'],
   mode: NODE_ENV,
   devtool: 'inline-nosources-cheap-module-source-map',
   target: isFirefox ? 'webworker' : 'web',
@@ -65,6 +66,7 @@ const webWorkerConfig = {
 }
 
 const webConfig = {
+  name: 'pages',
   mode: NODE_ENV,
   // Also see: https://webpack.js.org/configuration/devtool/#devtool
   target: 'web',
@@ -85,6 +87,7 @@ const webConfig = {
   },
   output: {
     path: resolve(`dist/${BROWSER}/${OUTPUT_SUB_DIR}`),
+    clean: true,
     filename: '[name].js',
     publicPath: PRODUCTION ? '' : '/',
   },
@@ -315,4 +318,4 @@ if (PRODUCTION) {
   ]
 }
 
-module.exports = [webConfig, webWorkerConfig]
+module.exports = isChromium ? [webConfig, webWorkerConfig] : [webConfig]
