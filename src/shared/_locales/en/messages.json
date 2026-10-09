@@ -1036,7 +1036,7 @@
     "message": "Data transmission is allowed. Withdrawal removes CT’s proxy setting; your browser may connect directly or use another proxy."
   },
   "consentSummary": {
-    "message": "Censor Tracker sends traffic through a proxy to bypass blocks and updates lists in the background. CT servers do not store user data or proxy logs."
+    "message": "Censor Tracker sends traffic through a proxy to bypass limitations and updates lists in the background. CT servers do not store user data or proxy logs."
   },
   "consentSummaryDecline": {
     "message": "Without consent, CT network functions are off. Your browser may connect directly or use another proxy. You can change your choice in settings."
