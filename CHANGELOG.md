@@ -1,5 +1,7 @@
 # Unreleased (21.0.0)
 
+- Added a consent page before extension data transmission, with controls to review or withdraw consent in settings and the popup.
+- Added notices after installation and updates, with a support link and saved dismissal state. Notices appear before the consent page and in the popup.
 - Ported Amnezia Premium local proxy support with dynamic ports, connection checks, recovery and updated settings.
 - Added a shared list for built-in and custom proxies, site distribution, failover and proxy authentication.
 - Added proxy imports, optional subscriptions, parallel checks, filtering, sorting and bulk deletion.
@@ -10,16 +12,20 @@
 - Improved domain lookup performance for large registries.
 - Added planned route details, last checked exit information and related page domain selection to the popup.
 - Added validated settings imports and exports, including legacy and avatarDD fork backups.
-- Fixed restoration of registry and proxy recovery settings from backups.
+- Fixed restoration of registry and proxy recovery settings from backups, including external registry reloads. Kept the latest registry selection when requests finish out of order.
+- Fixed settings reset to restore all user settings before synchronization.
 - Fixed hostname matching, proxy endpoint validation, stale routing updates and recovery of failed proxies.
 - Added built-in service endpoints and direct requests with proxy fallback.
 - Fixed port knocks to use a temporary direct route, including in proxy-all mode.
 - Fixed Firefox private browsing permission updates, proxy retries and blocking when no proxy is available.
+- Stopped saving notification hostnames from private tabs. Bundled fonts to remove remote font requests.
+- Declared data collection permissions for Firefox.
 - Added detailed diagnostics and a support report export.
 - Added an interface language selector for English, Russian and Ukrainian, with English fallback for missing translations.
-- Fixed translations, popup layout and dark theme styles. Updated support links to blockedin.org.
+- Fixed translations, popup layout and dark theme styles. Removed unused translation keys and updated support links to blockedin.org.
 - Added an animated Easter egg.
 - Updated dependencies and the domain editor; added tests, current lint tools and CI build artifacts.
+- Made production bundles and release archives reproducible.
 
 Special thanks to [@avatarDD fork](https://github.com/avatarDD/censortracker) for some feature inspirations!
 
