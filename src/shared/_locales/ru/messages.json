@@ -383,9 +383,6 @@
   "operationFailed": {
     "message": "Не удалось выполнить действие. Попробуйте ещё раз."
   },
-  "addLocalProxyButton": {
-    "message": "Добавить"
-  },
   "advancedOptionsDesc": {
     "message": "Вы можете вручную обновить локальную базу данных заблокированных веб-сайтов, обновить конфигурацию Censor Tracker и управлять другими расширенными параметрами."
   },
@@ -403,9 +400,6 @@
   },
   "appName": {
     "message": "Censor Tracker — Обход блокировок"
-  },
-  "applyLocalProxyButton": {
-    "message": "Применить"
   },
   "areYouSureYouWantToResetSettingsDesc": {
     "message": "Переустановить конфиг и обновить локальную базу данных"
@@ -536,9 +530,6 @@
   "doneDescription": {
     "message": "Операция выполнена успешно."
   },
-  "downloadAppButton": {
-    "message": "Скачать"
-  },
   "emptyFileError": {
     "message": "Файл пустой или повреждён. Пожалуйста, проверьте его и попробуйте ещё раз."
   },
@@ -631,44 +622,14 @@
   "installedAllowIncognitoTitle": {
     "message": "Разрешите работу Censor Tracker в приватных окнах"
   },
-  "installedGratitude": {
-    "message": "Спасибо!"
-  },
   "installedPageTitle": {
     "message": "Censor Tracker установлен"
-  },
-  "invalidLocalProxyConfig": {
-    "message": "Некорректная конфигурация. Пожалуйста, укажите Subscription URL, совместимый с V2ray (V2RayNG, SingBox, Nekoray и др.), Clash или ClashMeta, либо ссылку на конкретный сервер в формате vless://, vmess:// или ss://."
   },
   "invalidURLError": {
     "message": "Неверный URL. Пожалуйста, проверьте его и попробуйте ещё раз."
   },
-  "localProxyConfigValueDescr": {
-    "message": "Вставьте конфигурацию vless://, vmess:// или ss://."
-  },
-  "localProxyConfigValueTitle": {
-    "message": "Конфигурация"
-  },
-  "localProxyNotFound": {
-    "message": "Приложение Censor Tracker Proxy не найдено на устройстве. Скачайте и запустите приложение Censor Tracker Proxy. Оно будет работать в фоновом режиме и поддерживать работу локального прокси."
-  },
   "localProxyNotFoundDesc": {
     "message": "Не удалось подключиться к локальному прокси Amnezia Premium. Откройте AmneziaVPN и включите «Локальный системный прокси»"
-  },
-  "localProxyNotFoundTitle": {
-    "message": "Приложение Censor Tracker Proxy не найдено"
-  },
-  "localProxyPopupCode": {
-    "message": "URL Подписки или конфигурация"
-  },
-  "localProxyPopupText": {
-    "message": "Рекомендуем <img src=\"../images/settings/rks_logo.svg\" width=\"86\" height=\"auto\" alt=\"RKS VPN logo\"/> в качестве локального прокси. <a href=\"https://storage.googleapis.com/plmrph/ee5cbfj0\" target=\"_blank\">Подробнее</a>"
-  },
-  "localProxyPopupTitle": {
-    "message": "Добавление прокси"
-  },
-  "localRegistryUpdated": {
-    "message": "Локальная база данных заблокированных сайтов обновлена!"
   },
   "maxDomainsExceededError": {
     "message": "Максимальное количество доменов, которое можно добавить - 1000. Пожалуйста, сократите список и попробуйте ещё раз."
@@ -690,9 +651,6 @@
   },
   "okayButton": {
     "message": "Ясно"
-  },
-  "optionsConfirmResetMessage": {
-    "message": "Все ваши настройки будут удалены. Вы уверены, что хотите это сделать?"
   },
   "optionsIgnoredWebsitesDesc": {
     "message": "Адреса, для которых прокси всегда будет отключён. Может помочь, если есть проблемы с открытием сайта."
@@ -792,9 +750,6 @@
   "popupProxyStatusOk": {
     "message": "настройки прокси применены"
   },
-  "popupServer": {
-    "message": "ID Прокси Сервера"
-  },
   "popupTotalBlocked": {
     "message": "Заблокированных сайтов"
   },
@@ -822,20 +777,11 @@
   "proxyConnectionIssuesMessage": {
     "message": "Обнаружена проблема с сетью. Пожалуйста, обратитесь в чат поддержки и расскажите нам о проблеме, мы постараемся ее решить →"
   },
-  "proxyDisabledPageTitle": {
-    "message": "Проксирование отключено"
-  },
-  "proxyHost": {
-    "message": "Адрес прокси-сервера"
-  },
   "proxyOptionsStatusDesc": {
     "message": "Можете попробовать отключить проксирование совсем или переключиться на свой прокси."
   },
   "proxyOptionsStatusTitle": {
     "message": "Не удалось установить соединение с прокси-сервером"
-  },
-  "proxyPort": {
-    "message": "Порт"
   },
   "proxySettings": {
     "message": "Настройки прокси"
@@ -860,21 +806,6 @@
   },
   "resetToDefaultTitle": {
     "message": "Сбросить все настройки"
-  },
-  "rksVPNBannerDesc": {
-    "message": "Рекомендуем RKS VPN в качестве локального прокси"
-  },
-  "rksVPNBannerDesc2": {
-    "message": "Устойчивый к блокировкам VPN"
-  },
-  "rksVPNBannerDesc3": {
-    "message": "Работает как в Censor Tracker, так и в других приложениях, в том числе на телефоне"
-  },
-  "rksVPNBannerLinkTitle": {
-    "message": "Подробнее об RKS VPN"
-  },
-  "rksVPNBannerTitle": {
-    "message": "Добавьте прокси для подключения"
   },
   "saveChanges": {
     "message": "Сохранить изменения"
@@ -945,23 +876,11 @@
   "updateLocalRegistryTitle": {
     "message": "Принудительно обновить локальную базу данных расширения"
   },
-  "updateTakesTime": {
-    "message": "Обновление базы займёт какое-то время"
-  },
-  "useDefaultProxy": {
-    "message": "Прокси Censor Tracker"
-  },
   "useLocalProxy": {
     "message": "Локальный прокси Amnezia Premium"
   },
-  "useOwnProxy": {
-    "message": "Свой прокси"
-  },
   "useProxy": {
     "message": "Использовать прокси"
-  },
-  "useProxyDesc": {
-    "message": "Если сайт заблокирован - Censor Tracker предоставит к нему доступ. Отключите эту настройку, если вы пользуетесь другим сервисом для обхода блокировок (например, VPN), чтобы увеличить скорость соединения."
   },
   "useRegistry": {
     "message": "Открывать сайты из реестра заблокированных сайтов"
@@ -971,9 +890,6 @@
   },
   "whatThisMean": {
     "message": "что это значит"
-  },
-  "youCanCloseThisWindow": {
-    "message": "Можно закрыть это окно"
   },
   "moreAboutLocalProxy": {
     "message": "Подробнее об Amnezia Premium VPN"
@@ -989,9 +905,6 @@
   },
   "successLocalProxySet": {
     "message": "Соединение установлено! Используется локальный прокси Amnezia Premium."
-  },
-  "successDefaultProxySet": {
-    "message": "Используется стандартный прокси CensorTracker!"
   },
   "consentTitle": {
     "message": "Censor Tracker: передача данных"

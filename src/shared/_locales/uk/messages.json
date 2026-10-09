@@ -383,9 +383,6 @@
   "operationFailed": {
     "message": "Не вдалося виконати дію. Спробуйте ще раз."
   },
-  "addLocalProxyButton": {
-    "message": "Додати"
-  },
   "advancedOptionsDesc": {
     "message": "Ви можете вручну оновити локальну базу даних заблокованих веб-сайтів, оновити конфігурацію Censor Tracker і керувати іншими розширеними параметрами."
   },
@@ -403,9 +400,6 @@
   },
   "appName": {
     "message": "Censor Tracker - Обхід блокувань"
-  },
-  "applyLocalProxyButton": {
-    "message": "Застосувати"
   },
   "areYouSureYouWantToResetSettingsDesc": {
     "message": "Перевстановити конфіг і оновити локальну базу даних"
@@ -536,9 +530,6 @@
   "doneDescription": {
     "message": "Операцію виконано успішно."
   },
-  "downloadAppButton": {
-    "message": "Завантажити"
-  },
   "emptyFileError": {
     "message": "Файл порожній або пошкоджений. Будь ласка, перевірте його та спробуйте ще раз."
   },
@@ -631,44 +622,14 @@
   "installedAllowIncognitoTitle": {
     "message": "Дозвольте роботу Censor Tracker у приватних вікнах"
   },
-  "installedGratitude": {
-    "message": "Дякую!"
-  },
   "installedPageTitle": {
     "message": "Censor Tracker встановлено"
-  },
-  "invalidLocalProxyConfig": {
-    "message": "Некоректна конфігурація. Будь ласка, вкажіть Subscription URL, сумісний із V2ray (V2RayNG, SingBox, Nekoray тощо), Clash або ClashMeta, або пряму адресу сервера у форматі vless://, vmess:// чи ss://."
   },
   "invalidURLError": {
     "message": "Неправильний URL. Будь ласка, перевірте його і спробуйте ще раз."
   },
-  "localProxyConfigValueDescr": {
-    "message": "Вставте конфігурацію vless://, vmess:// або ss://."
-  },
-  "localProxyConfigValueTitle": {
-    "message": "Конфігурація"
-  },
-  "localProxyNotFound": {
-    "message": "Додаток Censor Tracker Proxy не знайдено на пристрої. Скачайте та запустіть додаток Censor Tracker Proxy. Він працюватиме у фоновому режимі та підтримуватиме роботу локального проксі."
-  },
   "localProxyNotFoundDesc": {
     "message": "Не вдалося підключитися до локального проксі Amnezia Premium. Відкрийте AmneziaVPN і увімкніть «Локальний системний проксі»."
-  },
-  "localProxyNotFoundTitle": {
-    "message": "Додаток Censor Tracker Proxy не знайдено"
-  },
-  "localProxyPopupCode": {
-    "message": "URL-адреса підписки або конфігурація"
-  },
-  "localProxyPopupText": {
-    "message": "Рекомендуємо <img src=\"../images/settings/rks_logo.svg\" width=\"86\" height=\"auto\" alt=\"Логотип RKS VPN\"/> як локальний проксі. <a href=\"https://storage.googleapis.com/plmrph/ee5cbfj0\" target=\"_blank\">Детальніше</a>"
-  },
-  "localProxyPopupTitle": {
-    "message": "Додавання проксі"
-  },
-  "localRegistryUpdated": {
-    "message": "Локальну базу даних заблокованих сайтів оновлено!"
   },
   "maxDomainsExceededError": {
     "message": "Максимальна кількість доменів, яку можна додати - 1000. Будь ласка, скоротіть список і спробуйте ще раз."
@@ -690,9 +651,6 @@
   },
   "okayButton": {
     "message": "Ясно"
-  },
-  "optionsConfirmResetMessage": {
-    "message": "Усі ваші налаштування буде видалено. Ви впевнені, що хочете це зробити?"
   },
   "optionsIgnoredWebsitesDesc": {
     "message": "Адреси, для яких проксі завжди буде вимкнено. Може допомогти, якщо є проблеми з відкриттям сайту."
@@ -792,9 +750,6 @@
   "popupProxyStatusOk": {
     "message": "налаштування проксі застосовано"
   },
-  "popupServer": {
-    "message": "ID Проксі Сервера"
-  },
   "popupTotalBlocked": {
     "message": "Всього заблоковано"
   },
@@ -822,20 +777,11 @@
   "proxyConnectionIssuesMessage": {
     "message": "Виявлено проблему з мережею. Будь ласка, зверніться в чат підтримки і розкажіть нам про проблему, ми постараємося її вирішити →"
   },
-  "proxyDisabledPageTitle": {
-    "message": "Проксування вимкнено"
-  },
-  "proxyHost": {
-    "message": "Адреса проксі-сервера"
-  },
   "proxyOptionsStatusDesc": {
     "message": "Можете спробувати відключити проксування зовсім або переключитися на свій проксі."
   },
   "proxyOptionsStatusTitle": {
     "message": "Не вдалося встановити з'єднання з проксі-сервером"
-  },
-  "proxyPort": {
-    "message": "Порт"
   },
   "proxySettings": {
     "message": "Налаштування проксування"
@@ -860,21 +806,6 @@
   },
   "resetToDefaultTitle": {
     "message": "Скинути всі налаштування"
-  },
-  "rksVPNBannerDesc": {
-    "message": "Рекомендуємо RKS VPN як локальний проксі"
-  },
-  "rksVPNBannerDesc2": {
-    "message": "Стійкий до блокувань VPN"
-  },
-  "rksVPNBannerDesc3": {
-    "message": "Працює як у Censor Tracker, так і в інших додатках, зокрема на телефоні"
-  },
-  "rksVPNBannerLinkTitle": {
-    "message": "Детальніше про RKS VPN"
-  },
-  "rksVPNBannerTitle": {
-    "message": "Додайте проксі для підключення"
   },
   "saveChanges": {
     "message": "Зберегти зміни"
@@ -945,23 +876,11 @@
   "updateLocalRegistryTitle": {
     "message": "Примусово оновити локальну базу даних розширення"
   },
-  "updateTakesTime": {
-    "message": "Оновлення бази займе якийсь час"
-  },
-  "useDefaultProxy": {
-    "message": "Проксі Censor Tracker"
-  },
   "useLocalProxy": {
     "message": "Місцевий проксі-сервер Amnezia Premium."
   },
-  "useOwnProxy": {
-    "message": "Свій проксі"
-  },
   "useProxy": {
     "message": "Використовувати проксі"
-  },
-  "useProxyDesc": {
-    "message": "Якщо сайт заблокований - Censor Tracker надасть до нього доступ. Вимкніть це налаштування, якщо ви користуєтеся іншим сервісом для обходу блокувань (наприклад, VPN), щоб збільшити швидкість з'єднання."
   },
   "useRegistry": {
     "message": "Відкривати сайти з реєстру заблокованих сайтів"
@@ -971,9 +890,6 @@
   },
   "whatThisMean": {
     "message": "що це означає"
-  },
-  "youCanCloseThisWindow": {
-    "message": "Можна закрити це вікно"
   },
   "moreAboutLocalProxy": {
     "message": "Детальніше про Amnezia Premium VPN"
@@ -989,9 +905,6 @@
   },
   "successLocalProxySet": {
     "message": "З'єднання встановлено! Використовується локальний проксі Amnezia Premium."
-  },
-  "successDefaultProxySet": {
-    "message": "Успішно перемкнено на стандартний проксі!"
   },
   "consentTitle": {
     "message": "Censor Tracker: передавання даних"
