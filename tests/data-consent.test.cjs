@@ -109,7 +109,7 @@ test('localhost uses the same consent gate and cancels Axios on withdrawal', asy
   assert.equal(signal.aborted, true)
 })
 
-function lifecycle(values = {}) {
+function lifecycle(values = {}, globals = {}) {
   const f = fixture(values.dataConsent)
   Object.assign(f.state, values)
   let sync = async () => f.events.push('sync')
@@ -127,7 +127,7 @@ function lifecycle(values = {}) {
     task: { default: { schedule: async () => f.events.push('alarms') } },
     server: { synchronize: () => sync() },
     'proxy-importer': {}, 'proxy-recovery': {}, registry: {}, ignore: {}, utilities: {},
-  })
+  }, globals)
   return { ...f, handlers, sync: fn => { sync = fn } }
 }
 
@@ -149,19 +149,88 @@ for (const reason of ['install', 'update']) {
   })
 }
 
-test('fresh install enables defaults only after consent and repeated clicks resume once', async () => {
+test('acceptance saves defaults and repeated clicks return while sync is pending', async () => {
   const f = lifecycle()
+  const pending = Promise.withResolvers()
+  let calls = 0
+  f.sync(() => { calls++; return pending.promise })
   await f.handlers.handleInstalled({ reason: 'install' })
-  await Promise.all([f.handlers.setDataConsent(true), f.handlers.setDataConsent(true)])
+  let accepted = false
+  const accept = f.handlers.setDataConsent(true).then(() => { accepted = true })
+  try {
+    await flush()
+    assert.equal(accepted, true)
+    assert.equal(f.state.dataConsent.accepted, true)
+    assert.equal(f.state.enableExtension, true)
+    assert.equal(f.state.useProxy, true)
+    assert.equal(f.state.useRegistry, true)
+    assert.equal(f.state.showNotifications, true)
+    assert.equal(f.state.consentInstallPending, undefined)
+    accepted = false
+    f.handlers.setDataConsent(true).then(() => { accepted = true })
+    await flush()
+    assert.equal(accepted, true)
+    assert.equal(calls, 1)
+  } finally {
+    pending.resolve()
+    await accept
+    await flush()
+  }
+})
+
+for (const key of ['enableExtension', 'dataConsent']) {
+  test(`acceptance reports a failed ${key} write and permits retry`, async () => {
+    const f = lifecycle({ consentInstallPending: true })
+    const set = f.browser.storage.local.set
+    f.browser.storage.local.set = async values => {
+      if (Object.hasOwn(values, key)) throw new Error('Storage failed')
+      return set(values)
+    }
+    await assert.rejects(f.handlers.setDataConsent(true), /Storage failed/)
+    assert.equal(f.state.dataConsent, undefined)
+    assert.equal(f.events.includes('sync'), false)
+    f.browser.storage.local.set = set
+    await f.handlers.setDataConsent(true)
+    await flush()
+    assert.equal(f.state.dataConsent.accepted, true)
+    assert.equal(f.events.filter(event => event === 'sync').length, 1)
+  })
+}
+
+for (const name of ['Error', 'ConsentRequiredError']) {
+  test(`background ${name} is handled and later acceptance resumes`, async () => {
+    const errors = []
+    const f = lifecycle({ enableExtension: true, useProxy: true },
+      { console: { ...console, error: (...args) => errors.push(args) } })
+    const error = Object.assign(new Error('Sync failed'), { name })
+    f.sync(async () => { throw error })
+    await f.handlers.setDataConsent(true)
+    await flush()
+    assert.equal(errors.length, name === 'Error' ? 1 : 0)
+    if (errors.length) assert.equal(errors[0][1], error)
+    await f.handlers.setDataConsent(false)
+    assert.equal(f.events.at(-1), 'clear')
+    f.sync(async () => f.events.push('sync'))
+    await f.handlers.setDataConsent(true)
+    await flush()
+    assert.equal(f.events.filter(event => event === 'sync').length, 1)
+  })
+}
+
+test('fresh install preserves existing disabled choices', async () => {
+  const f = lifecycle({ consentInstallPending: true, useRegistry: false, showNotifications: false })
+  await f.handlers.setDataConsent(true)
   assert.equal(f.state.enableExtension, true)
   assert.equal(f.state.useProxy, true)
-  assert.equal(f.state.consentInstallPending, undefined)
-  assert.equal(f.events.filter(event => event === 'sync').length, 1)
+  assert.equal(f.state.useRegistry, false)
+  assert.equal(f.state.showNotifications, false)
+  await flush()
 })
 
 test('acceptance preserves disabled choices and revocation preserves lists', async () => {
   const f = lifecycle({ enableExtension: false, useProxy: false, ignoredHosts: ['private.example'] })
   await f.handlers.setDataConsent(true)
+  await flush()
   assert.equal(f.events.includes('sync'), false)
   assert.equal(f.events.includes('proxy'), false)
   await f.handlers.setDataConsent(false)

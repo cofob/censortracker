@@ -232,22 +232,7 @@ export const setDataConsent = (accepted) => {
     if (previous?.accepted === accepted) {
       return false
     }
-    await browser.storage.local.set({
-      dataConsent: { version: CONSENT_VERSION, accepted },
-    })
-    return true
-  })
-
-  consentWrites = write.catch(() => {})
-  return write.then((changed) => {
-    if (!changed) {
-      return consentWork
-    }
-    const work = async () => {
-      if (!await hasDataConsent()) {
-        await pauseDataTransmission()
-        return
-      }
+    if (accepted) {
       const state = await browser.storage.local.get([
         'consentInstallPending', 'enableExtension', 'useProxy', 'useRegistry', 'showNotifications',
       ])
@@ -260,6 +245,23 @@ export const setDataConsent = (accepted) => {
           showNotifications: state.showNotifications ?? true,
         })
         await browser.storage.local.remove('consentInstallPending')
+      }
+    }
+    await browser.storage.local.set({
+      dataConsent: { version: CONSENT_VERSION, accepted },
+    })
+    return true
+  })
+
+  consentWrites = write.catch(() => {})
+  return write.then((changed) => {
+    if (!changed) {
+      return accepted ? undefined : consentWork
+    }
+    const work = async () => {
+      if (!await hasDataConsent()) {
+        await pauseDataTransmission()
+        return
       }
       await handleStartup()
       if (await hasDataConsent() && await Settings.extensionEnabled()) {
@@ -274,10 +276,14 @@ export const setDataConsent = (accepted) => {
     }
     consentWork = consentWork.catch(() => {}).then(work).catch((error) => {
       if (!isConsentError(error)) {
+        if (accepted) {
+          console.error('Could not resume data transmission', error)
+          return
+        }
         throw error
       }
     })
-    return consentWork
+    return accepted ? undefined : consentWork
   })
 }
 
